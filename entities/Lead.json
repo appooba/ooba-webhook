@@ -18,6 +18,7 @@
         "proposta_enviada",
         "follow_up",
         "reuniao_agendada",
+        "ligacao_agendada",
         "fechado",
         "perdido"
       ]
