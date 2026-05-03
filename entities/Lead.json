@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string"
+    },
+    "telefone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "novo",
+        "em_contato",
+        "proposta_enviada",
+        "follow_up",
+        "fechado",
+        "perdido"
+      ]
+    },
+    "mensagem_inicial": {
+      "type": "string"
+    },
+    "data_ultimo_contato": {
+      "type": "string"
+    },
+    "observacoes": {
+      "type": "string"
+    }
+  },
+  "required": [],
+  "name": "Lead"
+}
