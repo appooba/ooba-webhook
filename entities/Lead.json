@@ -17,6 +17,7 @@
         "em_contato",
         "proposta_enviada",
         "follow_up",
+        "reuniao_agendada",
         "fechado",
         "perdido"
       ]
