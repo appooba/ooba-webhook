@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "phone": {
+      "type": "string"
+    },
+    "messages": {
+      "type": "string"
+    }
+  },
+  "required": [],
+  "name": "ConversationHistory"
+}
