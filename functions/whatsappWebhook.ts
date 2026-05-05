@@ -1,8 +1,8 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import base44 from 'npm:@base44/sdk@0.8.25';
 
 const VERIFY_TOKEN = "ooba2026";
 const WHATSAPP_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
-const PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "";
+const PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "118970490080862063";
 
 async function sendWhatsAppMessage(to: string, message: string) {
   const url = `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`;
@@ -20,6 +20,20 @@ async function sendWhatsAppMessage(to: string, message: string) {
     }),
   });
   return response.json();
+}
+
+async function getAgentReply(userMessage: string, userId: string): Promise<string> {
+  try {
+    const response = await base44.agent.sendMessage({
+      message: userMessage,
+      channel: "whatsapp",
+      user_id: userId,
+    });
+    return response?.reply || response?.message || response?.text || "";
+  } catch (e) {
+    console.error("Erro no agente Base44:", e);
+    return "";
+  }
 }
 
 Deno.serve(async (req) => {
@@ -41,7 +55,8 @@ Deno.serve(async (req) => {
     if (req.method === "POST") {
       const body = await req.json();
       
-      // Verificar se é uma mensagem válida
+      console.log("Webhook recebido:", JSON.stringify(body));
+
       const entry = body?.entry?.[0];
       const changes = entry?.changes?.[0];
       const value = changes?.value;
@@ -51,36 +66,26 @@ Deno.serve(async (req) => {
         return Response.json({ ok: true });
       }
 
-      const from = message.from; // número do cliente
+      const from = message.from;
       const msgText = message?.text?.body || "";
 
       if (!msgText || !from) {
         return Response.json({ ok: true });
       }
 
-      // Chamar o agente Base44 via API interna
-      const agentResponse = await fetch("https://api.base44.com/api/apps/69f645345c37a4db77e0e07d/agent/message", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: msgText,
-          channel: "whatsapp",
-          user_id: from,
-          user_phone: from,
-        }),
-      });
+      console.log(`Mensagem de ${from}: ${msgText}`);
 
-      let replyText = "Olá! Sou o vendedor virtual da OOBA Mídia Indoor. Como posso te ajudar?";
-      
-      if (agentResponse.ok) {
-        const agentData = await agentResponse.json();
-        replyText = agentData?.reply || agentData?.message || replyText;
+      // Tentar obter resposta do agente
+      let replyText = await getAgentReply(msgText, from);
+
+      // Fallback se o agente não responder
+      if (!replyText) {
+        replyText = "Olá! Sou o vendedor virtual da OOBA Mídia Indoor. Como posso te ajudar? 😊";
       }
 
-      // Enviar resposta ao cliente
-      await sendWhatsAppMessage(from, replyText);
+      // Enviar resposta
+      const sendResult = await sendWhatsAppMessage(from, replyText);
+      console.log("Resultado envio:", JSON.stringify(sendResult));
 
       return Response.json({ ok: true });
     }
