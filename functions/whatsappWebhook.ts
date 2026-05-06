@@ -1,222 +1,88 @@
-// v5 - historico persistente com credenciais corretas Base44
-const VERIFY_TOKEN = "ooba2026";
-const WHATSAPP_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
-const PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "118970490080862063";
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
-const BASE44_SERVICE_TOKEN = Deno.env.get("BASE44_SERVICE_TOKEN") || "";
-const BASE44_BACKEND_URL = Deno.env.get("VITE_BASE44_BACKEND_URL") || "https://base44.app";
-const APP_ID = Deno.env.get("VITE_BASE44_APP_ID") || "69f645345c37a4db77e0e07d";
-const ENTITIES_URL = `${BASE44_BACKEND_URL}/api/apps/${APP_ID}/entities`;
+// OOBA v10 - vendedor com historico persistente
+import base44 from "npm:@base44/sdk@0.8.25";
 
-const SYSTEM_PROMPT = `Você é o vendedor virtual da OOBA Mídia Indoor no WhatsApp. Seu nome é OOBA. Você é consultivo, confiante e estratégico.
+const VT = "ooba2026";
+const WAT = Deno.env.get("WHATSAPP_TOKEN") || "";
+const PID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "118970490080862063";
+const OAI = Deno.env.get("OPENAI_API_KEY") || "";
+const db = base44.asServiceRole;
 
-## Missão
-Qualificar leads, gerar valor e conduzir o cliente até o fechamento de contrato com a OOBA.
+const SYS = `Voce e OOBA, vendedor virtual da OOBA Midia Indoor no WhatsApp.
+REGRAS: use emojis, NUNCA fale preco primeiro, mensagens curtas max 3 linhas estilo WhatsApp, NUNCA reinicie a conversa - continue de onde parou, se cliente ja disse que usa radio/facebook/outdoor nao pergunte de novo avance, se resistir aprofunde nao recomece, responda em portugues do Brasil.
+PRIMEIRA MENSAGEM: apresente-se e pergunte qual marketing usa hoje.
+FLUXO: 1 apresentacao mais pergunta marketing 2 valide mais indoor como complemento 3 diferenciais com dados 4 pergunte sobre negocio 5 proposta e precos 6 fechamento.
+DADOS: 1h no local, video 15s aparece 6-7x, roda 6h meia-noite, OOH mais 123% 2017-2024, mais 70mil pessoas por mes.
+OUTDOOR vs INDOOR: outdoor alcance rapido, indoor fixacao e repeticao, pessoa parada presta mais atencao.
+PONTOS: Sueli PF 18300 por mes, Academia R2 13240 por mes, Moncoes 10500 por mes, Rocks 10900 por mes, Araras 9800 por mes, Sueli Boituva 15100 por mes.
+PRECOS somente apos gerar valor: 1pt R400 mes R200 anual, 2pt R550 R450, 3pt R650 R550, 4pt R750 R650, 5pt mais R850.
+BONUS ANUAL: mais 3pts rodizio, mais 5pts 1video gratis mais carrossel.
+CONTATO FINAL: 11 92127-6113, contato@ooba.com.br, www.ooba.com.br.`;
 
-## Regras OBRIGATÓRIAS
-- Use emojis nas mensagens 😊
-- NUNCA fale de preço primeiro. Venda visibilidade, presença e lembrança.
-- Na PRIMEIRA mensagem, apresente-se e pergunte: "Hoje quais tipos de marketing você utiliza? 😊"
-- Mensagens CURTAS — máximo 3 linhas. Estilo WhatsApp.
-- NUNCA reinicie a conversa. Continue sempre de onde parou.
-- Se o cliente disser "Não" ou resistir, APROFUNDE o argumento — não recomece.
-- Responda SEMPRE em português do Brasil.
-
-## Fluxo
-1. Apresente-se e pergunte sobre marketing atual
-2. Valide e apresente mídia indoor como complemento poderoso
-3. Explique diferenciais com dados concretos
-4. Pergunte sobre o negócio para recomendar os pontos certos
-5. Apresente proposta e preços
-6. Direcione para fechamento
-
-## Dados de impacto
-- 1 hora em média no local 🕐
-- Vídeo de 15s aparece 6-7x para a mesma pessoa
-- Roda segunda a segunda, 6h à meia-noite
-- OOH cresceu +123% de 2017-2024 📈
-- +70 mil pessoas/mês nos pontos
-
-## Diferencial vs outdoor
-Outdoor = alcance rápido. Indoor = fixação e repetição 🔁
-Na mídia indoor a pessoa está parada e presta MUITO mais atenção.
-
-## Pontos disponíveis
-☕ Sueli Bolos Porto Feliz: 18.300/mês
-💪 Academia R2 Shopping: 13.240/mês
-🍕 Pizzaria Monções: 10.500/mês
-🍕 Pizzaria Rocks: 10.900/mês
-🌿 Restaurante das Araras: 9.800/mês
-☕ Sueli Bolos Boituva: 15.100/mês
-
-## Diferenciais
-✅ Vídeos até 15s | ✅ Rodízio entre telas | ✅ Automação (sempre ligadas)
-✅ Análise de público | ✅ Full HD e 4K | ✅ Relatório mensal
-✅ Plataforma de gestão | ✅ Equipe dedicada
-
-## Preços (só depois de gerar valor!)
-1 ponto: R$400/mês | R$200/mês anual
-2 pontos: R$550/mês | R$450/mês anual
-3 pontos: R$650/mês | R$550/mês anual
-4 pontos: R$750/mês | R$650/mês anual
-5 pontos: R$850/mês | R$750/mês anual (até 10 pontos)
-🎁 +3 pontos anual: rodízio | +5 pontos: 1º vídeo grátis + carrossel
-
-## Vídeos (enviar link ao pedir)
-💪 Academia R2: https://drive.google.com/file/d/1IUeQjLoh8VJIw9Dz6tXqW5Q0QQdHJsGW/view
-🍕 Pizzaria Monções: https://drive.google.com/file/d/1IOwLrFL84qx_2BhJ7Rcm7bKA6SlYnKCm/view
-🍕 Pizzaria Rocks: https://drive.google.com/file/d/1IX4kmeP2IrmgEf1rE2YAprEY_rLA_JVG/view
-🌿 Recanto Araras: https://drive.google.com/file/d/1ITOIJ8zl69W3AWCbifW0aLllOEcuxvTv/view
-☕ Sueli Porto Feliz: https://drive.google.com/file/d/1IRiHWZ4-w4fbUpd7Cx713oC-Cr56_Weu/view
-📊 Tabela pontos: https://drive.google.com/file/d/1i4BbqbxG2NZDjsXiM8AiD_LFm2e-UhqN/view
-📋 Apresentação: https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view
-
-## Concorrência / mais barato
-"Entendo! 😊 Muita gente acha que é só uma tela na parede… O resultado vem da estrutura: automação, relatórios, Full HD sempre ligado. O barato não entrega consistência. Aqui você sabe exatamente o que recebe. 💪"
-
-## Contato
-📱 (11) 92127-6113 | 📧 contato@ooba.com.br | 🌐 www.ooba.com.br`;
-
-const authHeaders = () => ({
-  "Authorization": `Bearer ${BASE44_SERVICE_TOKEN}`,
-  "Content-Type": "application/json",
-});
-
-async function getHistory(phone: string): Promise<{id?: string, msgs: Array<{role: string, content: string}>}> {
+async function getHist(phone: string) {
   try {
-    const res = await fetch(`${ENTITIES_URL}/ConversationHistory?phone=${encodeURIComponent(phone)}`, {
-      headers: authHeaders(),
-    });
-    if (res.ok) {
-      const records = await res.json();
-      if (Array.isArray(records) && records.length > 0) {
-        const msgs = JSON.parse(records[0].messages || "[]");
-        console.log(`✅ Histórico carregado: ${msgs.length} msgs para ${phone}`);
-        return { id: records[0].id, msgs };
-      }
-    } else {
-      console.error("GET history erro:", res.status, await res.text());
+    const rs = await db.entities.ConversationHistory.filter({phone});
+    if (rs?.length > 0) {
+      const msgs = JSON.parse(rs[0].messages || "[]");
+      console.log(`HIT ${phone}: ${msgs.length}msgs`);
+      return {id: rs[0].id, msgs};
     }
-  } catch (e) {
-    console.error("Erro getHistory:", e);
-  }
-  console.log(`🆕 Novo histórico para ${phone}`);
-  return { msgs: [] };
+  } catch(e) { console.error("getHist:", String(e)); }
+  console.log(`NEW ${phone}`);
+  return {id: undefined, msgs: [] as {role:string,content:string}[]};
 }
 
-async function saveHistory(phone: string, id: string | undefined, msgs: Array<{role: string, content: string}>) {
+async function saveHist(phone: string, id: string|undefined, msgs: {role:string,content:string}[]) {
   try {
-    const limited = msgs.slice(-20);
-    const payload = { phone, messages: JSON.stringify(limited) };
-
-    if (id) {
-      const res = await fetch(`${ENTITIES_URL}/ConversationHistory/${id}`, {
-        method: "PUT",
-        headers: authHeaders(),
-        body: JSON.stringify(payload),
-      });
-      console.log(`💾 PUT histórico [${res.status}] para ${phone}`);
-    } else {
-      const res = await fetch(`${ENTITIES_URL}/ConversationHistory`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify(payload),
-      });
-      console.log(`💾 POST histórico [${res.status}] para ${phone}`);
-    }
-  } catch (e) {
-    console.error("Erro saveHistory:", e);
-  }
+    const p = {phone, messages: JSON.stringify(msgs.slice(-20))};
+    if (id) { await db.entities.ConversationHistory.update(id, p); console.log(`UPD ${phone}`); }
+    else { const r = await db.entities.ConversationHistory.create(p); console.log(`CRT ${phone} ${r?.id}`); }
+  } catch(e) { console.error("saveHist:", String(e)); }
 }
 
-async function sendWhatsAppMessage(to: string, message: string) {
-  const res = await fetch(`https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "text",
-      text: { body: message },
-    }),
+async function sendMsg(to: string, body: string) {
+  const r = await fetch(`https://graph.facebook.com/v19.0/${PID}/messages`, {
+    method:"POST", headers:{"Authorization":`Bearer ${WAT}`,"Content-Type":"application/json"},
+    body: JSON.stringify({messaging_product:"whatsapp",to,type:"text",text:{body}}),
   });
-  return res.json();
+  const d = await r.json();
+  console.log("WA send:", d?.messages?.[0]?.id || JSON.stringify(d));
 }
 
-async function getOpenAIReply(userMessage: string, phone: string): Promise<string> {
-  const { id, msgs } = await getHistory(phone);
-  msgs.push({ role: "user", content: userMessage });
-
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...msgs],
-      max_tokens: 400,
-      temperature: 0.75,
-    }),
+async function replyAI(txt: string, phone: string) {
+  const {id, msgs} = await getHist(phone);
+  msgs.push({role:"user", content:txt});
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method:"POST", headers:{"Authorization":`Bearer ${OAI}`,"Content-Type":"application/json"},
+    body: JSON.stringify({model:"gpt-4o-mini", messages:[{role:"system",content:SYS},...msgs], max_tokens:350, temperature:0.7}),
   });
-
-  const data = await res.json();
-  const reply = data?.choices?.[0]?.message?.content || "";
-  console.log(`🤖 OpenAI [${res.status}]: "${reply.substring(0, 100)}"`);
-
-  if (reply) {
-    msgs.push({ role: "assistant", content: reply });
-    await saveHistory(phone, id, msgs);
-  } else {
-    console.error("Sem reply OpenAI:", JSON.stringify(data));
-  }
-
-  return reply;
+  const d = await r.json();
+  const rep = d?.choices?.[0]?.message?.content?.trim() || "";
+  if (rep) { msgs.push({role:"assistant",content:rep}); await saveHist(phone,id,msgs); }
+  else console.error("NO_REPLY:", JSON.stringify(d).substring(0,200));
+  return rep;
 }
 
 Deno.serve(async (req) => {
   try {
-    if (req.method === "GET") {
-      const url = new URL(req.url);
-      const mode = url.searchParams.get("hub.mode");
-      const token = url.searchParams.get("hub.verify_token");
-      const challenge = url.searchParams.get("hub.challenge");
-      if (mode === "subscribe" && token === VERIFY_TOKEN) {
-        return new Response(challenge, { status: 200 });
-      }
-      return new Response("Forbidden", { status: 403 });
+    if (req.method==="GET") {
+      const u = new URL(req.url);
+      if (u.searchParams.get("hub.mode")==="subscribe" && u.searchParams.get("hub.verify_token")===VT)
+        return new Response(u.searchParams.get("hub.challenge"),{status:200});
+      return new Response("Forbidden",{status:403});
     }
-
-    if (req.method === "POST") {
-      const body = await req.json();
-      const value = body?.entry?.[0]?.changes?.[0]?.value;
-      if (value?.statuses) return Response.json({ ok: true });
-
-      const message = value?.messages?.[0];
-      if (!message || message.type !== "text") return Response.json({ ok: true });
-
-      const from = message.from;
-      const msgText = message?.text?.body?.trim() || "";
-      if (!msgText || !from) return Response.json({ ok: true });
-
-      console.log(`📩 De ${from}: "${msgText}"`);
-
-      const replyText = await getOpenAIReply(msgText, from);
-      if (!replyText) return Response.json({ ok: true });
-
-      const sendResult = await sendWhatsAppMessage(from, replyText);
-      console.log("📤 Envio:", JSON.stringify(sendResult));
-
-      return Response.json({ ok: true });
+    if (req.method==="POST") {
+      const b = await req.json();
+      const v = b?.entry?.[0]?.changes?.[0]?.value;
+      if (v?.statuses) return Response.json({ok:true});
+      const m = v?.messages?.[0];
+      if (!m||m.type!=="text") return Response.json({ok:true});
+      const from = m.from, txt = m?.text?.body?.trim()||"";
+      if (!from||!txt) return Response.json({ok:true});
+      console.log(`IN ${from}: ${txt}`);
+      const rep = await replyAI(txt, from);
+      if (rep) await sendMsg(from, rep);
+      return Response.json({ok:true});
     }
-
-    return Response.json({ error: "Method not allowed" }, { status: 405 });
-  } catch (error) {
-    console.error("❌ Error:", error);
-    return Response.json({ error: error.message }, { status: 500 });
-  }
+    return Response.json({error:"method"},{status:405});
+  } catch(e) { console.error("ERR:",e); return Response.json({error:String(e)},{status:500}); }
 });
