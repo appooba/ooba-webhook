@@ -1,9 +1,9 @@
-// OOBA v10 - vendedor com historico persistente
+// OOBA v11 - vendedor com historico persistente
 import base44 from "npm:@base44/sdk@0.8.25";
 
 const VT = "ooba2026";
 const WAT = Deno.env.get("WHATSAPP_TOKEN") || "";
-const PID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "118970490080862063";
+const PID = "1189704930882063";
 const OAI = Deno.env.get("OPENAI_API_KEY") || "";
 const db = base44.asServiceRole;
 
