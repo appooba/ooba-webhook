@@ -1,0 +1,9 @@
+{
+  "name": "ooba-webhook",
+  "version": "1.0.0",
+  "description": "Webhook WhatsApp - Vendedor OOBA Midia Indoor",
+  "main": "api/webhook.js",
+  "engines": {
+    "node": "18.x"
+  }
+}
