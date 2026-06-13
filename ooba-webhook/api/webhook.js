@@ -191,10 +191,20 @@ function getSysWithFunil(etapa, leadData) {
   const telas = leadData.telas_interesse ? `. Interesse nas telas: ${leadData.telas_interesse}` : "";
   const pontos = leadData.pontos_interesse ? `. Pontos de interesse: ${leadData.pontos_interesse}` : "";
 
+  const jaAnunciou = leadData.ja_anunciou
+    ? `\n🔁 JÁ FOI CLIENTE: anunciou ${leadData.telas_anunciadas ? 'na ' + leadData.telas_anunciadas : 'nas telas OOBA'}${leadData.periodo_anuncio ? ' em ' + leadData.periodo_anuncio : ''}.`
+    : "";
+  const abordagemAtiva = leadData.abordagem_ativa
+    ? `\n⚡ ABORDAGEM ATIVA: você iniciou o contato. O lead ainda não perguntou nada. Seja acolhedora e desperte a curiosidade.`
+    : "";
+  const totalAbordagens = leadData.total_abordagens > 1
+    ? `\n📊 Esta é a ${leadData.total_abordagens}ª abordagem a este contato.`
+    : "";
+
   const contexto = `\n\n═══════════════════════════════════
 CONTEXTO DO LEAD
 ═══════════════════════════════════
-Este lead${nome}${negocio}${cidade}${telas}${pontos}.
+Este lead${nome}${negocio}${cidade}${telas}${pontos}.${jaAnunciou}${abordagemAtiva}${totalAbordagens}
 Etapa atual no funil: ${etapa.toUpperCase()}`;
 
   const instrucoes = {
@@ -313,6 +323,24 @@ MARCADOR quando quiser reunião:
 
 MARCADOR quando desistir definitivamente:
 [FUNIL:etapa=perdido]`,
+
+    reativacao: `
+
+═══════════════════════════════════
+SUA MISSÃO AGORA — ETAPA: REATIVAÇÃO
+═══════════════════════════════════
+Você iniciou o contato com este lead. Ele pode ter sido ex-cliente ou já demonstrou interesse antes.
+Seu objetivo agora:
+1. Se ele responder com interesse → descubra o momento atual dele ("O que mudou desde a última vez?")
+2. Se já anunciou → reforce as novidades: novas telas, +97mil pessoas/mês, Restaurante Bonfá novo
+3. Não repita o pitch inteiro — ele já conhece. Vá direto ao ponto com algo novo.
+4. Qualifique rápido: qual negócio, o que quer divulgar hoje?
+5. Avance para recomendação e proposta mais rápido que um lead frio
+
+Se ele não responder em 24h → não insista. Registre como "sem resposta" e aguarde.
+
+MARCADOR ao avançar:
+[FUNIL:etapa=entendimento]`,
 
     reuniao: `
 
