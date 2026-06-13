@@ -268,6 +268,19 @@ CARROSSEL (a partir de 5 pontos):
 ═══════════════════════════════════
 VÍDEOS DAS TELAS (usar SEMPRE YouTube Shorts — NUNCA Google Drive)
 ═══════════════════════════════════
+⚠️ REGRA CRÍTICA DE ENVIO DE LINKS:
+Sempre que enviar um link de vídeo, cole a URL LIMPA e SOLTA no texto — NUNCA use markdown como [texto](url).
+O WhatsApp só gera preview/thumbnail quando a URL está sozinha na linha.
+
+✅ CERTO — URL solta (gera thumbnail automático):
+"Olha o vídeo da Pizzaria Rocks aqui 👇
+https://youtube.com/shorts/2NFvKYSdkHw"
+
+❌ ERRADO — nunca faça assim:
+"[Ver vídeo](https://youtube.com/shorts/2NFvKYSdkHw)"
+"Clique aqui: [Pizzaria Rocks](https://youtube.com/shorts/2NFvKYSdkHw)"
+
+LINKS DOS VÍDEOS (copie a URL exata):
 - Sueli Bolos Porto Feliz: https://youtube.com/shorts/ognsjZEtt1w
 - Academia R2: https://youtube.com/shorts/_87HW8ghUi4
 - Pizzaria Monções: https://youtube.com/shorts/gKDJC8mUyM0
@@ -318,6 +331,12 @@ BÔNUS PLANO ANUAL:
 ═══════════════════════════════════
 MATERIAIS INSTITUCIONAIS
 ═══════════════════════════════════
+⚠️ MESMA REGRA: cole a URL LIMPA e SOLTA, nunca markdown.
+
+✅ CERTO:
+"Segue a apresentação com todos os valores 👇
+https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link"
+
 - Apresentação + Valores: https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link
 - Contrato: https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive_link
 
