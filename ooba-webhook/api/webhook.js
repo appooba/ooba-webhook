@@ -113,16 +113,18 @@ async function enviarCatalogoTelas(from, lead, delay = 800) {
   await sendMsg(from, `Em ${cidade} são *${telas.length} telas* com *+${Math.round(totalFluxo/1000)} mil pessoas/mês* no total. Olha cada uma 👇`);
   await new Promise(r => setTimeout(r, delay));
 
-  // PASSO 3 — Cada tela: giro + horário + vídeo em UMA mensagem só
+  // PASSO 3 — Cada tela: texto com giro PRIMEIRO, depois URL sozinha (gera thumbnail)
   for (const tela of telas) {
+    // MSG 1: nome + giro + horário (só texto)
+    const msgTela = `📍 *${tela.nome}* — ${tela.fluxo} | ${tela.horario}`;
+    await sendMsg(from, msgTela);
+    await new Promise(r => setTimeout(r, 400));
+
+    // MSG 2: URL sozinha na mensagem (WhatsApp gera thumbnail automático)
     if (tela.video) {
-      // Giro, horário e link juntos — WhatsApp gera preview do vídeo
-      const msgTela = `📍 *${tela.nome}* — ${tela.fluxo} | ${tela.horario}\n${tela.video}`;
-      await sendMsg(from, msgTela);
+      await sendMsg(from, tela.video);
     } else {
-      // Tela sem vídeo: só texto com destaque do giro
-      const msgTela = `📍 *${tela.nome}* — ${tela.fluxo} | ${tela.horario}\n${tela.descricao || "🎬 Vídeo em produção"}`;
-      await sendMsg(from, msgTela);
+      await sendMsg(from, tela.descricao || "🎬 Vídeo em produção");
     }
     await new Promise(r => setTimeout(r, delay));
   }
