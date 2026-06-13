@@ -775,10 +775,6 @@ module.exports = async (req, res) => {
       processedMsgs.add(msgId);
       if (processedMsgs.size > 200) processedMsgs.delete(processedMsgs.values().next().value);
 
-      // ── Responder ao Meta IMEDIATAMENTE (exigência: < 5s) ──
-      // O processamento continua em background via Promise separada
-      res.json({ ok: true });
-
       const from = m.from;
       let txt = "";
 
@@ -836,11 +832,11 @@ module.exports = async (req, res) => {
 
         } catch(whisperErr) {
           console.error("Erro Whisper:", whisperErr.message);
-          return // resposta ja enviada;
+          return;
         }
       }
 
-      if (!from || !txt) return // resposta ja enviada;
+      if (!from || !txt) { console.log('from ou txt vazio, abortando'); return; }
 
       console.log(`IN [${from}] etapa=? : ${txt}`);
       client = await getDB();
@@ -872,10 +868,11 @@ module.exports = async (req, res) => {
           console.error("Erro audio (nao critico):", audioErr.message);
         }
       }
-      // resposta já enviada antecipadamente
+      // ── Responder ao Meta após processar tudo ──
+      if (!res.headersSent) res.json({ ok: true });
     } catch(e) {
-      console.error("ERR:", e.message);
-      // resposta já enviada, só logar o erro
+      console.error("ERR:", e.message, e.stack?.substring(0, 300));
+      if (!res.headersSent) res.json({ ok: true });
     } finally {
       if (client) await client.end().catch(() => {});
     }
