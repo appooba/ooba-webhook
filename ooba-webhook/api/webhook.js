@@ -31,15 +31,23 @@ async function enviarCatalogoTelas(from, lead, delay = 800) {
     await new Promise(r => setTimeout(r, delay));
   }
 
-  // MENSAGEM FINAL PERSUASIVA — após mostrar tudo, induzir o avanço
+  // MENSAGEM FINAL PERSUASIVA — após mostrar tudo, CTA direto sem depender do lead
   await new Promise(r => setTimeout(r, delay));
-  const nomeFinalLead = lead?.nome || "";
   const negocioFinal = lead?.negocio || "seu negócio";
   const cidadeFinal = lead?.cidade || "Porto Feliz";
   const totalFinal = telas.reduce((acc, t) => acc + parseInt((t.fluxo||"0").replace(/[^0-9]/g,"")), 0);
-  const msgFinal = `São *${telas.length} telas* em ${cidadeFinal}, *+${Math.round(totalFinal/1000)} mil pessoas/mês* — e seu anúncio de ${negocioFinal} pode estar em todas elas rodando das 6h até meia-noite, 7 dias por semana 🔥
 
-Agora me conta: dessas telas, alguma você já frequenta ou conhece o público?`;
+  // Linha resumo de todas as telas com giro
+  let linhasGiro = telas.map(t => `📍 *${t.nome}* — ${t.fluxo}`).join("\n");
+
+  const msgFinal = `*Resumo da rede em ${cidadeFinal}:*
+${linhasGiro}
+
+Total: *+${Math.round(totalFinal/1000)} mil pessoas/mês* — anúncio rodando das 6h à meia-noite, 7 dias por semana 🔥
+
+Anunciando em *todas as telas*, seu negócio aparece pra *cada pessoa* em pelo menos um momento do dia — de manhã na Sueli Bolos, no almoço no Bonfá, à noite nas Pizzarias.
+
+Posso montar a proposta agora — você prefere começar com *1 tela focada* ou cobrir *toda a rede*?`;
   await sendMsg(from, msgFinal);
 
   console.log(`CATÁLOGO TELAS enviado para ${from} — ${telas.length} telas`);
