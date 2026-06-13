@@ -393,8 +393,12 @@ TIPOS DE VÍDEO PERMITIDOS (apenas estes dois):
 - Entrevistas
 - Qualquer outro formato que não seja institucional ou promocional
 
-Quando o lead perguntar que tipo de vídeo pode fazer, responda EXATAMENTE assim:
-"Você pode fazer dois tipos: o *institucional* (apresenta sua marca, logo e o que vocês fazem) ou o *promocional* (destaca uma oferta ou produto específico). São até 15 segundos em .mp4, sem áudio — e isso é estratégico! Sem som, a comunicação visual tem que ser forte: cores, movimento e logo impactam em segundos, exatamente o que gera fixação de marca 😊"
+Quando o lead perguntar que tipo de vídeo pode fazer:
+1. Responda em 1 mensagem curta explicando os 2 tipos:
+"Dois tipos: *institucional* (sua marca, logo, o que vocês fazem) ou *promocional* (oferta, produto, chamada de ação). São até 15 segundos, .mp4, sem áudio — e isso é estratégico: sem som, cores e movimento têm que impactar em segundos 😊"
+
+2. IMEDIATAMENTE após, emita o marcador [MOSTRAR_CATALOGO] — isso vai disparar o catálogo completo de telas com vídeos automaticamente.
+NÃO cite telas por escrito. NÃO pergunte quantos pontos. NÃO mencione "algumas telas". O catálogo já vai ser enviado pelo sistema.
 
 Se não tiver vídeo: "Se precisar, a gente produz por um valor adicional! 😊"
 
@@ -1367,6 +1371,29 @@ async function salvarMsgHistorico(client, phone, msgUser, msgBot) {
   }
 }
 
+// ═══════════════════════════════════════════════════════
+// DETECTOR DE PERGUNTA SOBRE VÍDEO
+// Quando o lead pergunta sobre tipos de vídeo → resposta fixa + catálogo automático
+// ═══════════════════════════════════════════════════════
+function detectarPerguntaVideo(txt) {
+  if (!txt) return false;
+  const t = txt.toLowerCase().trim();
+  const gatilhos = [
+    "tipo de video", "tipo de vídeo", "tipos de video", "tipos de vídeo",
+    "que video", "que vídeo", "qual video", "qual vídeo",
+    "como é o video", "como é o vídeo",
+    "que tipo de video", "que tipo de vídeo",
+    "posso fazer video", "posso fazer vídeo",
+    "como faço o video", "como faço o vídeo",
+    "quais video", "quais vídeo",
+    "como fazer o video", "como fazer o vídeo",
+    "o video tem que ser", "o vídeo tem que ser",
+    "como tem que ser o video", "como tem que ser o vídeo"
+  ];
+  return gatilhos.some(g => t.includes(g));
+}
+
+
 function splitMensagens(text) {
   if (!text) return [""];
 
@@ -1621,6 +1648,15 @@ async function replyAI(client, txt, phone) {
     // Processar marcadores (funil e agendamento)
     rep = await processarFunil(client, rep, phone);
     rep = await processarAgendamento(client, rep, phone);
+
+    // ── MARCADOR [MOSTRAR_CATALOGO] ──
+    // Quando o GPT emite esse marcador (ex: após explicar tipos de vídeo),
+    // o código dispara o catálogo completo de telas automaticamente
+    if (rep.includes("[MOSTRAR_CATALOGO]")) {
+      rep = rep.replace(/\[MOSTRAR_CATALOGO\]/g, "").trim();
+      // Sinalizar que o catálogo deve ser enviado após a resposta do GPT
+      lead._dispararCatalogo = true;
+    }
 
     // Limpar markdown — converte [texto](url) para URL solta (gera thumbnail no WhatsApp)
     rep = limparMarkdown(rep);
@@ -1888,8 +1924,26 @@ module.exports = async (req, res) => {
           await sendMsg(from, respostasPreco[i]);
           if (i < respostasPreco.length - 1) await new Promise(r => setTimeout(r, 900));
         }
-        // Salvar no histórico para manter contexto
         await salvarMsgHistorico(client, from, txt, respostasPreco.join("\n\n---MSG---\n\n"));
+        return;
+      }
+
+      // ── BYPASS DE VÍDEO: perguntou sobre tipos de vídeo → resposta fixa + catálogo ──
+      if (detectarPerguntaVideo(txt)) {
+        const leadVideo = await getLead(client, from);
+        const msgVideo = "Dois tipos: *institucional* (sua marca, logo, o que vocês fazem) ou *promocional* (oferta, produto, chamada de ação). São até 15 segundos, .mp4, sem áudio — e isso é estratégico: sem som, cores e movimento têm que impactar em segundos 😊\n\nAgora deixa eu te mostrar onde seu vídeo vai aparecer 👇";
+        await sendMsg(from, msgVideo);
+        await new Promise(r => setTimeout(r, 1000));
+        // Disparar catálogo completo de telas
+        await enviarCatalogoTelas(from, leadVideo || { negocio: "", cidade: "Porto Feliz" }, 800);
+        // Salvar no histórico
+        const histVideo = await getHist(client, from);
+        histVideo.push({ role: "user", content: txt });
+        histVideo.push({ role: "assistant", content: msgVideo + "\n[catálogo de telas enviado]" });
+        await saveHist(client, from, histVideo);
+        // Avançar funil
+        await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [from]).catch(()=>{});
+        if (!res.headersSent) res.json({ ok: true });
         return;
       }
 
@@ -1914,6 +1968,20 @@ module.exports = async (req, res) => {
             await sendMsg(from, parte);
             if (i < partes.length - 1) await new Promise(r => setTimeout(r, 900));
           }
+        }
+
+        // ── CATÁLOGO PÓS-RESPOSTA ──
+        // Se o GPT emitiu [MOSTRAR_CATALOGO], disparar catálogo completo agora
+        if (lead._dispararCatalogo) {
+          const leadAtual = await getLead(client, from);
+          await new Promise(r => setTimeout(r, 1000));
+          await enviarCatalogoTelas(from, leadAtual || lead, 800);
+          // Marcar no histórico
+          const histAtual = await getHist(client, from);
+          histAtual.push({ role: "assistant", content: "[catálogo de telas enviado automaticamente]" });
+          await saveHist(client, from, histAtual);
+          // Avançar funil para recomendacao
+          await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [from]).catch(()=>{});
         }
 
         // ── ÁUDIO: desativado temporariamente ──
