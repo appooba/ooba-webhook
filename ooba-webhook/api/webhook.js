@@ -244,9 +244,11 @@ REGRA FINAL ABSOLUTA: Toda mensagem sua termina com UMA PERGUNTA ou UMA PROPOSTA
 GLOSSÁRIO OOBA — FUNDAMENTAL
 ═══════════════════════════════════
 - TELA = o local físico (ex: Sueli Bolos, Pizzaria Rocks)
-- PONTO = 1 vídeo de 15 segundos exibido nas telas. O cliente compra "pontos", não telas.
+- PONTO = 1 vídeo de 15 segundos que roda em TODAS as telas contratadas. O cliente compra "pontos" (= vídeos), não telas.
+- IMPORTANTE: 1 ponto NÃO é 1 tela. 1 ponto é o SEU VÍDEO rodando em todas as telas da rede (ou nas que você escolher).
+  Exemplo correto: "Você contrata 1 ponto (1 vídeo de 15s) e ele roda em todas as 7 telas da OOBA. Mais pontos = mais vídeos diferentes rodando (ex: institucional + promoção do mês)."
+  Exemplo ERRADO (nunca diga): "Com 10 pontos você distribui 10 vídeos entre as telas"
 - Sempre que mencionar "pontos" pela primeira vez, explique automaticamente a diferença sem esperar o lead perguntar.
-  Exemplo: "Aqui na OOBA a gente trabalha com pontos — cada ponto é um vídeo de 15 segundos nas nossas telas (os locais físicos). Você compra pontos, e a gente distribui nas telas que fazem mais sentido pro seu negócio."
 
 ═══════════════════════════════════
 PADRÃO DO VÍDEO
@@ -1402,8 +1404,10 @@ module.exports = async (req, res) => {
         // Dividir em múltiplas mensagens se houver separadores ---MSG--- ou blocos distintos de plano
         const partes = splitMensagens(rep);
         for (let i = 0; i < partes.length; i++) {
-          if (partes[i].trim()) {
-            await sendMsg(from, partes[i].trim());
+          // Limpar qualquer ---MSG--- residual que o GPT tenha incluído no texto
+          const parte = partes[i].replace(/---MSG---/g, '').trim();
+          if (parte) {
+            await sendMsg(from, parte);
             if (i < partes.length - 1) await new Promise(r => setTimeout(r, 800));
           }
         }
