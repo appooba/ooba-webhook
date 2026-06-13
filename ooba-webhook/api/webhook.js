@@ -745,6 +745,124 @@ async function upsertLead(client, phone, firstMsg, updates = {}) {
 // LIMPAR MARKDOWN — converte [texto](url) para URL limpa
 // WhatsApp só gera thumbnail quando URL está solta no texto
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// INTERCEPTADOR DE SAÍDA — impede o lead de escapar sem tentar reunião
+// ═══════════════════════════════════════════════════════
+function interceptarSaida(msgLead, respostaBot, lead) {
+  if (!msgLead || !respostaBot) return respostaBot;
+
+  const msgLeadLower = msgLead.toLowerCase().trim();
+  const respostaLower = respostaBot.toLowerCase();
+
+  // Detectar sinais de saída do lead
+  const sinaisSaida = [
+    "qualquer coisa te aviso",
+    "qualquer coisa eu te aviso",
+    "qualquer coisa aviso",
+    "depois eu te chamo",
+    "depois te chamo",
+    "vou pensar",
+    "deixa eu pensar",
+    "vou ver",
+    "vou analisar",
+    "obrigado",
+    "obrigada",
+    "valeu",
+    "blz",
+    "tá bom",
+    "ta bom",
+    "até mais",
+    "ate mais",
+    "tchau",
+    "flw",
+    "falou",
+    "tmj",
+    "era só isso",
+    "era isso",
+    "por enquanto é isso",
+    "por hora é isso"
+  ];
+
+  const leidoSaida = sinaisSaida.some(s => msgLeadLower.includes(s));
+  if (!leidoSaida) return respostaBot; // Não é sinal de saída, não interfere
+
+  // Detectar se a resposta da Luana está encerrando passivamente
+  const encerramentosPassivos = [
+    "fico à disposição",
+    "fico a disposição",
+    "quando precisar",
+    "estou aqui",
+    "até mais",
+    "ate mais",
+    "qualquer coisa",
+    "é só chamar",
+    "e só chamar",
+    "tchau",
+    "até logo",
+    "ate logo",
+    "sucesso",
+    "bom proveito",
+    "tenha um bom"
+  ];
+
+  const encerrando = encerramentosPassivos.some(s => respostaLower.includes(s));
+
+  // Mesmo que não esteja encerrando passivamente, reforçar reunião se é sinal de saída
+  // após etapas avançadas (materiais, proposta, fechamento)
+  const etapasAvancadas = ["materiais", "proposta", "fechamento", "recomendacao"];
+  const etapaAtual = lead?.etapa_funil || "abertura";
+  const etapaAvancada = etapasAvancadas.includes(etapaAtual);
+
+  if (!encerrando && !etapaAvancada) return respostaBot; // Não precisa interferir
+
+  // Escolher resposta de retenção baseada no contexto
+  const nome = lead?.nome ? lead.nome.split(" ")[0] : null;
+  const oi = nome ? `${nome}` : null;
+
+  // Montar sufixo de retenção
+  let sufixo = "";
+
+  if (encerrando || etapaAvancada) {
+    const opcoes = [
+      `
+
+Antes de a gente se despedir${oi ? `, ${oi}` : ""} — que tal 15 minutinhos com o Paulo essa semana? Ele monta a estratégia certa pro seu negócio, sem compromisso 😊 Qual dia fica bom?`,
+      `
+
+Só um segundo${oi ? `, ${oi}` : ""} — você já viu as telas e os valores. Faz sentido bater um papo rápido com o Paulo antes de decidir, né? É só 15 min. Qual dia essa semana fica bom pra você? 😊`,
+      `
+
+Pera${oi ? `, ${oi}` : ""} — antes de fechar, me deixa agendar 15 min com o Paulo pra ele te mostrar exatamente quais pontos fazem mais sentido pro seu negócio. É rápido e sem compromisso. Qual dia fica bom? 🗓️`
+    ];
+
+    // Escolher opção aleatória para não parecer robótico
+    sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
+  }
+
+  if (!sufixo) return respostaBot;
+
+  // Remover encerramentos passivos da resposta e adicionar sufixo de retenção
+  let novaResposta = respostaBot;
+
+  // Remover "Até mais!", "Fico à disposição!" e similares do final
+  const padroesFim = [
+    /\s*[Aa]té mais[!.]?\s*$/,
+    /\s*[Ff]ico à disposição[!.]?\s*$/,
+    /\s*[Ff]ico a disposição[!.]?\s*$/,
+    /\s*[Qq]uando precisar[, ]+é só chamar[!.]?\s*$/,
+    /\s*[Ee]stou aqui[!.]?\s*$/,
+    /\s*[Ss]ucesso[!.]?\s*$/,
+    /\s*[Aa]té logo[!.]?\s*$/,
+    /\s*[Tt]chau[!.]?\s*$/
+  ];
+
+  for (const p of padroesFim) {
+    novaResposta = novaResposta.replace(p, "");
+  }
+
+  return novaResposta.trimEnd() + sufixo;
+}
+
 function limparMarkdown(text) {
   if (!text) return text;
 
@@ -899,6 +1017,10 @@ async function replyAI(client, txt, phone) {
 
     // Limpar markdown — converte [texto](url) para URL solta (gera thumbnail no WhatsApp)
     rep = limparMarkdown(rep);
+
+    // ── INTERCEPTADOR DE SAÍDA ──
+    // Se o lead sinalizou saída e a Luana vai encerrar passivamente → forçar tentativa de reunião
+    rep = interceptarSaida(txt, rep, lead);
 
     // ── FALLBACK DE PROGRESSÃO AUTOMÁTICA ──
     // Se a Luana não emitiu marcador, avançar funil baseado em palavras-chave
