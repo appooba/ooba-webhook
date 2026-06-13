@@ -1090,26 +1090,74 @@ Qualquer dúvida sobre os valores é só falar 😊`;
 // ═══════════════════════════════════════════════════════
 // DETECTOR DE PREÇO — responde direto sem passar pelo GPT
 // ═══════════════════════════════════════════════════════
+// Tabela de preços OOBA
+const TABELA_MENSAL = { 1:400, 2:550, 3:650, 4:750, 5:850, 6:950, 7:1050, 8:1150, 9:1250, 10:1350 };
+const TABELA_ANUAL  = { 1:200, 2:450, 3:550, 4:650, 5:750, 6:850, 7:950, 8:1050, 9:1150, 10:1250 };
+
+// Detecta se o lead especificou pontos na mensagem
+// Ex: "2 pontos na sueli e 2 no bonfá", "quero 4 pontos", "3 pontos"
+function extrairTotalPontos(txt) {
+  const t = txt.toLowerCase()
+    // Converter números por extenso para dígitos
+    .replace(/\bdez\b/g, "10")
+    .replace(/\bnove\b/g, "9")
+    .replace(/\boito\b/g, "8")
+    .replace(/\bsete\b/g, "7")
+    .replace(/\bseis\b/g, "6")
+    .replace(/\bcinco\b/g, "5")
+    .replace(/\bquatro\b/g, "4")
+    .replace(/\btr[eê]s\b/g, "3")
+    .replace(/\bdois\b|\bduas\b/g, "2")
+    .replace(/\bum\b|\buma\b/g, "1");
+
+  // Padrão: número + "ponto(s)" em um ou mais trechos — soma tudo
+  const matches = [...t.matchAll(/(\d+)\s*pont/g)];
+  if (matches.length === 0) return null;
+  const total = matches.reduce((sum, m) => sum + parseInt(m[1]), 0);
+  return total > 0 && total <= 10 ? total : null;
+}
+
 function detectarPerguntaPreco(txt) {
   if (!txt) return null;
   const t = txt.toLowerCase().trim();
 
   const gatilhos = [
     "quanto custa", "qual o custo", "qual o preço", "qual o valor",
-    "quantos pontos", "quantos pontos posso", "quais os planos",
-    "tem plano", "planos disponíveis", "planos disponiveis",
+    "quais os planos", "tem plano", "planos disponíveis", "planos disponiveis",
     "me fala o preço", "me fala o valor", "me fala os valores",
     "qual o investimento", "quanto é", "quanto fica",
     "tabela de preços", "tabela de precos", "valores",
-    "preço", "preco", "plano mensal", "plano anual"
+    "preço", "preco", "plano mensal", "plano anual",
+    "pont"  // captura "quero X pontos", "2 pontos na sueli..."
   ];
 
   const perguntando = gatilhos.some(g => t.includes(g));
   if (!perguntando) return null;
 
-  // Retornar as 3 mensagens fixas, sem depender do GPT
+  // ── CASO 1: Lead já especificou quantos pontos quer → resposta direta ──
+  const totalPontos = extrairTotalPontos(t);
+  if (totalPontos) {
+    const mensal = TABELA_MENSAL[totalPontos] || null;
+    const anual  = TABELA_ANUAL[totalPontos]  || null;
+    if (!mensal) return null;
+
+    const bonus = totalPontos >= 5
+      ? "\n⭐ No anual: 1º vídeo grátis + 2 vídeos em carrossel!"
+      : "";
+
+    return [
+      `Com *${totalPontos} pontos*, aqui estão seus valores:
+
+📅 *Mensal* (sem fidelidade): R$ ${mensal.toLocaleString('pt-BR')}/mês
+📆 *Anual* (22% de desconto): R$ ${anual.toLocaleString('pt-BR')}/mês${bonus}`,
+
+      `Qual faz mais sentido pro seu momento — o mensal pra testar sem compromisso, ou o anual com 22% de desconto? 😊`
+    ];
+  }
+
+  // ── CASO 2: Lead perguntou preço sem especificar pontos → tabela completa ──
   return [
-    `📅 *Esse é o mensal* (sem fidelidade):
+    `📅 *Plano Mensal* (sem fidelidade):
 
 • 1 ponto → R$ 400/mês
 • 2 pontos → R$ 550/mês
@@ -1122,7 +1170,7 @@ function detectarPerguntaPreco(txt) {
 • 9 pontos → R$ 1.250/mês
 • 10 pontos → R$ 1.350/mês`,
 
-    `📆 *Esse é o anual* (22% de desconto):
+    `📆 *Plano Anual* (22% de desconto):
 
 • 1 ponto → R$ 200/mês
 • 2 pontos → R$ 450/mês
@@ -1137,9 +1185,10 @@ function detectarPerguntaPreco(txt) {
 
 ⭐ A partir de 5 pontos no anual: 1º vídeo grátis + 2 vídeos em carrossel 🎯`,
 
-    `Qual plano faz mais sentido pro seu momento — o mensal sem fidelidade ou o anual com 22% de desconto? Me conta pra eu te ajudar a escolher os pontos certos 😊`
+    `Quantos pontos você está pensando? Assim calculo o valor exato pra você 😊`
   ];
 }
+
 
 // Salvar mensagem no histórico sem chamar o GPT
 async function salvarMsgHistorico(client, phone, msgUser, msgBot) {
