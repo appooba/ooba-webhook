@@ -767,17 +767,19 @@ module.exports = async (req, res) => {
       } else if (m.type === "audio" || m.type === "voice") {
         // ── WHISPER: transcrever o áudio do lead ──
         try {
-          console.log("Audio/Voice recebido de", from, "— transcrevendo...");
+          console.log("Audio/Voice recebido de", from, "tipo:", m.type, "— transcrevendo...");
           const audioId = m?.audio?.id || m?.voice?.id;
-          if (!audioId) return res.json({ ok: true });
+          console.log("Audio ID:", audioId);
+          if (!audioId) { console.error("audioId vazio, abortando"); return; }
 
           // 1. Buscar URL do áudio no Meta
           const mediaRes = await fetch(`https://graph.facebook.com/v19.0/${audioId}`, {
             headers: { "Authorization": `Bearer ${WAT}` }
           });
           const mediaData = await mediaRes.json();
+          console.log("Media data:", JSON.stringify(mediaData).substring(0, 200));
           const audioUrl = mediaData?.url;
-          if (!audioUrl) { console.error("URL do audio nao encontrada"); return res.json({ ok: true }); }
+          if (!audioUrl) { console.error("URL do audio nao encontrada. mediaData:", JSON.stringify(mediaData)); return; }
 
           // 2. Baixar o arquivo de áudio
           const audioDownload = await fetch(audioUrl, {
@@ -802,8 +804,9 @@ module.exports = async (req, res) => {
             body: whisperForm
           });
           const whisperData = await whisperRes.json();
+          console.log("Whisper response:", JSON.stringify(whisperData).substring(0, 200));
           txt = whisperData?.text?.trim() || "";
-          if (!txt) { console.error("Transcricao vazia"); return res.json({ ok: true }); }
+          if (!txt) { console.error("Transcricao vazia. whisperData:", JSON.stringify(whisperData)); return; }
           console.log(`Transcricao [${from}]: ${txt}`);
 
         } catch(whisperErr) {
