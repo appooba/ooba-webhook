@@ -720,91 +720,92 @@ Deixa eu te mostrar as telas que fazem mais sentido pro seu negócio em ${cidade
     recomendacao: `
 VOCÊ ESTÁ NA ETAPA: RECOMENDAÇÃO
 
-⚠️ AÇÃO IMEDIATA: Não pergunte nada. Já recomende as telas agora com dados e argumento.
-SEMPRE verifique conflitos de nicho antes de recomendar qualquer tela.
+⚠️ AÇÃO OBRIGATÓRIA — duas partes, nessa ordem:
 
-═══════════════════════════════════
-TABELA DE RECOMENDAÇÃO POR SEGMENTO (Porto Feliz)
-═══════════════════════════════════
-Use como base — adapte com os dados do lead:
+══════════════════════════════════════════
+PARTE 1 — MOSTRAR TODAS AS TELAS DISPONÍVEIS
+══════════════════════════════════════════
+Primeiro apresente TODAS as telas da cidade do lead com dados de fluxo.
+Não pule nenhuma (exceto as bloqueadas por conflito de nicho).
+Cada tela = 1 mensagem separada com ---MSG--- entre elas.
 
-• Floricultura / Presentes / Artesanato:
-  → Sueli Bolos PF (18.300/mês) + Bonfá (20.000/mês) + Araras (9.800/mês)
-  → Argumento: "Público feminino e familiar que frequenta cafeterias e restaurantes em datas especiais — exatamente quem compra flores"
-
-• Clínica / Estética / Saúde / Dentista:
-  → Sueli Bolos PF + Academia R2 (13.240/mês) + Bonfá
-  → Argumento: "Público que cuida da saúde e da aparência — perfil ideal pra clínica"
-
-• Academia / Nutrição / Esporte:
-  → Sueli Bolos PF + Bonfá + Araras (NÃO use R2 — concorrência direta)
-  → Argumento: "Público ativo que já está em rotina de cuidados"
-
-• Restaurante / Lanchonete / Delivery:
-  → Sueli Bolos PF + R2 + Araras (NÃO use Rocks/Monções — concorrência)
-  → Argumento: "Alcança quem já está saindo pra comer ou pensando em delivery"
-
-• Pizzaria / Hamburgueria:
-  → Sueli Bolos PF + R2 + Bonfá (NÃO use Rocks/Monções — concorrência)
-  → Argumento: "Público jantar que ainda não decidiu onde vai"
-
-• Loja de roupas / Moda / Calçados:
-  → Sueli Bolos PF + R2 + Bonfá
-  → Argumento: "Público de alto consumo — mulheres e famílias que frequentam esses locais"
-
-• Imobiliária / Construtora / Incorporadora:
-  → Bonfá + Sueli Bolos PF + R2 + Araras (4 telas = premium)
-  → Argumento: "Público de maior poder aquisitivo da cidade — decisores de compra de imóvel"
-
-• Salão / Barbearia / Estética:
-  → Sueli Bolos PF + Bonfá + R2
-  → Argumento: "Público que investe em aparência regularmente"
-
-• Escola / Curso / Faculdade:
-  → R2 + Sueli Bolos PF + Bonfá
-  → Argumento: "Público jovem e famílias — quem busca qualificação e cursos"
-
-• Auto / Mecânica / Oficina / Seguro:
-  → Bonfá + Araras + Rocks
-  → Argumento: "Público adulto, trabalhador, que usa carro no dia a dia"
-
-• Comércio geral / Loja / Mercado:
-  → Sueli Bolos PF + Bonfá + R2
-  → Argumento: "Máximo alcance no público consumidor de Porto Feliz"
-
-═══════════════════════════════════
-SCRIPT DA MENSAGEM DE RECOMENDAÇÃO
-═══════════════════════════════════
-Estrutura OBRIGATÓRIA — use SEMPRE:
-
-MSG 1 — Recomendação direta com dados:
-"Pra [negócio] com foco em [objetivo] em Porto Feliz, recomendo [tela1] + [tela2] + [tela3].
-São [X] mil pessoas/mês — [argumento específico do segmento] 📊
-Olha o ambiente de cada tela 👇"
----MSG---
-MSG 2 — Vídeo tela 1:
-"📍 [Nome da Tela 1] — [X] mil pessoas/mês"
+FORMATO OBRIGATÓRIO para cada tela:
+"📍 *[Nome da Tela]* — [X] mil pessoas/mês | [horário]"
 ---MSG---
 https://youtube.com/shorts/[ID]
----MSG---
-MSG 3 — Vídeo tela 2:
-"📍 [Nome da Tela 2] — [X] mil pessoas/mês"
----MSG---
-https://youtube.com/shorts/[ID]
----MSG---
-MSG 4 — Fechamento com escolha:
-"Com essas [N] telas, seu anúncio alcança [total] pessoas/mês em Porto Feliz.
-Quer focar em [tela principal] pra mais frequência, ou distribuir em todas pra máximo alcance? 📍"
 
-LINKS DOS VÍDEOS:
-- Sueli Bolos Porto Feliz: https://youtube.com/shorts/ognsjZEtt1w
-- Academia R2: https://youtube.com/shorts/_87HW8ghUi4
-- Pizzaria Rocks: https://youtube.com/shorts/2NFvKYSdkHw
-- Pizzaria Monções: https://youtube.com/shorts/gKDJC8mUyM0
-- Recanto das Araras: https://youtube.com/shorts/2-W4sHoYHMQ
-- Bonfá: (vídeo em produção — descreva o local: "Restaurante movimentado, +20mil pessoas/mês, público trabalhador e familiar")
+LINKS DOS VÍDEOS (Porto Feliz):
+- Sueli Bolos PF → https://youtube.com/shorts/ognsjZEtt1w  (18.300/mês | Seg–Dom 09h30–18h30)
+- Academia R2    → https://youtube.com/shorts/_87HW8ghUi4   (13.240/mês | Seg–Dom 09h30–18h30)
+- Recanto Araras → https://youtube.com/shorts/2-W4sHoYHMQ   (9.800/mês  | Seg–Dom 09h30–16h)
+- Pizzaria Rocks → https://youtube.com/shorts/2NFvKYSdkHw   (10.900/mês | Ter–Dom 18h–00h)
+- Pizzaria Monções→ https://youtube.com/shorts/gKDJC8mUyM0  (10.500/mês | Ter–Dom 18h–00h)
+- Bonfá          → sem vídeo ainda | descreva: "Restaurante mais movimentado de Porto Feliz — +20.000 pessoas/mês, público trabalhador e familiar, almoço e fim de semana"
 
-[FUNIL:etapa=materiais]`,
+Boituva:
+- Sueli Bolos Boituva → sem vídeo ainda | 15.100/mês | Seg–Sab 09h30–18h30
+
+EXEMPLO DE SEQUÊNCIA para Porto Feliz (loja de calçados, sem conflito):
+MSG: "Aqui estão as telas disponíveis em Porto Feliz. Vou te mostrar cada uma 👇"
+---MSG---
+"📍 *Sueli Bolos Porto Feliz* — 18.300 pessoas/mês | todos os dias das 9h30 às 18h30"
+---MSG---
+https://youtube.com/shorts/ognsjZEtt1w
+---MSG---
+"📍 *Restaurante Bonfá* — +20.000 pessoas/mês | almoço e fim de semana — o mais movimentado de Porto Feliz!"
+---MSG---
+"📍 *Academia R2 (Shopping)* — 13.240 pessoas/mês | todos os dias das 9h30 às 18h30"
+---MSG---
+https://youtube.com/shorts/_87HW8ghUi4
+---MSG---
+"📍 *Pizzaria Rocks* — 10.900 pessoas/mês | terça a domingo das 18h à meia-noite"
+---MSG---
+https://youtube.com/shorts/2NFvKYSdkHw
+---MSG---
+"📍 *Pizzaria Monções* — 10.500 pessoas/mês | terça a domingo das 18h à meia-noite"
+---MSG---
+https://youtube.com/shorts/gKDJC8mUyM0
+---MSG---
+"📍 *Recanto das Araras* — 9.800 pessoas/mês | todos os dias das 9h30 às 16h"
+---MSG---
+https://youtube.com/shorts/2-W4sHoYHMQ
+
+══════════════════════════════════════════
+PARTE 2 — SUGESTÃO ESTRATÉGICA
+══════════════════════════════════════════
+Após mostrar todas as telas, faça UMA sugestão estratégica com base no perfil do lead.
+NÃO pergunte quantos pontos o lead quer — VOCÊ sugere, ele confirma.
+
+TABELA DE SUGESTÃO POR OBJETIVO:
+• Só marca → 1 vídeo institucional → sugerir 2 a 3 pontos nas telas de maior fluxo
+• Marca + promoção → 2 vídeos (carrossel) → sugerir mínimo 5 pontos (ganha 1º vídeo grátis)
+• Máximo alcance → distribuir em todas → sugerir 6 a 10 pontos
+
+TABELA DE SUGESTÃO POR SEGMENTO (telas prioritárias, excluir conflitos):
+• Floricultura/Presentes    → Sueli Bolos + Bonfá + Araras
+• Clínica/Estética/Dentista → Sueli Bolos + R2 + Bonfá
+• Academia/Esporte          → Sueli Bolos + Bonfá + Araras (NÃO R2)
+• Restaurante/Delivery      → Sueli Bolos + R2 + Araras (NÃO Rocks/Monções)
+• Pizzaria/Hamburgueria     → Sueli Bolos + R2 + Bonfá (NÃO Rocks/Monções)
+• Loja/Moda/Calçados        → Bonfá + Sueli Bolos + R2
+• Imobiliária/Construtora   → Bonfá + Sueli Bolos + R2 + Araras
+• Salão/Barbearia           → Sueli Bolos + Bonfá + R2
+• Escola/Curso              → R2 + Sueli Bolos + Bonfá
+• Auto/Mecânica             → Bonfá + Araras + Rocks
+• Comércio geral            → Sueli Bolos + Bonfá + R2
+
+FORMATO DA SUGESTÃO ESTRATÉGICA:
+"Pra [negócio] com foco em [objetivo], minha sugestão é [N] pontos — [argumento em 1 frase].
+Ficaria [tela1] + [tela2] + [tela3], cobrindo [X] mil pessoas/mês em Porto Feliz 📊
+Faz sentido pra você, ou prefere ajustar alguma tela?"
+
+EXEMPLO (loja de calçados, marca+promoção):
+"Pra loja de calçados com marca e promoção, minha sugestão são *5 pontos* — assim você roda 2 vídeos em carrossel (um institucional + um promocional) e ainda ganha o 1º vídeo grátis! 🎁
+Ficaria *Bonfá + Sueli Bolos + R2*, cobrindo +51 mil pessoas/mês no coração de Porto Feliz 📊
+Faz sentido pra você, ou prefere ajustar alguma tela?"
+
+[FUNIL:etapa=materiais]
+`,
 
     materiais: `
 VOCÊ ESTÁ NA ETAPA: MATERIAIS
