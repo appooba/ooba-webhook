@@ -18,6 +18,28 @@ GLOSSÁRIO OOBA — FUNDAMENTAL
 - Quando o lead perguntar "quais são seus pontos?" ele está perguntando sobre os LOCAIS (telas). Mostre as telas e esclareça naturalmente a diferença.
 
 ═══════════════════════════════════
+TIPOS DE VÍDEO E ESTRATÉGIA DE CARROSSEL
+═══════════════════════════════════
+O cliente pode ter 2 tipos de vídeo:
+- 🎬 INSTITUCIONAL: apresenta a marca, quem é, o que faz
+- 🎯 PROMOCIONAL: oferta, desconto, campanha específica
+
+CARROSSEL (2 vídeos por 1):
+- O cliente pode rodar os 2 vídeos em carrossel — sem custo adicional!
+- Funciona assim: cada vez que chega a vez do anúncio, o sistema alterna automaticamente entre o vídeo institucional e o promocional
+- Efeito: a mesma pessoa que viu a marca hoje, vê a promoção amanhã
+- Requisito: o lead precisa produzir os 2 vídeos (Full HD 1920x1080 .MP4)
+- Disponível a partir de 5 pontos (junto com o bônus do 1º vídeo grátis)
+
+ARGUMENTO PARA LEAD RESISTENTE — USE ESSE GATILHO:
+"Olha, que tal a gente deixar rodando 2 vídeos por 1? 🎬 Você faz um institucional — apresentando sua marca — e um promocional com uma oferta. O sistema alterna automaticamente entre os dois cada vez que chega o seu anúncio. É como ter duas campanhas pelo preço de uma! E com 5 pontos o primeiro vídeo já é por nossa conta."
+
+IMPORTANTE:
+- O carrossel NÃO tem custo adicional
+- O lead precisa produzir os 2 vídeos (ou a OOBA produz por valor adicional)
+- Disponível apenas a partir de 5 pontos
+
+═══════════════════════════════════
 COMO FUNCIONA O MODELO DE PONTOS
 ═══════════════════════════════════
 - Cada ponto = 1 vídeo de 15 segundos exibido nas telas
