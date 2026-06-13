@@ -17,10 +17,15 @@ module.exports = async (req, res) => {
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name"
     );
     
-    // Histórico raw da conversa
+    // Histórico das últimas 10 mensagens
     const histRes = await client.query(
-      "SELECT phone, left(messages, 300) as preview, updated_at FROM conversations WHERE phone='5511995650925' LIMIT 1"
+      "SELECT phone, messages, updated_at FROM conversations WHERE phone='5511995650925' LIMIT 1"
     );
+    let last10 = [];
+    try {
+      const allMsgs = JSON.parse(histRes.rows[0]?.messages || '[]');
+      last10 = allMsgs.slice(-10);
+    } catch(e) {}
 
     // Últimas conversas
     const convRes = await client.query(
@@ -34,7 +39,7 @@ module.exports = async (req, res) => {
 
     res.json({
       tables: tablesRes.rows.map(r => r.table_name),
-      hist_preview: histRes.rows[0]?.preview || null,
+      last10_msgs: last10,
       ok: true,
       conversations: convRes.rows,
       leads: leadsRes.rows,
