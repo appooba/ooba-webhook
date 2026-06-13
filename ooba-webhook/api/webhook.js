@@ -104,27 +104,25 @@ async function enviarCatalogoTelas(from, lead, delay = 800) {
   await sendMsg(from, `Aqui na OOBA funciona assim: você compra *pontos* — cada ponto é um vídeo de 15 segundos que entra em rotação nas telas. A mesma pessoa fica em média *1 hora* no local e vê seu vídeo de *6 a 7 vezes* durante a visita 🔁\nAnúncios rodam *segunda a segunda, das 6h à meia-noite*. Quanto mais pontos, mais vezes seu anúncio aparece na rotação.`);
   await new Promise(r => setTimeout(r, delay));
 
-  // PASSO 2 — Mostrar TODAS as telas com dados de giro
+  // PASSO 2 — Gancho de transição com total de giro (direto, sem tabela separada)
   const totalFluxo = telas.reduce((acc, t) => {
     const num = parseInt((t.fluxo || "0").replace(/[^0-9]/g, ""));
     return acc + num;
   }, 0);
 
-  await sendMsg(from, `Em ${cidade} temos *${telas.length} telas*, alcançando mais de *${Math.round(totalFluxo/1000)}mil pessoas/mês*. Vou te mostrar cada uma 👇`);
+  await sendMsg(from, `Em ${cidade} são *${telas.length} telas* com *+${Math.round(totalFluxo/1000)} mil pessoas/mês* no total. Olha cada uma 👇`);
   await new Promise(r => setTimeout(r, delay));
 
-  // PASSO 3 — Cada tela: dados + vídeo
+  // PASSO 3 — Cada tela: giro + horário + vídeo em UMA mensagem só
   for (const tela of telas) {
-    // Mensagem com dados da tela
-    const msgTela = `📍 *${tela.nome}*\n${tela.fluxo} | ${tela.horario}`;
-    await sendMsg(from, msgTela);
-    await new Promise(r => setTimeout(r, delay));
-
-    // Vídeo ou nota de produção
     if (tela.video) {
-      await sendMsg(from, tela.video);
-    } else if (tela.descricao) {
-      await sendMsg(from, tela.descricao);
+      // Giro, horário e link juntos — WhatsApp gera preview do vídeo
+      const msgTela = `📍 *${tela.nome}* — ${tela.fluxo} | ${tela.horario}\n${tela.video}`;
+      await sendMsg(from, msgTela);
+    } else {
+      // Tela sem vídeo: só texto com destaque do giro
+      const msgTela = `📍 *${tela.nome}* — ${tela.fluxo} | ${tela.horario}\n${tela.descricao || "🎬 Vídeo em produção"}`;
+      await sendMsg(from, msgTela);
     }
     await new Promise(r => setTimeout(r, delay));
   }
