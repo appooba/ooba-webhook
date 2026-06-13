@@ -129,7 +129,7 @@ async function enviarCatalogoTelas(from, lead, delay = 800) {
     // MSG 1: nome + giro + horário (só texto)
     const msgTela = `📍 *${tela.nome}* — ${tela.fluxo} | ${tela.horario}`;
     await sendMsg(from, msgTela);
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise(r => setTimeout(r, 1800)); // delay maior para WhatsApp gerar thumbnail
 
     // MSG 2: URL sozinha na mensagem (WhatsApp gera thumbnail automático)
     if (tela.video) {
@@ -137,7 +137,7 @@ async function enviarCatalogoTelas(from, lead, delay = 800) {
     } else {
       await sendMsg(from, tela.descricao || "🎬 Vídeo em produção");
     }
-    await new Promise(r => setTimeout(r, delay));
+    await new Promise(r => setTimeout(r, 1800));
   }
 
   // MENSAGEM FINAL PERSUASIVA — após mostrar tudo, CTA direto sem depender do lead
@@ -146,24 +146,15 @@ async function enviarCatalogoTelas(from, lead, delay = 800) {
   const cidadeFinal = lead?.cidade || "Porto Feliz";
   const totalFinal = telas.reduce((acc, t) => acc + parseInt((t.fluxo||"0").replace(/[^0-9]/g,"")), 0);
 
-  // Linha resumo de todas as telas com giro
-  let linhasGiro = telas.map(t => `📍 *${t.nome}* — ${t.fluxo}`).join("\n");
+  // MSG FINAL — argumento de cobertura + total de giro + CTA (sem repetir cada tela)
+  const msgFinal = `São *+${Math.round(totalFinal/1000)} mil pessoas/mês* na rede toda 🔥
 
-  // MSG A — Resumo consolidado de giro
-  const msgResumo = `*Resumo da rede em ${cidadeFinal}:*
-${linhasGiro}
-
-Total: *+${Math.round(totalFinal/1000)} mil pessoas/mês* — das 6h à meia-noite, 7 dias por semana 🔥`;
-  await sendMsg(from, msgResumo);
-  await new Promise(r => setTimeout(r, delay));
-
-  // MSG B — Argumento de cobertura total + pergunta que força o avanço
-  const msgPergunta = `Seu anúncio de ${negocioFinal} pode aparecer em *todas essas telas* — a mesma pessoa te vê de manhã na Sueli Bolos, no almoço no Bonfá, à noite na Pizzaria.
+Seu anúncio de *${negocioFinal}* pode rodar em todas essas telas — a mesma pessoa te vê de manhã na Sueli Bolos, no almoço no Bonfá, à noite na Pizzaria.
 
 Isso é presença de marca de verdade 💪
 
-Qual dessas telas você já frequenta ou conhece mais o público?`;
-  await sendMsg(from, msgPergunta);
+Qual dessas telas faz mais sentido pro seu público?`;
+  await sendMsg(from, msgFinal);
 
   console.log(`CATÁLOGO TELAS enviado para ${from} — ${telas.length} telas`);
 }const { Client } = require("pg");
