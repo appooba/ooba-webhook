@@ -537,9 +537,23 @@ function getSysWithFunil(etapa, leadData) {
     ? `\n⚡ ABORDAGEM ATIVA: você iniciou o contato. Seja acolhedora e desperte curiosidade.`
     : "";
 
+  // Montar detalhamento de pontos por tela
+  let detalhePontos = "";
+  if (leadData.pontos_por_tela && typeof leadData.pontos_por_tela === "object") {
+    const ppt = leadData.pontos_por_tela;
+    const linhas = Object.entries(ppt).map(([t, p]) => `  ${t}: ${p} ponto(s)`).join("\n");
+    const totalPts = Object.values(ppt).reduce((a, b) => a + Number(b), 0);
+    detalhePontos = `\nPONTOS POR TELA:\n${linhas}\nTOTAL: ${totalPts} pontos`;
+  } else if (pontos) {
+    detalhePontos = `\nTOTAL DE PONTOS: ${pontos}`;
+  }
+
   const ctx = `
-LEAD: ${nome || "(novo)"} | Negócio: ${negocio || "?"} | Cidade: ${cidade} | Telas: ${telas || "?"} | Pontos: ${pontos || "?"}${jaAnunciou}${abordagemAtiva}
-ETAPA ATUAL: ${etapa.toUpperCase()}`;
+LEAD: ${nome || "(novo)"} | Negócio: ${negocio || "?"} | Cidade: ${cidade} | Telas escolhidas: ${telas || "?"}${detalhePontos}${jaAnunciou}${abordagemAtiva}
+ETAPA ATUAL: ${etapa.toUpperCase()}
+
+REGRA DE PREÇO: quando o lead escolher pontos por tela, SOME TUDO e mostre apenas o preço do total.
+Ex: 2 pontos Sueli + 2 pontos Bonfá = 4 pontos total → mensal R$750/mês | anual R$650/mês`;
 
   const BASE = `Você é Luana, consultora de vendas da OOBA Mídia Indoor. Atende pelo WhatsApp.
 
@@ -719,33 +733,44 @@ https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive
 
     proposta: `
 VOCÊ ESTÁ NA ETAPA: PROPOSTA/VALORES
-Apresente os valores quando o lead perguntar ou demonstrar prontidão.
-Envie em 3 mensagens separadas com ---MSG---:
 
-MSG 1 — Plano Mensal:
+TABELA DE PREÇOS (use para calcular):
+Mensal: 1pt=R$400 | 2pt=R$550 | 3pt=R$650 | 4pt=R$750 | 5pt=R$850 | 6pt=R$950 | 7pt=R$1.050 | 8pt=R$1.150 | 9pt=R$1.250 | 10pt=R$1.350
+Anual (-22%): 1pt=R$200 | 2pt=R$450 | 3pt=R$550 | 4pt=R$650 | 5pt=R$750 | 6pt=R$850 | 7pt=R$950 | 8pt=R$1.050 | 9pt=R$1.150 | 10pt=R$1.250
+
+REGRA CRÍTICA DE CÁLCULO:
+- Se o lead escolheu telas específicas com pontos (ex: "2 na Sueli e 2 no Bonfá"), SOME O TOTAL.
+  2 + 2 = 4 pontos → mensal R$750/mês | anual R$650/mês
+- Use SEMPRE o total de pontos do LEAD para mostrar o preço, não a tabela inteira.
+- NUNCA mostre a tabela completa se o lead já escolheu os pontos — mostre só o preço dele.
+
+COMO APRESENTAR se o lead já tem um total definido:
+"[Nome], com [X] pontos no total — [detalhe por tela] — fica assim:
+📅 *Mensal*: R$[VALOR]/mês (sem fidelidade)
+📆 *Anual*: R$[VALOR]/mês (22% de desconto[+ vídeo grátis se ≥5 pontos])
+
+Qual você prefere? Já preparo o contrato 😊"
+
+COMO APRESENTAR se o lead ainda não definiu o total (mostrar tabela resumida):
+MSG 1:
 "📅 *Plano Mensal* (sem fidelidade):
-• 1 ponto → R$ 400/mês (~R$ 13/dia)
-• 2 pontos → R$ 550/mês
-• 3 pontos → R$ 650/mês
-• 5 pontos → R$ 850/mês
-• 10 pontos → R$ 1.350/mês"
+• 1 ponto → R$ 400/mês | 2 pontos → R$ 550 | 3 pontos → R$ 650
+• 4 pontos → R$ 750 | 5 pontos → R$ 850 | 10 pontos → R$ 1.350/mês"
 ---MSG---
-MSG 2 — Plano Anual:
+MSG 2:
 "📆 *Plano Anual* (22% de desconto):
-• 1 ponto → R$ 200/mês
-• 2 pontos → R$ 450/mês
-• 3 pontos → R$ 550/mês
-• 5 pontos → R$ 750/mês ✅ vídeo grátis + carrossel
-• 10 pontos → R$ 1.250/mês ✅ vídeo grátis + carrossel"
+• 1 ponto → R$ 200/mês | 2 pontos → R$ 450 | 3 pontos → R$ 550
+• 4 pontos → R$ 650 | 5 pontos → R$ 750 ✅ vídeo grátis | 10 pontos → R$ 1.250/mês ✅"
 ---MSG---
-MSG 3 — Fechamento direto:
-"Com quantos pontos você quer começar? Já preparo o contrato pra você 😊"
+MSG 3:
+"Com quantos pontos você quer começar? Já calculo exatamente pra você 😊"
 
-Se o lead perguntar sobre produção de vídeo → use como gatilho de upgrade:
-"Com 5 pontos ou mais no anual o 1º vídeo sai grátis 🎁 Abaixo disso, você traz o seu ou a gente produz por um valor adicional. Vale muito fechar completo!"
+BÔNUS (lembrar sempre):
+- 5+ pontos no anual: 1º vídeo grátis + 2 vídeos em carrossel 🎁
+- Menos de 5: cliente traz o vídeo OU OOBA produz por valor adicional
 
-[FUNIL:etapa=fechamento]`,
-
+[FUNIL:etapa=fechamento]
+`,
     fechamento: `
 VOCÊ ESTÁ NA ETAPA: FECHAMENTO
 Seja direta. Envie o contrato sem rodeios:
@@ -794,6 +819,7 @@ async function initDB(client) {
       etapa_funil VARCHAR(50) DEFAULT 'abertura',
       telas_interesse TEXT,
       pontos_interesse INTEGER,
+      pontos_por_tela TEXT,
       plano_interesse VARCHAR(50),
       reuniao_data VARCHAR(100),
       reuniao_hora VARCHAR(20),
@@ -804,6 +830,11 @@ async function initDB(client) {
       updated_at TIMESTAMP DEFAULT NOW()
     );
   `);
+
+  // Garantir coluna pontos_por_tela em banco existente
+  await client.query(`
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS pontos_por_tela TEXT;
+  `).catch(() => {});
 }
 
 async function getHist(client, phone) {
@@ -1373,6 +1404,78 @@ async function replyAI(client, txt, phone) {
     // ── DETECTOR DE PEDIDO DE PDF ──
     // Se o lead pediu PDF/proposta e a resposta não tem o link → injetar o link da apresentação
     rep = injetarPDF(txt, rep);
+
+    // ── DETECTOR DE PONTOS POR TELA ──
+    // Detecta quando o lead fala "X pontos na/no [tela]" e atualiza o banco
+    try {
+      const txtOriginal = txt.toLowerCase();
+      const mapaTelasSinonimos = {
+        "sueli": "Sueli Bolos",
+        "sueli bolos": "Sueli Bolos",
+        "sueli porto": "Sueli Bolos PF",
+        "sueli boituva": "Sueli Bolos Boituva",
+        "bonfa": "Restaurante Bonfá",
+        "bonfá": "Restaurante Bonfá",
+        "araras": "Recanto das Araras",
+        "recanto": "Recanto das Araras",
+        "rocks": "Pizzaria Rocks",
+        "pizzaria rocks": "Pizzaria Rocks",
+        "monco": "Pizzaria Monções",
+        "moncoes": "Pizzaria Monções",
+        "monções": "Pizzaria Monções",
+        "academia": "Academia R2",
+        "r2": "Academia R2"
+      };
+
+      // Padrões: "2 pontos na sueli", "sueli 3 pontos", "quero 2 na sueli e 3 no bonfá"
+      const padroes = [
+        /(\d+)\s+pontos?\s+(?:na|no|em|na\s+tela)?\s+([a-záéíóúâêîôûàèìòùç\s]+)/gi,
+        /([a-záéíóúâêîôûàèìòùç\s]+)\s+(?:com|-)?\s*(\d+)\s+pontos?/gi
+      ];
+
+      const pontosDetectados = {};
+      for (const padrao of padroes) {
+        let m;
+        padrao.lastIndex = 0;
+        while ((m = padrao.exec(txtOriginal)) !== null) {
+          let qtd, nomeTela;
+          if (!isNaN(m[1])) {
+            qtd = parseInt(m[1]);
+            nomeTela = m[2].trim();
+          } else {
+            nomeTela = m[1].trim();
+            qtd = parseInt(m[2]);
+          }
+          // Resolver sinônimo
+          for (const [sinonimo, nomeReal] of Object.entries(mapaTelasSinonimos)) {
+            if (nomeTela.includes(sinonimo)) {
+              pontosDetectados[nomeReal] = (pontosDetectados[nomeReal] || 0) + qtd;
+              break;
+            }
+          }
+        }
+      }
+
+      if (Object.keys(pontosDetectados).length > 0) {
+        // Buscar pontos_por_tela existente e mesclar
+        const leadAgora = await getLead(client, phone);
+        let ppt = {};
+        try { ppt = JSON.parse(leadAgora?.pontos_por_tela || "{}"); } catch(e) {}
+        for (const [tela, pts] of Object.entries(pontosDetectados)) {
+          ppt[tela] = pts; // Sobrescreve (o lead está sendo específico)
+        }
+        const totalPts = Object.values(ppt).reduce((a, b) => a + Number(b), 0);
+        const telasStr = Object.keys(ppt).join(", ");
+
+        await client.query(
+          `UPDATE leads SET pontos_por_tela=$2, pontos_interesse=$3, telas_interesse=$4, updated_at=NOW() WHERE phone=$1`,
+          [phone, JSON.stringify(ppt), totalPts, telasStr]
+        ).catch(e => console.error("Detector pontos:", e.message));
+        console.log(`PONTOS DETECTADOS [${phone}]: ${JSON.stringify(ppt)} → total=${totalPts}`);
+      }
+    } catch(ePontos) {
+      console.error("Detector pontos erro:", ePontos.message);
+    }
 
     // ── FALLBACK DE PROGRESSÃO AUTOMÁTICA ──
     // Se a Luana não emitiu marcador, avançar funil baseado em palavras-chave
