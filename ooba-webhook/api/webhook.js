@@ -766,7 +766,12 @@ module.exports = async (req, res) => {
       if (!m || (m.type !== "text" && m.type !== "audio" && m.type !== "voice")) return res.json({ ok: true });
 
       const msgId = m.id;
-      if (processedMsgs.has(msgId)) { console.log("Duplicata:", msgId); return res.json({ ok: true }); }
+      console.log("MsgId recebido:", msgId);
+      // Deduplicação via banco (mais confiável que memória em serverless)
+      if (processedMsgs.has(msgId)) { 
+        console.log("Duplicata (memória):", msgId); 
+        return res.json({ ok: true }); 
+      }
       processedMsgs.add(msgId);
       if (processedMsgs.size > 200) processedMsgs.delete(processedMsgs.values().next().value);
 

@@ -12,6 +12,16 @@ module.exports = async (req, res) => {
   try {
     await client.connect();
     
+    // Tabelas existentes
+    const tablesRes = await client.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name"
+    );
+    
+    // Histórico raw da conversa
+    const histRes = await client.query(
+      "SELECT phone, left(messages, 300) as preview, updated_at FROM conversations WHERE phone='5511995650925' LIMIT 1"
+    );
+
     // Últimas conversas
     const convRes = await client.query(
       "SELECT phone, COALESCE(json_array_length(messages::json), 0) as total_msgs, updated_at FROM conversations ORDER BY updated_at DESC LIMIT 10"
@@ -23,6 +33,8 @@ module.exports = async (req, res) => {
     );
 
     res.json({
+      tables: tablesRes.rows.map(r => r.table_name),
+      hist_preview: histRes.rows[0]?.preview || null,
       ok: true,
       conversations: convRes.rows,
       leads: leadsRes.rows,
