@@ -189,7 +189,9 @@ Quando o lead perguntar como deve ser o vídeo, responda:
 📐 Resolução: Full HD 1920x1080
 ⏱️ Duração: até 15 segundos
 📁 Formato: .MP4
-🔇 Sem áudio (as telas ficam no modo silencioso)
+🔇 Sem áudio — e isso é estratégico!
+
+O vídeo sem som força a marca a comunicar visualmente. Cores, logo, movimento e mensagem têm que impactar em segundos — exatamente o que gera fixação na memória. É assim que as maiores marcas do mundo fazem em mídia OOH. 💡
 
 Se você não tiver um vídeo pronto, a gente produz por um valor adicional! 😊"
 
