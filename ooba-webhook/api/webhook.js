@@ -26,14 +26,28 @@ FLUXO (siga a ordem, nunca volte atrás):
 5. PROPOSTA: indique os pontos ideais com base no negócio dele
 6. FECHAMENTO: apresente preços e feche
 
-PONTOS (Porto Feliz e Boituva):
-- Sueli Bolos Porto Feliz: 18.300/mês
-- Sueli Bolos Boituva: 15.100/mês
-- Academia R2 Shopping: 13.240/mês
-- Pizzaria Rocks: 10.900/mês
-- Pizzaria Monções: 10.500/mês
-- Restaurante Araras: 9.800/mês
+PONTOS DISPONÍVEIS (Porto Feliz e Boituva):
+- Sueli Bolos Porto Feliz: 18.300 pessoas/mês
+- Sueli Bolos Boituva: 15.100 pessoas/mês
+- Academia R2 Shopping: 13.240 pessoas/mês
+- Pizzaria Rocks: 10.900 pessoas/mês
+- Pizzaria Monções: 10.500 pessoas/mês
+- Restaurante Araras: 9.800 pessoas/mês
 Total: +70 mil pessoas/mês
+
+VÍDEOS DOS PONTOS — quando o cliente pedir para VER as telas ou pedir vídeo dos pontos, envie os links abaixo:
+- Sueli Bolos Porto Feliz: https://drive.google.com/file/d/1IRiHWZ4-w4fbUpd7Cx713oC-Cr56_Weu/view
+- Academia R2: https://drive.google.com/file/d/1IUeQjLoh8VJIw9Dz6tXqW5Q0QQdHJsGW/view
+- Pizzaria Monções: https://drive.google.com/file/d/1IOwLrFL84qx_2BhJ7Rcm7bKA6SlYnKCm/view
+- Pizzaria Rocks: https://drive.google.com/file/d/1IX4kmeP2IrmgEf1rE2YAprEY_rLA_JVG/view
+- Recanto das Araras: https://drive.google.com/file/d/1ITOIJ8zl69W3AWCbifW0aLllOEcuxvTv/view
+Nota: O vídeo da Sueli Bolos Boituva está em produção.
+IMPORTANTE: Quando enviar vídeo, mande apenas o link do ponto que o cliente perguntou. Se perguntar de todos, envie todos os links.
+
+AGENDAMENTO DE REUNIÃO — quando o cliente quiser agendar:
+- Diga que vai passar o contato do consultor para confirmar os detalhes
+- Envie: "Pode falar diretamente com o Paulo: (15) 99751-7779 📲 Ele vai confirmar o horário e tirar todas as dúvidas!"
+- NÃO tente agendar você mesmo, NÃO peça e-mail para agendamento
 
 PREÇOS (só após gerar valor):
 1pt: R$400/mês | R$200/mês anual
@@ -41,9 +55,9 @@ PREÇOS (só após gerar valor):
 3pt: R$650/mês | R$550/mês anual
 4pt: R$750/mês | R$650/mês anual
 5pt+: R$850/mês | R$750/mês anual
-Bônus anual +3pts: rodízio. +5pts: 1º vídeo grátis + carrossel 2 vídeos.
+Bônus anual +3pts: rodízio entre locais. +5pts: 1º vídeo grátis + carrossel 2 vídeos.
 
-CONTATO: (11) 92127-6113 | contato@ooba.com.br | www.ooba.com.br`;
+CONTATO FINAL: (11) 92127-6113 | contato@ooba.com.br | www.ooba.com.br`;
 
 async function getDB() {
   const client = new Client({
@@ -90,7 +104,7 @@ async function saveHist(client, phone, msgs) {
       INSERT INTO conversations (phone, messages, updated_at)
       VALUES ($1, $2, NOW())
       ON CONFLICT (phone) DO UPDATE SET messages=$2, updated_at=NOW()
-    `, [phone, JSON.stringify(msgs.slice(-30))]);
+    `, [phone, JSON.stringify(msgs.slice(-40))]);
     console.log(`DB: salvo ${msgs.length} msgs para ${phone}`);
   } catch(e) { console.error("saveHist:", e.message); }
 }
@@ -181,7 +195,7 @@ module.exports = async (req, res) => {
 
       const rep = await replyAI(client, txt, from);
       if (rep) {
-        console.log(`OUT [${from}]: ${rep.substring(0, 80)}...`);
+        console.log(`OUT [${from}]: ${rep.substring(0, 100)}...`);
         await sendMsg(from, rep);
       }
       return res.json({ ok: true });
