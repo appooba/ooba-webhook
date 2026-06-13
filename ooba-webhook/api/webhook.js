@@ -746,7 +746,7 @@ module.exports = async (req, res) => {
       const v = req.body?.entry?.[0]?.changes?.[0]?.value;
       if (v?.statuses) return res.json({ ok: true });
       const m = v?.messages?.[0];
-      if (!m || m.type !== "text") return res.json({ ok: true });
+      if (!m || (m.type !== "text" && m.type !== "audio")) return res.json({ ok: true });
 
       const msgId = m.id;
       if (processedMsgs.has(msgId)) { console.log("Duplicata:", msgId); return res.json({ ok: true }); }
@@ -754,7 +754,59 @@ module.exports = async (req, res) => {
       if (processedMsgs.size > 200) processedMsgs.delete(processedMsgs.values().next().value);
 
       const from = m.from;
-      const txt = m?.text?.body?.trim() || "";
+      let txt = "";
+
+      if (m.type === "text") {
+        txt = m?.text?.body?.trim() || "";
+
+      } else if (m.type === "audio") {
+        // ── WHISPER: transcrever o áudio do lead ──
+        try {
+          console.log("Audio recebido de", from, "— transcrevendo...");
+          const audioId = m?.audio?.id;
+          if (!audioId) return res.json({ ok: true });
+
+          // 1. Buscar URL do áudio no Meta
+          const mediaRes = await fetch(`https://graph.facebook.com/v19.0/${audioId}`, {
+            headers: { "Authorization": `Bearer ${WAT}` }
+          });
+          const mediaData = await mediaRes.json();
+          const audioUrl = mediaData?.url;
+          if (!audioUrl) { console.error("URL do audio nao encontrada"); return res.json({ ok: true }); }
+
+          // 2. Baixar o arquivo de áudio
+          const audioDownload = await fetch(audioUrl, {
+            headers: { "Authorization": `Bearer ${WAT}` }
+          });
+          const audioArrayBuffer = await audioDownload.arrayBuffer();
+          const audioBuffer = Buffer.from(audioArrayBuffer);
+
+          // 3. Transcrever com Whisper (OpenAI)
+          const FormData = require("form-data");
+          const whisperForm = new FormData();
+          whisperForm.append("file", audioBuffer, { filename: "audio.ogg", contentType: "audio/ogg" });
+          whisperForm.append("model", "whisper-1");
+          whisperForm.append("language", "pt");
+
+          const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${OAI_KEY}`,
+              ...whisperForm.getHeaders()
+            },
+            body: whisperForm
+          });
+          const whisperData = await whisperRes.json();
+          txt = whisperData?.text?.trim() || "";
+          if (!txt) { console.error("Transcricao vazia"); return res.json({ ok: true }); }
+          console.log(`Transcricao [${from}]: ${txt}`);
+
+        } catch(whisperErr) {
+          console.error("Erro Whisper:", whisperErr.message);
+          return res.json({ ok: true });
+        }
+      }
+
       if (!from || !txt) return res.json({ ok: true });
 
       console.log(`IN [${from}] etapa=? : ${txt}`);
