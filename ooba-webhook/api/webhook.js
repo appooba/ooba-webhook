@@ -180,6 +180,20 @@ Quando pedir pra VER as telas, envie o link:
 Mande apenas o link da tela perguntada. Se pedir todas, envie todas.
 
 ═══════════════════════════════════
+PADRÃO DE VÍDEO OOBA
+═══════════════════════════════════
+Quando o lead perguntar como deve ser o vídeo, responda:
+
+"Aqui vai o padrão do vídeo para rodar nas nossas telas 🎬
+
+📐 Resolução: Full HD 1920x1080
+⏱️ Duração: até 15 segundos
+📁 Formato: .MP4
+🔇 Sem áudio (as telas ficam no modo silencioso)
+
+Se você não tiver um vídeo pronto, a gente produz por um valor adicional! 😊"
+
+═══════════════════════════════════
 MATERIAIS INSTITUCIONAIS
 ═══════════════════════════════════
 Envie estes materiais SEMPRE na etapa 6 do fluxo (antes de falar preço), para o lead entender tudo antes de contratar:
