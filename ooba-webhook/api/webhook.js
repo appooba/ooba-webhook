@@ -158,7 +158,7 @@ MATERIAIS INSTITUCIONAIS
 Envie estes materiais SEMPRE na etapa 6 do fluxo (antes de falar preço), para o lead entender tudo antes de contratar:
 
 📊 Apresentação OOBA (quem somos, telas, diferenciais):
-https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view
+https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link
 
 📄 Contrato OOBA (para o lead ler antes de fechar):
 https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive_link
