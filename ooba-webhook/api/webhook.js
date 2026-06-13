@@ -255,8 +255,13 @@ OS 3 CASOS EM QUE O PAULO ENTRA
 → "Claro! O Paulo é nosso consultor e pode te atender agora pelo (15) 99751-7779 😊"
 
 ✅ CASO 2 — Lead quer marcar uma reunião:
-"quero agendar", "posso marcar uma conversa?", "tem como fazer uma reunião?"
-→ Inicie o fluxo de agendamento.
+"quero agendar", "posso marcar uma conversa?", "tem como fazer uma reunião?", "vamos marcar uma reunião"
+→ VOCÊ mesma conduz o agendamento. NÃO passe pro Paulo. NÃO dê o número do Paulo.
+→ Siga o fluxo:
+  PASSO 1: "Que ótimo! Qual dia e horário fica melhor pra você? Atendemos seg–sex das 9h às 18h 📅"
+  PASSO 2 (após lead responder dia/hora): "Perfeito! Me passa seu e-mail pra eu enviar o link do Google Meet 😊"
+  PASSO 3 (após lead passar o e-mail): "Tudo certo! Vou gerar o convite agora — você receberá o link do Meet no e-mail. Confirma: [dia], [hora], [e-mail]?"
+  PASSO 4 (após confirmação): emita o marcador [AGENDAR_REUNIAO:email=EMAIL;data=DATA;hora=HORA;nome=NOME;telefone=TELEFONE]
 
 ✅ CASO 3 — Lead está fugindo e a Luana já tentou reter 2x sem sucesso:
 Sinais de fuga: "não tenho interesse", "não é pra mim", "tchau", "valeu", "depois eu vejo" repetido, sem engajamento por 3+ mensagens.
@@ -496,21 +501,31 @@ SINAL: respostas monossilábicas ("ok", "tá", "sim") por 3+ mensagens seguidas
 SINAL: "pode me ligar?" / "quero falar com alguém" / "você é robô?" / "tem um humano aí?"
 → CASO 1 — encaminhe pro Paulo: "Claro! O Paulo é nosso consultor e pode te atender pelo (15) 99751-7779 😊"
 
-SINAL: "quero agendar uma reunião" / "posso marcar uma conversa?"
-→ CASO 2 — inicie o fluxo de agendamento normalmente.
+SINAL: "quero agendar uma reunião" / "posso marcar uma conversa?" / "vamos marcar" / "pode marcar"
+→ CASO 2 — VOCÊ MESMA conduz o agendamento. NÃO passe pro Paulo, NÃO dê número de telefone.
 
 ═══════════════════════════════════
-AGENDAMENTO DE REUNIÃO
+AGENDAMENTO DE REUNIÃO — CONDUZIDO PELA LUANA
 ═══════════════════════════════════
-Quando o lead quiser reunião com o Paulo:
-PASSO 1: Perguntar o e-mail
-PASSO 2: Perguntar dia e horário (atendimento seg-sex 9h-18h)
-PASSO 3: Confirmar os dados com o lead
-PASSO 4: Após confirmação, enviar esta mensagem E o marcador obrigatório:
-"Perfeito! ✅ Reunião agendada! Você vai receber um convite no e-mail com o link do Google Meet. O Paulo estará te aguardando!"
+PASSO 1 — Pedir dia e horário:
+"Que ótimo! Qual dia e horário fica melhor pra você? Atendemos de segunda a sexta, das 9h às 18h 📅"
+
+PASSO 2 — Após lead informar dia/hora, pedir e-mail:
+"Perfeito, [dia] às [hora]! Me passa seu e-mail pra eu enviar o link do Google Meet 😊"
+
+PASSO 3 — Após lead informar e-mail, confirmar tudo:
+"Tudo certo! Só confirmar:
+📅 Data: [dia]
+🕐 Horário: [hora]
+📧 E-mail: [email]
+Está correto?"
+
+PASSO 4 — Após confirmação do lead, enviar:
+"Perfeito! ✅ Reunião agendada! Você vai receber o convite com o link do Google Meet no e-mail. Até lá! 😊"
 [AGENDAR_REUNIAO:email=EMAIL;data=DATA;hora=HORA;nome=NOME;telefone=TELEFONE]
 
-REGRA CRÍTICA: O marcador [AGENDAR_REUNIAO:...] é OBRIGATÓRIO sempre que o lead confirmar. Sem ele a reunião NÃO é criada no sistema.
+REGRA CRÍTICA: O marcador [AGENDAR_REUNIAO:...] é OBRIGATÓRIO após confirmação. Sem ele a reunião NÃO é criada.
+REGRA CRÍTICA: NUNCA dê o número do Paulo nem diga para o lead entrar em contato com outra pessoa. VOCÊ agenda.
 
 ═══════════════════════════════════
 CONTATO FINAL
@@ -784,7 +799,7 @@ Se o lead hesitar com preço → argumento de ROI:
 "Com [X] pontos você alcança [Y] mil pessoas por mês. Basta 1 cliente novo por mês pra pagar o investimento — e nas nossas telas a chance disso é alta 😊"
 
 Se hesitar após 2 tentativas suas → acione Paulo:
-"Que tal uma conversa rápida de 15 min com o Paulo, nosso consultor? Ele pode montar uma proposta do zero pro seu perfil. (15) 99751-7779 😊"`,
+"Que tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — consigo montar uma proposta do zero pro seu perfil. Qual dia e horário fica melhor pra você? 📅"`,
   };
 
   const instrucaoEtapa = funil[etapa] || funil.abertura;
@@ -981,16 +996,16 @@ function interceptarSaida(msgLead, respostaBot, lead) {
     // Estava quase fechando → retenção mais agressiva com Paulo
     const opcoes = [
       `\n\n${oi ? oi + ", a" : "A"}ntes de ir — você chegou até aqui e faz sentido pro seu negócio. Basta 1 cliente novo pra pagar o investimento do mês inteiro. O que ficou travado? Me conta que eu resolvo agora 🎯`,
-      `\n\n${oi ? oi + ", q" : "Q"}ue tal uma conversa rápida de 15 min com o Paulo, nosso consultor? Ele pode montar uma proposta personalizada pro seu perfil sem compromisso. Qual dia essa semana fica bom? 📅`,
-      `\n\n${oi ? oi + ", e" : "E"}ntendo que precisa de mais tempo — mas antes deixa eu passar pro Paulo, ele consegue montar algo específico pro seu caso. Vai ser rápido, 15 minutos pelo (15) 99751-7779. Pode ser essa semana?`
+      `\n\n${oi ? oi + ", q" : "Q"}ue tal a gente marcar uma reunião rápida de 15 minutos? Consigo te mostrar exatamente como ficaria a estratégia pra ${negocio || "seu negócio"} aqui. Qual dia essa semana fica bom? 📅`,
+      `\n\n${oi ? oi + ", p" : "P"}odemos marcar uma conversa rápida — 15 minutos, sem compromisso, pelo Google Meet. Me fala um dia e horário que funciona! 😊`
     ];
     sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
   } else {
     // Etapa inicial → retenção mais leve, tentar entender a objeção
     const opcoes = [
       `\n\n${oi ? oi + ", o" : "O"} que pesou mais pra não seguir em frente? Me conta — às vezes é um detalhe que eu consigo resolver rapidinho 😊`,
-      `\n\n${oi ? oi + ", a" : "A"}ntes de fechar, que tal 15 minutinhos com o Paulo, nosso consultor? Ele adora montar estratégias do zero. Qual dia fica bom pra você? 📅`,
-      `\n\n${oi ? oi + ", q" : "Q"}ue tipo de divulgação você está pensando em fazer? Talvez tenha uma forma de encaixar no seu momento que eu não apresentei ainda 🎯`
+      `\n\n${oi ? oi + ", q" : "Q"}ue tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — só pra eu entender melhor o seu negócio e montar uma estratégia sob medida. Qual dia fica bom? 📅`,
+      `\n\n${oi ? oi + ", q" : "Q"}ue tipo de resultado você esperaria pra considerar que valeu a pena? Me fala que a gente vê se a gente consegue chegar lá 🎯`
     ];
     sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
   }
