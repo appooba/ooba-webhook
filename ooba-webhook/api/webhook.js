@@ -1942,7 +1942,7 @@ async function sendMsg(to, body) {
   const res = await fetch(`https://graph.facebook.com/v21.0/${PID}/messages`, {
     method: "POST",
     headers: { "Authorization": `Bearer ${WAT}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body } })
+    body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body, preview_url: true } })
   });
   const d = await res.json();
   if (d?.error) console.error("WA error:", JSON.stringify(d.error));
