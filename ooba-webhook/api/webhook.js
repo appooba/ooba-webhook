@@ -95,9 +95,10 @@ async function sendAudio(to, mediaId) {
   }
 }
 
-// 1 em cada 3 mensagens vira áudio — mais natural, não cansa
-function deveMandarAudio(totalMensagens) {
-  return totalMensagens === 1 || totalMensagens % 3 === 0;
+// Responde em áudio se o lead mandou áudio nessa mensagem
+// Lógica: espelha o comportamento do lead — simples e natural
+function deveMandarAudio(tipoMensagemRecebida) {
+  return tipoMensagemRecebida === "audio" || tipoMensagemRecebida === "voice";
 }
 
 // Limpar texto para áudio (sem links, emojis, markdown ou marcadores)
@@ -820,14 +821,7 @@ module.exports = async (req, res) => {
 
         // ── ÁUDIO: Luana manda voice note 1 em cada 3 msgs ──
         try {
-          // Buscar total de mensagens desta conversa
-          const histRes = await client.query(
-            "SELECT messages FROM conversations WHERE phone = $1", [from]
-          );
-          const msgs = histRes.rows[0]?.messages || [];
-          const totalMsgs = msgs.length;
-
-          if (deveMandarAudio(totalMsgs)) {
+          if (deveMandarAudio(m.type)) {
             // Pegar só o primeiro parágrafo para o áudio (mais natural e curto)
             const textoParaAudio = limparParaAudio(rep).split("\n\n")[0].slice(0, 280);
             if (textoParaAudio.length > 15) {
