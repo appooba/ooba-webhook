@@ -8,28 +8,50 @@ function getTelasDisponiveis(negocio, cidade) {
   const neg = (negocio || "").toLowerCase();
   const cid = (cidade || "Porto Feliz").toLowerCase();
 
-  // Matriz de conflitos de segmento (não oferecer tela concorrente ao lead)
-  const conflitos = {
-    "pizzaria": ["Pizzaria Rocks", "Pizzaria Monções"],
-    "pizza": ["Pizzaria Rocks", "Pizzaria Monções"],
-    "hamburgueria": ["Pizzaria Rocks", "Pizzaria Monções"],
-    "churrascaria": ["Restaurante Bonfá", "Recanto das Araras"],
-    "restaurante": ["Restaurante Bonfá", "Recanto das Araras"],
-    "academia": ["Academia R2"],
-    "crossfit": ["Academia R2"],
-    "fitness": ["Academia R2"],
-    "doceria": ["Sueli Bolos Porto Feliz", "Sueli Bolos Boituva"],
-    "confeitaria": ["Sueli Bolos Porto Feliz", "Sueli Bolos Boituva"],
-    "bolos": ["Sueli Bolos Porto Feliz", "Sueli Bolos Boituva"],
-    "pastelaria": ["Restaurante Bonfá", "Recanto das Araras"],
-    "lanchonete": ["Restaurante Bonfá", "Recanto das Araras"],
-  };
+  // ══════════════════════════════════════════════════════════════
+  // 🔒 REGRA DE OURO: NUNCA mostrar tela concorrente ao segmento do lead
+  // Protege os parceiros que cedem o espaço para as telas OOBA
+  // ══════════════════════════════════════════════════════════════
+  const matrizConflitos = [
+    {
+      palavras: ["pizzaria", "pizza", "pizzas", "pizzaiolo"],
+      bloqueadas: ["Pizzaria Rocks", "Pizzaria Monções"]
+    },
+    {
+      palavras: ["hamburgueria", "hamburguer", "hamburger", "burger", "lanche", "lanchonete", "hot dog", "cachorro quente"],
+      bloqueadas: ["Pizzaria Rocks", "Pizzaria Monções"]
+    },
+    {
+      palavras: ["churrascaria", "churrasco", "espetinho", "espeto", "steakhouse"],
+      bloqueadas: ["Restaurante Bonfá", "Recanto das Araras"]
+    },
+    {
+      palavras: ["restaurante", "self service", "selfservice", "marmita", "marmitaria", "comida", "prato feito", "almoço", "almoco", "refeicao", "refeição"],
+      bloqueadas: ["Restaurante Bonfá", "Recanto das Araras"]
+    },
+    {
+      palavras: ["academia", "crossfit", "musculação", "musculacao", "pilates", "personal trainer", "fitness", "gym"],
+      bloqueadas: ["Academia R2"]
+    },
+    {
+      palavras: ["doceria", "confeitaria", "bolo", "bolos", "cake", "brigadeiro", "doce", "doces", "sobremesa", "cupcake", "padaria", "pão", "panificadora"],
+      bloqueadas: ["Sueli Bolos Porto Feliz", "Sueli Bolos Boituva"]
+    },
+    {
+      palavras: ["bar", "boteco", "pub", "cervejaria", "choperia"],
+      bloqueadas: ["Pizzaria Rocks", "Pizzaria Monções", "Restaurante Bonfá"]
+    }
+  ];
 
-  // Descobrir quais telas bloquear para este negócio
+  // Detectar conflitos — checa cada palavra do negócio contra a matriz
   const telasBlockadas = new Set();
-  for (const [segmento, telasConflito] of Object.entries(conflitos)) {
-    if (neg.includes(segmento)) {
-      telasConflito.forEach(t => telasBlockadas.add(t));
+  for (const regra of matrizConflitos) {
+    for (const palavra of regra.palavras) {
+      if (neg.includes(palavra)) {
+        regra.bloqueadas.forEach(t => telasBlockadas.add(t));
+        console.log(`CONFLITO DETECTADO [${neg}]: palavra="${palavra}" → bloqueando ${regra.bloqueadas.join(", ")}`);
+        break;
+      }
     }
   }
 
@@ -560,6 +582,19 @@ Quando o lead perguntar que tipo de vídeo pode fazer:
 NÃO cite telas por escrito. NÃO pergunte quantos pontos. NÃO mencione "algumas telas". O catálogo já vai ser enviado pelo sistema.
 
 Se não tiver vídeo: "Se precisar, a gente produz por um valor adicional! 😊"
+
+═══════════════════════════════════
+🚨 REGRA INEGOCIÁVEL — PROTEÇÃO AOS PARCEIROS
+═══════════════════════════════════
+O sistema filtra as telas automaticamente por segmento.
+VOCÊ também NUNCA deve citar, sugerir ou mencionar telas concorrentes do negócio do lead:
+
+Pizzaria / pizza / burger / lanche → JAMAIS citar Pizzaria Rocks ou Pizzaria Monções
+Restaurante / churrascaria / marmita / bar → JAMAIS citar Restaurante Bonfá ou Recanto das Araras
+Academia / crossfit / fitness → JAMAIS citar Academia R2
+Doceria / padaria / confeitaria / bolos → JAMAIS citar Sueli Bolos
+
+Se o lead perguntar por que não apareceu alguma tela: "Essa tela já está reservada para o segmento deles — assim você não concorre com ninguém na tela onde anuncia 😊"
 
 ═══════════════════════════════════
 TELAS E HORÁRIOS
