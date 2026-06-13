@@ -907,116 +907,79 @@ function interceptarSaida(msgLead, respostaBot, lead) {
   const msgLeadLower = msgLead.toLowerCase().trim();
   const respostaLower = respostaBot.toLowerCase();
 
-  // Detectar sinais de saída do lead
+  // Sinais de saída — qualquer variação de desinteresse ou despedida
   const sinaisSaida = [
-    "qualquer coisa te aviso",
-    "qualquer coisa eu te aviso",
-    "qualquer coisa aviso",
-    "depois eu te chamo",
-    "depois te chamo",
-    "vou pensar",
-    "deixa eu pensar",
-    "vou ver",
-    "vou analisar",
-    "obrigado",
-    "obrigada",
-    "valeu",
-    "blz",
-    "tá bom",
-    "ta bom",
-    "até mais",
-    "ate mais",
-    "tchau",
-    "flw",
-    "falou",
-    "tmj",
-    "era só isso",
-    "era isso",
-    "por enquanto é isso",
-    "por hora é isso"
+    "nao quero mais", "não quero mais", "nao quero", "não quero",
+    "nao tenho interesse", "não tenho interesse", "sem interesse",
+    "nao vou", "não vou", "deixa pra la", "deixa pra lá",
+    "qualquer coisa te aviso", "qualquer coisa eu te aviso",
+    "depois eu te chamo", "depois te chamo",
+    "vou pensar", "deixa eu pensar",
+    "vou ver", "vou analisar", "vou conversar com",
+    "obrigado", "obrigada",
+    "valeu", "blz", "até mais", "ate mais",
+    "tchau", "flw", "falou", "tmj",
+    "era só isso", "era isso", "por hora", "por enquanto",
+    "nao preciso", "não preciso", "nao serve", "não serve",
+    "ta bom", "tá bom", "ok obrigado", "ok, obrigado",
+    "pode fechar", "encerra", "nao quero saber"
   ];
 
-  const leidoSaida = sinaisSaida.some(s => msgLeadLower.includes(s));
-  if (!leidoSaida) return respostaBot; // Não é sinal de saída, não interfere
+  const ehSaida = sinaisSaida.some(s => msgLeadLower.includes(s));
+  if (!ehSaida) return respostaBot;
 
-  // Se o GPT já propôs reunião/Paulo na resposta → não duplicar
-  const jaTemReuniao = [
-    "paulo", "15 min", "agendar", "reunião", "reuniao", "qual dia", "horário", "horario"
+  // Se o GPT já tentou reter com Paulo/reunião → não duplicar
+  const jaTemRetencao = [
+    "paulo", "15 min", "agendar", "reunião", "reuniao",
+    "qual dia", "horário", "horario", "bate um papo", "conversa rápida"
   ].some(s => respostaLower.includes(s));
-  if (jaTemReuniao) return respostaBot;
+  if (jaTemRetencao) return respostaBot;
 
-  // Detectar se a resposta da Luana está encerrando passivamente
-  const encerramentosPassivos = [
-    "fico à disposição",
-    "fico a disposição",
-    "quando precisar",
-    "estou aqui",
-    "até mais",
-    "ate mais",
-    "qualquer coisa",
-    "é só chamar",
-    "e só chamar",
-    "tchau",
-    "até logo",
-    "ate logo",
-    "sucesso",
-    "bom proveito",
-    "tenha um bom"
-  ];
+  // Identificar nome do lead se disponível
+  const oi = lead?.nome ? lead.nome.split(" ")[0] : "";
 
-  const encerrando = encerramentosPassivos.some(s => respostaLower.includes(s));
+  // Definir a força da retenção baseada na etapa
+  const etapa = lead?.etapa_funil || "abertura";
+  const etapasQuentes = ["materiais", "proposta", "fechamento", "recomendacao"];
+  const etapaQuente = etapasQuentes.includes(etapa);
 
-  // Mesmo que não esteja encerrando passivamente, reforçar reunião se é sinal de saída
-  // após etapas avançadas (materiais, proposta, fechamento)
-  const etapasAvancadas = ["materiais", "proposta", "fechamento", "recomendacao"];
-  const etapaAtual = lead?.etapa_funil || "abertura";
-  const etapaAvancada = etapasAvancadas.includes(etapaAtual);
+  // Montar resposta de retenção — sempre tentar salvar com reunião
+  let sufixo;
 
-  // Só intercepta se estiver em etapa avançada (lead já viu valores) — não durante a venda ativa
-  if (!etapaAvancada) return respostaBot;
-  if (!encerrando && !etapaAvancada) return respostaBot; // Não precisa interferir
-
-  // Escolher resposta de retenção baseada no contexto
-  const nome = lead?.nome ? lead.nome.split(" ")[0] : null;
-  const oi = nome ? `${nome}` : null;
-
-  // Montar sufixo de retenção
-  let sufixo = "";
-
-  if (encerrando || etapaAvancada) {
+  if (etapaQuente) {
+    // Estava quase fechando → retenção mais agressiva com Paulo
     const opcoes = [
-      `
-
-${oi ? oi + ", ainda" : "Ainda"} tem dúvida sobre preço, qual tela ou como funciona o vídeo? Me fala que eu resolvo agora 😊`,
-      `
-
-${oi ? oi + ", o" : "O"} que pesou mais na decisão? Me conta que posso te mostrar de outro ângulo — não quero que você perca essa visibilidade 🎯`,
-      `
-
-${oi ? oi + ", s" : "S"}e preferir conversar com alguém da nossa equipe, o Paulo pode te atender pelo (15) 99751-7779. Mas pode deixar comigo também! 😊`
+      `\n\n${oi ? oi + ", a" : "A"}ntes de ir — você chegou até aqui e faz sentido pro seu negócio. Basta 1 cliente novo pra pagar o investimento do mês inteiro. O que ficou travado? Me conta que eu resolvo agora 🎯`,
+      `\n\n${oi ? oi + ", q" : "Q"}ue tal uma conversa rápida de 15 min com o Paulo, nosso consultor? Ele pode montar uma proposta personalizada pro seu perfil sem compromisso. Qual dia essa semana fica bom? 📅`,
+      `\n\n${oi ? oi + ", e" : "E"}ntendo que precisa de mais tempo — mas antes deixa eu passar pro Paulo, ele consegue montar algo específico pro seu caso. Vai ser rápido, 15 minutos pelo (15) 99751-7779. Pode ser essa semana?`
     ];
-
-    // Escolher opção aleatória para não parecer robótico
+    sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
+  } else {
+    // Etapa inicial → retenção mais leve, tentar entender a objeção
+    const opcoes = [
+      `\n\n${oi ? oi + ", o" : "O"} que pesou mais pra não seguir em frente? Me conta — às vezes é um detalhe que eu consigo resolver rapidinho 😊`,
+      `\n\n${oi ? oi + ", a" : "A"}ntes de fechar, que tal 15 minutinhos com o Paulo, nosso consultor? Ele adora montar estratégias do zero. Qual dia fica bom pra você? 📅`,
+      `\n\n${oi ? oi + ", q" : "Q"}ue tipo de divulgação você está pensando em fazer? Talvez tenha uma forma de encaixar no seu momento que eu não apresentei ainda 🎯`
+    ];
     sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
   }
 
-  if (!sufixo) return respostaBot;
-
-  // Remover encerramentos passivos da resposta e adicionar sufixo de retenção
+  // Remover despedidas passivas da resposta do GPT antes de adicionar retenção
   let novaResposta = respostaBot;
-
-  // Remover "Até mais!", "Fico à disposição!" e similares do final
   const padroesFim = [
-    /\s*[Aa]té mais[!.]?\s*$/,
-    /\s*[Ff]ico à disposição[!.]?\s*$/,
-    /\s*[Ff]ico a disposição[!.]?\s*$/,
-    /\s*[Qq]uando precisar[, ]+é só chamar[!.]?\s*$/,
-    /\s*[Ee]stou aqui[!.]?\s*$/,
+    /\s*[Oo]brigad[oa] pelo seu tempo[!.]?\s*$/,
+    /\s*[Ss]ucesso nas suas estratégias[!.]?\s*$/,
     /\s*[Ss]ucesso[!.]?\s*$/,
+    /\s*[Aa]té mais[!.]?\s*$/,
+    /\s*[Ff]ico [aà] disposição[!.]?\s*$/,
+    /\s*[Qq]uando precisar[, ]+é só chamar[!.]?\s*$/,
+    /\s*[Ee]starei aqui[!.]?\s*$/,
+    /\s*[Ee]stou aqui[!.]?\s*$/,
+    /\s*[Tt]chau[!.]?\s*$/,
     /\s*[Aa]té logo[!.]?\s*$/,
-    /\s*[Tt]chau[!.]?\s*$/
+    /\s*[Ss]e mudar de ideia[^.!]*[.!]\s*$/,
+    /\s*[Pp]eça bem[!.]?\s*$/
   ];
-
   for (const p of padroesFim) {
     novaResposta = novaResposta.replace(p, "");
   }
@@ -1024,12 +987,7 @@ ${oi ? oi + ", s" : "S"}e preferir conversar com alguém da nossa equipe, o Paul
   return novaResposta.trimEnd() + sufixo;
 }
 
-// ═══════════════════════════════════════════════════════
-// SPLIT DE MENSAGENS — divide resposta longa em múltiplas
-// ═══════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════
-// INJETAR PDF — garante que o link seja enviado quando lead pede proposta
-// ═══════════════════════════════════════════════════════
+
 function injetarPDF(msgLead, respostaBot) {
   if (!msgLead || !respostaBot) return respostaBot;
 
