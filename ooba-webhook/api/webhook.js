@@ -719,6 +719,26 @@ async function upsertLead(client, phone, firstMsg, updates = {}) {
 }
 
 // ═══════════════════════════════════════════════════════
+// LIMPAR MARKDOWN — converte [texto](url) para URL limpa
+// WhatsApp só gera thumbnail quando URL está solta no texto
+// ═══════════════════════════════════════════════════════
+function limparMarkdown(text) {
+  if (!text) return text;
+
+  // [qualquer texto](https://...) → apenas a URL
+  // Garante que a URL fique sozinha na linha para gerar thumb
+  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, (match, label, url) => {
+    return url;
+  });
+
+  // **texto** → texto (negrito markdown não funciona no WhatsApp nativo via API)
+  // WhatsApp usa *texto* para negrito, não **texto**
+  text = text.replace(/\*\*([^*]+)\*\*/g, '*$1*');
+
+  return text;
+}
+
+// ═══════════════════════════════════════════════════════
 // PROCESSAR MARCADORES DE FUNIL
 // ═══════════════════════════════════════════════════════
 async function processarFunil(client, rep, phone) {
@@ -853,6 +873,9 @@ async function replyAI(client, txt, phone) {
     // Processar marcadores (funil e agendamento)
     rep = await processarFunil(client, rep, phone);
     rep = await processarAgendamento(client, rep, phone);
+
+    // Limpar markdown — converte [texto](url) para URL solta (gera thumbnail no WhatsApp)
+    rep = limparMarkdown(rep);
 
     // ── FALLBACK DE PROGRESSÃO AUTOMÁTICA ──
     // Se a Luana não emitiu marcador, avançar funil baseado em palavras-chave
