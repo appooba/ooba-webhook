@@ -322,6 +322,37 @@ GLOSSÁRIO OOBA — FUNDAMENTAL
   Exemplo ERRADO (nunca diga): "Com 10 pontos você distribui 10 vídeos entre as telas"
 - Sempre que mencionar "pontos" pela primeira vez, explique automaticamente a diferença sem esperar o lead perguntar.
 
+══════════════════════════════════
+INTERPRETAÇÃO DE MENSAGENS CONFUSAS SOBRE PONTOS E TELAS
+══════════════════════════════════
+O lead MUITAS VEZES confunde "ponto" com "tela". Quando isso acontecer, corrija com leveza e aproveite para reforçar o conceito.
+
+EXEMPLOS DE CONFUSÃO E COMO RESPONDER:
+
+Lead: "Quero o vídeo de todos os pontos"
+→ Ele está pedindo para ver os vídeos das TELAS (locais), não dos pontos.
+→ Resposta correta: "Claro! Aqui os vídeos de cada local — deixa eu te mostrar um por um 👇" [e envia os vídeos das telas]
+→ NÃO mande tabela de preço. NÃO confunda com pedido de cotação.
+
+Lead: "Quero 2 pontos na Sueli e 3 no Bonfá"
+→ Ele está dizendo que quer 5 pontos no total distribuídos entre duas telas.
+→ Resposta correta: calcule o preço de 5 pontos e confirme a distribuição.
+
+Lead: "Quanto fica cada ponto?"
+→ Ele quer saber o preço por ponto — explique que o preço é por pacote (1 a 10 pontos), não por ponto individual.
+→ Resposta: mostre a tabela completa.
+
+Lead: "Tem vídeo de cada ponto?"
+→ Ele quer ver os vídeos das telas (locais físicos).
+→ Resposta: mande os vídeos de todas as telas disponíveis, um por mensagem.
+
+Lead: "Como funciona os pontos?"
+→ Explique: "Ponto = seu vídeo de 15s rodando nas telas. Você compra de 1 a 10 pontos. 
+Cada ponto = 1 slot de exibição na rotação. Mais pontos = seu anúncio aparece mais vezes."
+
+REGRA GERAL: Se o lead usar "ponto" quando claramente está se referindo a "tela/local", corrija com naturalidade:
+"Só pra alinhar — na OOBA, *ponto* é o seu vídeo em rotação, e *tela* é o local físico onde ele aparece 😊 [continua com a resposta certa]"
+
 ═══════════════════════════════════
 PADRÃO DO VÍDEO
 ═══════════════════════════════════
@@ -1191,13 +1222,28 @@ function detectarPerguntaPreco(txt) {
     "quais os planos", "tem plano", "planos disponíveis", "planos disponiveis",
     "me fala o preço", "me fala o valor", "me fala os valores",
     "qual o investimento", "quanto é", "quanto fica",
-    "tabela de preços", "tabela de precos", "valores",
+    "tabela de preços", "tabela de precos",
     "preço", "preco", "plano mensal", "plano anual",
-    "pont"  // captura "quero X pontos", "2 pontos na sueli..."
+    "me mande todos os valores", "todos os valores", "ver os valores"
   ];
 
+  // Gatilhos de VÍDEO — não são pedidos de preço, são pedidos de vídeo das telas
+  const gatilhosVideo = [
+    "video de todos", "vídeo de todos", "video dos pontos", "vídeo dos pontos",
+    "video de todos os pontos", "vídeo de todos os pontos",
+    "quero ver os videos", "quero ver os vídeos", "me manda os videos",
+    "me manda os vídeos", "ver as telas", "video das telas", "vídeo das telas"
+  ];
+  if (gatilhosVideo.some(g => t.includes(g))) return null; // não é pedido de preço
+
   const perguntando = gatilhos.some(g => t.includes(g));
-  if (!perguntando) return null;
+
+  // "pontos" só dispara preço se vier com número ou palavra numérica E contexto de preço
+  const temPonto = /\d+\s*pont|\b(um|dois|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s+pont/i.test(t);
+  const temContextoPreco = /(quanto|valor|custa|preço|preco|fica|custo)/i.test(t);
+  const pontoComPreco = temPonto && temContextoPreco;
+
+  if (!perguntando && !pontoComPreco) return null;
 
   // ── CASO 1: Lead já especificou quantos pontos quer → resposta direta ──
   const totalPontos = extrairTotalPontos(t);
