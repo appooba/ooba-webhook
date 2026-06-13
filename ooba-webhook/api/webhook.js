@@ -644,21 +644,36 @@ Emita: [FUNIL:etapa=apresentacao;negocio=NEGOCIO;cidade=CIDADE;empresa=NOME;obje
 
     apresentacao: `
 VOCÊ ESTÁ NA ETAPA: APRESENTAÇÃO
-Explique o produto em sequência usando ---MSG---:
-MSG 1: "Aqui na OOBA você compra *pontos* — cada ponto é um vídeo de 15s em rotação nas telas. As telas são locais físicos em ${cidade}: Sueli Bolos, R2, Araras, Monções, Rocks e Bonfá 😊"
-MSG 2: "Seu vídeo roda seg–dom das 6h à meia-noite. A pessoa fica ~1h no local e vê seu anúncio 6 a 7 vezes. É fixação de marca — diferente de post no feed que some em segundos."
-MSG 3: "Você prefere focar numa tela pra aumentar frequência, ou distribuir em várias pra alcançar mais gente? Assim já monto a recomendação certa pra você 😊"
-Emita: [FUNIL:etapa=recomendacao]`,
+ATENÇÃO: use ---MSG--- para separar CADA mensagem. Sem isso elas chegam juntas ao lead.
+
+Responda EXATAMENTE neste formato:
+Aqui na OOBA você compra *pontos* — cada ponto é um vídeo de 15s em rotação nas telas. As telas são os locais físicos em ${cidade} onde as telas estão instaladas 😊
+---MSG---
+Seu vídeo roda seg–dom das 6h à meia-noite. A pessoa fica ~1h no local e vê seu anúncio de 6 a 7 vezes. É fixação de marca — muito diferente de post no feed que some em segundos.
+---MSG---
+Você prefere focar numa tela pra aumentar a frequência, ou distribuir em várias pra cobrir mais gente? Assim já sei o que recomendar pra você 😊
+---MSG---
+[FUNIL:etapa=recomendacao]`,
 
     recomendacao: `
 VOCÊ ESTÁ NA ETAPA: RECOMENDAÇÃO
-Recomende telas específicas baseado no negócio e cidade do lead.
-SEMPRE verifique conflitos antes de recomendar.
-Use dados reais: "São X pessoas/mês vendo seu anúncio todo mês 📊"
-Envie os vídeos das telas recomendadas — CADA link em uma mensagem separada usando ---MSG---.
-Formato de cada link: "👇 [Nome da Tela]\nhttps://youtube.com/shorts/ID"
-Após enviar os vídeos, pergunte: "Qual dessas faz mais sentido pro seu perfil?"
-Emita: [FUNIL:etapa=materiais]`,
+REGRA CRÍTICA: cada link YouTube DEVE estar em uma mensagem separada com ---MSG---.
+NUNCA liste telas em bullet points — isso não gera thumbnail no WhatsApp.
+
+Formato OBRIGATÓRIO da resposta (copie este modelo):
+[Texto: recomende as telas com nome + dados de fluxo mensal]
+---MSG---
+👇 [Nome da Tela 1]
+https://youtube.com/shorts/ID1
+---MSG---
+👇 [Nome da Tela 2]
+https://youtube.com/shorts/ID2
+---MSG---
+Qual dessas faz mais sentido pro perfil do seu negócio?
+---MSG---
+[FUNIL:etapa=materiais]
+
+VERIFICAR CONFLITOS antes de recomendar qualquer tela.`,
 
     materiais: `
 VOCÊ ESTÁ NA ETAPA: MATERIAIS
@@ -1095,24 +1110,46 @@ async function salvarMsgHistorico(client, phone, msgUser, msgBot) {
 function splitMensagens(text) {
   if (!text) return [text];
 
-  // 1. Separador explícito ---MSG--- que o GPT pode usar
+  // 1. Separador explícito ---MSG---
   if (text.includes("---MSG---")) {
     return text.split("---MSG---").map(s => s.trim()).filter(Boolean);
   }
 
-  // 2. Detectar se tem Plano Mensal E Plano Anual na mesma mensagem → dividir
+  // 2. Se tiver múltiplos links YouTube na mesma mensagem → forçar separação
+  const youtubeRegex = /https?:\/\/(?:www\.)?youtube\.com\/shorts\/\S+|https?:\/\/youtu\.be\/\S+/g;
+  const links = [...text.matchAll(youtubeRegex)];
+  if (links.length > 1) {
+    // Separar cada link em sua própria mensagem
+    const partes = [];
+    let restante = text;
+    for (const link of links) {
+      const url = link[0].replace(/[.,;!?)]+$/, '');
+      const idx = restante.indexOf(url);
+      // Pegar texto antes do link (sem o link)
+      const antes = restante.substring(0, idx).trim();
+      // Pegar nome da tela na linha antes do link
+      const linhas = antes.split(/\r?\n/);
+      const nomeLinha = linhas[linhas.length - 1].trim();
+      const textoAntes = linhas.slice(0, -1).join("\n").trim();
+      if (textoAntes) partes.push(textoAntes);
+      partes.push((nomeLinha ? nomeLinha + "\n" : "") + url);
+      restante = restante.substring(idx + url.length).trim();
+    }
+    if (restante) partes.push(restante);
+    return partes.filter(Boolean);
+  }
+
+  // 3. Plano Mensal + Anual juntos → dividir
   const temMensal = /plano mensal/i.test(text);
   const temAnual = /plano anual/i.test(text);
-
   if (temMensal && temAnual) {
-    // Tentar dividir na linha do Plano Anual
     const match = text.match(/([\s\S]*?)(📆[\s\S]*|plano anual[\s\S]*)/i);
     if (match && match[1] && match[2]) {
       return [match[1].trim(), match[2].trim()].filter(Boolean);
     }
   }
 
-  // 3. Mensagem única — retorna como está
+  // 4. Mensagem única
   return [text];
 }
 
@@ -1303,7 +1340,7 @@ async function replyAI(client, txt, phone) {
     body: JSON.stringify({
       model: "gpt-4o-mini",
       messages: [{ role: "system", content: sys }, ...msgs],
-      max_tokens: 500,
+      max_tokens: 1200,
       temperature: 0.55
     })
   });
