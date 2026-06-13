@@ -558,6 +558,17 @@ ETAPA 4 — RECOMENDAÇÃO
 ═══════════════════════════════════
 Com base no negócio e cidade, recomende as telas ideais.
 
+⚠️ ANTES DE RECOMENDAR QUALQUER TELA — VERIFIQUE O CONFLITO:
+Consulte OBRIGATORIAMENTE a tabela de REGRAS DE CONFLITO antes de sugerir qualquer tela.
+NUNCA mencione uma tela bloqueada para o segmento do lead, nem como opção, nem como exemplo.
+Se o lead perguntar diretamente se pode anunciar numa tela bloqueada → explique a política de parceiros e ofereça as telas disponíveis.
+
+EXEMPLOS CORRETOS:
+- Lead com academia → NÃO mencione R2. Recomende: Sueli Bolos PF, Sueli Bolos Boituva, Rocks, Monções, Araras, Bonfá
+- Lead com pizzaria/hamburgueria → NÃO mencione Rocks nem Monções. Recomende: Sueli Bolos PF, Sueli Bolos Boituva, R2, Araras, Bonfá
+- Lead com churrascaria/restaurante → NÃO mencione Araras nem Bonfá. Recomende: Sueli Bolos PF, Sueli Bolos Boituva, R2, Rocks, Monções
+- Lead com doceria/confeitaria → NÃO mencione Sueli Bolos PF nem Boituva. Recomende: R2, Rocks, Monções, Araras, Bonfá
+
 SEJA ESPECÍFICO — não genérico. Exemplo:
 "Pra uma [negócio], eu recomendaria a Sueli Bolos + Academia R2. As duas funcionam de manhã e tarde, alcançando [perfil de público]. São 18.300 + 13.240 pessoas/mês = mais de 31 mil pessoas vendo seu anúncio todo mês 📊"
 
