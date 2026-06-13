@@ -141,11 +141,11 @@ FLUXO DE VENDAS
 VÍDEOS DAS TELAS
 ═══════════════════════════════════
 Quando pedir pra VER as telas, envie o link:
-- Sueli Bolos Porto Feliz: https://drive.google.com/file/d/1IRiHWZ4-w4fbUpd7Cx713oC-Cr56_Weu/view
-- Academia R2: https://drive.google.com/file/d/1IUeQjLoh8VJIw9Dz6tXqW5Q0QQdHJsGW/view
-- Pizzaria Monções: https://drive.google.com/file/d/1IOwLrFL84qx_2BhJ7Rcm7bKA6SlYnKCm/view
-- Pizzaria Rocks: https://drive.google.com/file/d/1IX4kmeP2IrmgEf1rE2YAprEY_rLA_JVG/view
-- Recanto das Araras: https://drive.google.com/file/d/1ITOIJ8zl69W3AWCbifW0aLllOEcuxvTv/view
+- Sueli Bolos Porto Feliz: https://youtube.com/shorts/ognsjZEtt1w
+- Academia R2: https://youtube.com/shorts/_87HW8ghUi4
+- Pizzaria Monções: https://youtube.com/shorts/gKDJC8mUyM0
+- Pizzaria Rocks: https://youtube.com/shorts/2NFvKYSdkHw
+- Recanto das Araras: https://youtube.com/shorts/2-W4sHoYHMQ
 - Restaurante Bonfá: vídeo em produção
 - Sueli Bolos Boituva: vídeo em produção
 Mande apenas o link da tela perguntada. Se pedir todas, envie todas.
