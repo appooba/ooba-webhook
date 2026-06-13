@@ -672,8 +672,11 @@ ${ctx}`;
     abertura: `
 VOCÊ ESTÁ NA ETAPA: ABERTURA
 
-Script de abertura OBRIGATÓRIO (use na primeira mensagem):
+Script de abertura OBRIGATÓRIO (use sempre como PRIMEIRA resposta, independente do que o lead mandou):
 "Oi! Sou a Luana, consultora da OOBA Mídia Indoor 😊 Me conta — hoje você já divulga seu negócio de alguma forma? Redes sociais, Google, panfleto...?"
+
+⚠️ IMPORTANTE: Se o lead mandou "Obrigado", "Oi", "Olá", "Tudo bem" ou qualquer coisa na PRIMEIRA mensagem,
+use SOMENTE o script de abertura acima. NÃO mencione reunião, Paulo, preço ou qualquer retenção na abertura.
 
 Quando o lead responder sobre como divulga HOJE:
 → NÃO confirme com "ótimo" vazio. Use a resposta dele como gancho.
@@ -953,43 +956,54 @@ Me conta: ${negocio === 'seu negócio' ? 'qual é o seu negócio e em qual cidad
 // ═══════════════════════════════════════════════════════
 // INTERCEPTADOR DE SAÍDA — impede o lead de escapar sem tentar reunião
 // ═══════════════════════════════════════════════════════
-function interceptarSaida(msgLead, respostaBot, lead) {
+function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   if (!msgLead || !respostaBot) return respostaBot;
 
   const msgLeadLower = msgLead.toLowerCase().trim();
   const respostaLower = respostaBot.toLowerCase();
+  const etapa = lead?.etapa_funil || "abertura";
 
-  // Sinais claros de saída
-  const sinaisSaida = [
+  // Nunca interceptar na etapa inicial se ainda não houve apresentação
+  // (evita confundir "obrigado" como primeira mensagem com sinal de saída)
+  const numTrocas = (msgs || []).length;
+
+  // Sinais FORTES de saída — interceptar sempre (mínimo 1 troca = lead já foi apresentado)
+  const sinaisFortes = [
     "nao quero mais", "não quero mais", "nao quero", "não quero",
     "nao tenho interesse", "não tenho interesse", "sem interesse",
     "nao vou", "não vou", "deixa pra la", "deixa pra lá",
-    "qualquer coisa te aviso", "qualquer coisa eu te aviso",
-    "depois eu te chamo", "depois te chamo", "depois vejo",
-    "vou pensar", "deixa eu pensar",
-    "vou ver", "vou analisar",
-    "obrigado", "obrigada", "vlw",
-    "valeu", "blz", "até mais", "ate mais",
-    "tchau", "flw", "falou", "tmj",
-    "era só isso", "era isso", "por hora", "por enquanto",
     "nao preciso", "não preciso", "nao serve", "não serve",
-    "ta bom", "tá bom", "ok obrigado", "ok, obrigado",
-    "pode fechar", "encerra", "nao quero saber"
+    "pode fechar", "encerra", "nao quero saber",
+    "tchau", "ate mais", "até mais", "flw", "falou"
   ];
 
-  const ehSaida = sinaisSaida.some(s => msgLeadLower.includes(s));
-  if (!ehSaida) return respostaBot;
+  // Sinais FRACOS de saída — só interceptar se já houver ao menos 4 mensagens trocadas
+  // (evita pegar "obrigado" de abertura, "blz" de confirmação, etc.)
+  const sinaisFracos = [
+    "obrigado", "obrigada", "vlw", "valeu", "blz", "tmj",
+    "era só isso", "era isso", "por hora", "por enquanto",
+    "ta bom", "tá bom", "ok obrigado", "ok, obrigado",
+    "vou pensar", "deixa eu pensar", "vou ver", "vou analisar",
+    "qualquer coisa te aviso", "qualquer coisa eu te aviso",
+    "depois eu te chamo", "depois te chamo", "depois vejo"
+  ];
 
-  // Verificar quantas vezes já tentamos reter (baseado no histórico — simplificado por marcador)
-  // Se já tentou 2x reter com reunião → deixa passar (não ficar no loop infinito)
-  const tentativasReuniao = (respostaBot.match(/qual dia|qual horário|qual horario|me passa seu e-mail/gi) || []).length;
+  const ehSaidaForte = sinaisFortes.some(s => msgLeadLower.includes(s));
+  const ehSaidaFraca = sinaisFracos.some(s => msgLeadLower.includes(s));
+
+  // Só intercepta sinal fraco se conversa já tem pelo menos 4 mensagens (2 trocas)
+  const ehSaida = ehSaidaForte || (ehSaidaFraca && numTrocas >= 4);
+  if (!ehSaida) return respostaBot;
 
   // Verificar se o bot já está propondo reunião nessa resposta → não duplicar
   const jaPropondoReuniao = [
     "qual dia", "qual horário", "qual horario", "fica bom pra você",
-    "me passa seu e-mail", "google meet", "agendar"
+    "me passa seu e-mail", "google meet", "agendar", "15 minutos"
   ].some(s => respostaLower.includes(s));
   if (jaPropondoReuniao) return respostaBot;
+
+  // Não interceptar na etapa abertura com sinal fraco (lead está só chegando)
+  if (etapa === "abertura" && ehSaidaFraca) return respostaBot;
 
   // Remover encerramento passivo do GPT
   let novaResposta = respostaBot;
@@ -999,8 +1013,8 @@ function interceptarSaida(msgLead, respostaBot, lead) {
     /\s*[Aa]té mais[!.,]?\s*$/,
     /\s*[Ff]ico [aà] disposição[!.,]?\s*$/,
     /\s*[Qq]uando precisar[^.!]*[.!]\s*$/,
-    /\s*[Ee]starei aqui[!.,]?\s*$/,
-    /\s*[Ee]stou aqui[!.,]?\s*$/,
+    /\s*[Ee]starei (por )?aqui[!.,]?\s*$/,
+    /\s*[Ee]stou (por )?aqui[!.,]?\s*$/,
     /\s*[Tt]chau[!.,]?\s*$/,
     /\s*[Aa]té logo[!.,]?\s*$/,
     /\s*[Ss]e mudar de ideia[^.!]*[.!]\s*$/,
@@ -1008,36 +1022,31 @@ function interceptarSaida(msgLead, respostaBot, lead) {
     /\s*[Tt]enha um bom dia[!.,]?\s*$/,
     /\s*[Pp]or aqui[!.,]?\s*$/,
     /\s*[Dd]e nada[!.,]\s*[Qq]ualquer coisa[^.!]*[.!]\s*$/,
-    /\s*[Rr]espeito sua decisão[!.,]?\s*$/
+    /\s*[Rr]espeito sua decisão[!.,]?\s*$/,
+    /\s*[Cc]ompreendo[!.,]?\s*$/
   ];
   for (const p of padroesFim) {
     novaResposta = novaResposta.replace(p, "").trim();
   }
-  // Remover a frase inteira se sobrou só uma saudação passiva
-  if (!novaResposta || novaResposta.length < 10) {
-    novaResposta = "";
-  }
+  if (!novaResposta || novaResposta.length < 10) novaResposta = "";
 
   const oi = lead?.nome ? lead.nome.split(" ")[0] : "";
-  const etapa = lead?.etapa_funil || "abertura";
   const etapasQuentes = ["materiais", "proposta", "fechamento", "recomendacao", "videos"];
   const etapaQuente = etapasQuentes.includes(etapa);
 
   let sufixo;
   if (etapaQuente) {
-    // Retenção forte — propõe reunião diretamente
     const opcoes = [
-      `${oi ? oi + ", a" : "A"}ntes de ir — você chegou até aqui, faz todo sentido pro seu negócio. O que ficou travado? Me conta que eu resolvo agora 🎯`,
-      `${oi ? oi + ", q" : "Q"}ue tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — só pra eu montar uma estratégia exata pro ${lead?.negocio || "seu negócio"}. Qual dia essa semana fica bom? 📅`,
-      `${oi ? oi + ", p" : "P"}odemos marcar uma conversa rápida — 15 minutos, sem compromisso. Me fala um dia e horário que funciona! 😊`
+      `${oi ? oi + ", a" : "A"}ntes de ir — você chegou até aqui e faz todo sentido pro seu negócio. O que ficou travado? Me conta que eu resolvo agora 🎯`,
+      `${oi ? oi + ", q" : "Q"}ue tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — só pra fechar os detalhes. Qual dia essa semana fica bom? 📅`,
+      `${oi ? oi + ", p" : "P"}odemos marcar uma conversa rápida — 15 minutos, sem compromisso, pelo Google Meet. Qual dia e horário funciona? 😊`
     ];
     sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
   } else {
-    // Retenção leve — entende objeção ou propõe reunião
     const opcoes = [
       `${oi ? oi + ", o" : "O"} que ficou de dúvida? Preço, qual tela ou como funciona? Me fala que eu resolvo agora 🎯`,
-      `${oi ? oi + ", q" : "Q"}ue tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso, só pra eu entender melhor o seu negócio. Qual dia fica bom? 📅`,
-      `${oi ? oi + ", b" : "B"}asta 1 cliente novo por mês pra pagar o investimento inteiro. Quer ver como ficaria pro ${lead?.negocio || "seu negócio"}? Me fala um horário que funciona 🎯`
+      `${oi ? oi + ", q" : "Q"}ue tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — só pra entender melhor o seu negócio. Qual dia fica bom? 📅`,
+      `${oi ? oi + ", b" : "B"}asta 1 cliente novo por mês pra pagar o investimento inteiro. Quer ver como ficaria? Me fala um horário que funciona 🎯`
     ];
     sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
   }
@@ -1420,7 +1429,7 @@ async function replyAI(client, txt, phone) {
 
     // ── INTERCEPTADOR DE SAÍDA (prioridade máxima) ──
     // Roda SEMPRE — antes de qualquer outra lógica — para não deixar o lead escapar
-    rep = interceptarSaida(txt, rep, lead);
+    rep = interceptarSaida(txt, rep, lead, msgs);
 
     // ── INTERCEPTADOR DE PREÇO ANTECIPADO ──
     // Só bloqueia preço se NÃO for sinal de saída (para não sobrescrever a retenção)
