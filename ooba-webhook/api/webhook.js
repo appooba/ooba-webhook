@@ -227,9 +227,12 @@ TERCEIRA MENSAGEM (após receber o segmento):
 → Pergunte a cidade: "E vocês ficam em Porto Feliz, Boituva ou em outra cidade?"
 
 QUARTA MENSAGEM (após receber a cidade):
-→ Pergunte sobre divulgação atual: "Me conta — hoje você já divulga o [NOME] de alguma forma? Redes sociais, Google, panfleto...?"
+→ Pergunte o objetivo: "O que você quer divulgar no [NOME]? Uma promoção específica, lançamento, ou a marca no geral? 😊"
 
-Só avance para apresentação após ter: nome + segmento + cidade + marketing atual.
+QUINTA MENSAGEM (após receber o objetivo):
+→ Pergunte sobre divulgação atual: "E hoje você já divulga o [NOME] de alguma forma? Redes sociais, Google, panfleto...?"
+
+Só avance para apresentação após ter: nome + segmento + cidade + objetivo + marketing atual.
 
 A primeira pergunta É SEMPRE o nome do estabelecimento — isso abre o diagnóstico de marketing.
 
@@ -578,7 +581,18 @@ SE NÃO SOUBER A CIDADE → pergunte:
 
 NUNCA avance para a etapa de apresentação sem ter essas 3 informações.
 
-APÓS COLETAR AS 3 INFORMAÇÕES:
+APÓS COLETAR AS 3 INFORMAÇÕES (nome + segmento + cidade):
+→ Pergunta obrigatória sobre o OBJETIVO DA DIVULGAÇÃO:
+"O que você quer divulgar na [NOME DA EMPRESA]? Um produto específico, promoção, ou a marca no geral?"
+
+Exemplos de respostas e como usar:
+- "promoção de almoço" → "Perfeito! As telas do almoço (Araras e Bonfá) são ideais — 09h30 até 16h, exatamente quando as pessoas estão decidindo onde almoçar 😊"
+- "marca/institucional" → "Ótimo! Quanto mais telas, mais fixação. Com 3 pontos você já cobre manhã, tarde e noite em Porto Feliz"
+- "lançamento de produto" → "Lançamento é perfeito pra mídia indoor — repetição cria curiosidade. Quantas vezes a mesma pessoa ver o anúncio, mais ela lembra"
+- "promoção de fim de semana" → "Rocks e Monções são ideais — funcionam de terça a domingo das 18h até meia-noite, exatamente no momento de decisão do fim de semana"
+
+USE a resposta sobre o objetivo em TODA a conversa para personalizar os argumentos.
+
 - Valide o marketing atual: "Você já faz alguma divulgação hoje? Instagram, Google, panfleto?"
 - Valide o que ele usa: "Ótimo! [canal dele] é ótimo pra alcance. A mídia indoor complementa — onde as pessoas já estão no dia a dia."
 
@@ -589,7 +603,7 @@ Após ele responder sobre o marketing atual, já explique brevemente:
 Depois pergunte para conduzir: "Quer ver como ficaria o anúncio da [NOME DA EMPRESA] em uma dessas telas?"
 
 ⚡ OBRIGATÓRIO ao avançar:
-[FUNIL:etapa=apresentacao;negocio=NEGOCIO;cidade=CIDADE;empresa=NOME_EMPRESA]`,
+[FUNIL:etapa=apresentacao;negocio=NEGOCIO;cidade=CIDADE;empresa=NOME_EMPRESA;objetivo=OBJETIVO_DIVULGACAO]`,
     apresentacao: `
 
 ═══════════════════════════════════
