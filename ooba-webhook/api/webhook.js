@@ -1,9 +1,10 @@
+const { Client } = require("pg");
+
 const VT = "ooba2026";
 const WAT = process.env.WHATSAPP_TOKEN || "";
 const PID = "1189704930882063";
 const OAI_KEY = process.env.OPENAI_API_KEY || "";
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || "";
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
+const DATABASE_URL = process.env.DATABASE_URL || "";
 
 const SYS = `Você é o Vendedor OOBA, consultor virtual de mídia indoor no WhatsApp.
 
@@ -22,7 +23,7 @@ FLUXO (siga a ordem, nunca volte atrás):
 2. VALIDAÇÃO: elogie o que ele usa e apresente indoor como complemento
 3. DIFERENCIAIS: use dados (pessoa fica 1h no local, vídeo 15s aparece 6-7x, roda 6h-meia-noite, +70mil pessoas/mês, OOH +123% 2017-2024)
 4. ENTENDIMENTO: pergunte sobre o negócio e público-alvo
-5. PROPOSTA: indique os pontos ideais com dados de fluxo
+5. PROPOSTA: indique os pontos ideais com base no negócio dele
 6. FECHAMENTO: apresente preços e feche
 
 PONTOS (Porto Feliz e Boituva):
@@ -44,41 +45,64 @@ Bônus anual +3pts: rodízio. +5pts: 1º vídeo grátis + carrossel 2 vídeos.
 
 CONTATO: (11) 92127-6113 | contato@ooba.com.br | www.ooba.com.br`;
 
-// Histórico em memória (fallback se Redis não configurado)
-const memHist = {};
-
-async function getHist(phone) {
-  if (REDIS_URL && REDIS_TOKEN) {
-    try {
-      const res = await fetch(`${REDIS_URL}/get/hist:${phone}`, {
-        headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
-      });
-      const d = await res.json();
-      if (d?.result) {
-        const msgs = JSON.parse(d.result);
-        console.log(`Redis: ${msgs.length} msgs para ${phone}`);
-        return msgs;
-      }
-    } catch(e) { console.error("Redis get:", e.message); }
-  }
-  return memHist[phone] || [];
+async function getDB() {
+  const client = new Client({
+    connectionString: DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+  await client.connect();
+  return client;
 }
 
-async function saveHist(phone, msgs) {
-  const data = JSON.stringify(msgs.slice(-30));
-  if (REDIS_URL && REDIS_TOKEN) {
-    try {
-      await fetch(`${REDIS_URL}/set/hist:${phone}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${REDIS_TOKEN}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ value: data, ex: 86400 * 30 }) // 30 dias
-      });
-      console.log(`Redis: salvo ${msgs.length} msgs para ${phone}`);
-      return;
-    } catch(e) { console.error("Redis set:", e.message); }
-  }
-  memHist[phone] = msgs.slice(-30);
-  console.log(`Mem: salvo ${msgs.length} msgs para ${phone}`);
+async function initDB(client) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS conversations (
+      phone VARCHAR(20) PRIMARY KEY,
+      messages TEXT NOT NULL DEFAULT '[]',
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS leads (
+      id SERIAL PRIMARY KEY,
+      phone VARCHAR(20) UNIQUE NOT NULL,
+      first_message TEXT,
+      status VARCHAR(50) DEFAULT 'novo',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+}
+
+async function getHist(client, phone) {
+  try {
+    const r = await client.query("SELECT messages FROM conversations WHERE phone=$1", [phone]);
+    if (r.rows.length > 0) {
+      const msgs = JSON.parse(r.rows[0].messages);
+      console.log(`DB: ${msgs.length} msgs para ${phone}`);
+      return msgs;
+    }
+  } catch(e) { console.error("getHist:", e.message); }
+  return [];
+}
+
+async function saveHist(client, phone, msgs) {
+  try {
+    await client.query(`
+      INSERT INTO conversations (phone, messages, updated_at)
+      VALUES ($1, $2, NOW())
+      ON CONFLICT (phone) DO UPDATE SET messages=$2, updated_at=NOW()
+    `, [phone, JSON.stringify(msgs.slice(-30))]);
+    console.log(`DB: salvo ${msgs.length} msgs para ${phone}`);
+  } catch(e) { console.error("saveHist:", e.message); }
+}
+
+async function saveLead(client, phone, firstMsg) {
+  try {
+    await client.query(`
+      INSERT INTO leads (phone, first_message, updated_at)
+      VALUES ($1, $2, NOW())
+      ON CONFLICT (phone) DO UPDATE SET updated_at=NOW()
+    `, [phone, firstMsg]);
+  } catch(e) { console.error("saveLead:", e.message); }
 }
 
 async function sendMsg(to, body) {
@@ -92,8 +116,9 @@ async function sendMsg(to, body) {
   else console.log("WA sent:", d?.messages?.[0]?.id);
 }
 
-async function replyAI(txt, phone) {
-  const msgs = await getHist(phone);
+async function replyAI(client, txt, phone) {
+  const msgs = await getHist(client, phone);
+  const isNew = msgs.length === 0;
   msgs.push({ role: "user", content: txt });
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -113,7 +138,8 @@ async function replyAI(txt, phone) {
   const rep = d?.choices?.[0]?.message?.content?.trim() || "";
   if (rep) {
     msgs.push({ role: "assistant", content: rep });
-    await saveHist(phone, msgs);
+    await saveHist(client, phone, msgs);
+    if (isNew) await saveLead(client, phone, txt);
   }
   return rep;
 }
@@ -128,6 +154,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === "POST") {
+    let client;
     try {
       const v = req.body?.entry?.[0]?.changes?.[0]?.value;
       if (v?.statuses) return res.json({ ok: true });
@@ -148,7 +175,11 @@ module.exports = async (req, res) => {
       if (!from || !txt) return res.json({ ok: true });
 
       console.log(`IN [${from}]: ${txt}`);
-      const rep = await replyAI(txt, from);
+
+      client = await getDB();
+      await initDB(client);
+
+      const rep = await replyAI(client, txt, from);
       if (rep) {
         console.log(`OUT [${from}]: ${rep.substring(0, 80)}...`);
         await sendMsg(from, rep);
@@ -157,6 +188,8 @@ module.exports = async (req, res) => {
     } catch(e) {
       console.error("ERR:", e.message);
       return res.status(500).json({ error: String(e) });
+    } finally {
+      if (client) await client.end().catch(() => {});
     }
   }
 
