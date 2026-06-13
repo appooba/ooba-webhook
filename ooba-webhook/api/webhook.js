@@ -31,6 +31,17 @@ async function enviarCatalogoTelas(from, lead, delay = 800) {
     await new Promise(r => setTimeout(r, delay));
   }
 
+  // MENSAGEM FINAL PERSUASIVA — após mostrar tudo, induzir o avanço
+  await new Promise(r => setTimeout(r, delay));
+  const nomeFinalLead = lead?.nome || "";
+  const negocioFinal = lead?.negocio || "seu negócio";
+  const cidadeFinal = lead?.cidade || "Porto Feliz";
+  const totalFinal = telas.reduce((acc, t) => acc + parseInt((t.fluxo||"0").replace(/[^0-9]/g,"")), 0);
+  const msgFinal = `São *${telas.length} telas* em ${cidadeFinal}, *+${Math.round(totalFinal/1000)} mil pessoas/mês* — e seu anúncio de ${negocioFinal} pode estar em todas elas rodando das 6h até meia-noite, 7 dias por semana 🔥
+
+Agora me conta: dessas telas, alguma você já frequenta ou conhece o público?`;
+  await sendMsg(from, msgFinal);
+
   console.log(`CATÁLOGO TELAS enviado para ${from} — ${telas.length} telas`);
 }const { Client } = require("pg");
 
@@ -841,19 +852,19 @@ VOCÊ ESTÁ NA ETAPA: RECOMENDAÇÃO
 - TODAS as telas disponíveis com fluxo mensal e horários
 - Os vídeos de cada tela
 
-SUA ÚNICA TAREFA AGORA: fazer a SUGESTÃO ESTRATÉGICA em 1 mensagem.
+SUA ÚNICA TAREFA AGORA: fazer a SUGESTÃO ESTRATÉGICA em 1 mensagem — incisiva, com dados, com CTA direto.
 
 ⚠️ PROIBIDO:
 - NÃO explique o que é ponto novamente
 - NÃO liste as telas novamente
 - NÃO mande mais vídeos
-- NÃO pergunte quantos pontos o lead quer — VOCÊ sugere, ele confirma
-- NÃO pergunte "qual tela você prefere?" — VOCÊ indica, ele ajusta
+- NÃO pergunte quantos pontos o lead quer — VOCÊ sugere com autoridade
+- NÃO use frases passivas como "o que acha?" ou "se quiser..."
 
-COMO FAZER A SUGESTÃO (formato obrigatório):
-"Pra [negócio] com foco em [objetivo], minha sugestão são *[N] pontos* (= [N] vídeos de 15s) — [argumento em 1 frase].
-Ficaria *[tela1] + [tela2]*, cobrindo [X] mil pessoas/mês em [cidade] 📊
-Faz sentido pra você, ou prefere ajustar alguma tela?"
+COMO FAZER A SUGESTÃO (formato obrigatório — assertivo, com dados):
+"Pra [negócio] em [cidade] com foco em [objetivo], minha indicação são *[N] pontos* — [argumento específico do segmento com dado de fluxo].
+Ficaria *[tela1] + [tela2]*, [X] mil pessoas/mês impactadas, vídeo rodando das 6h à meia-noite 🔥
+Posso montar a proposta agora — você prefere o plano mensal ou já trava o anual com 22% de desconto?"
 
 TABELA DE SUGESTÃO POR OBJETIVO:
 • Só marca           → 2–3 pontos nas telas de maior fluxo do perfil
@@ -1944,10 +1955,12 @@ module.exports = async (req, res) => {
       if (respondeuObjetivo) {
         console.log(`BYPASS OBJETIVO [${from}]: lead informou objetivo em entendimento — disparando catálogo`);
         // Frase de transição baseada no objetivo
-        let fraseTransicao = "Perfeito! Deixa eu te mostrar onde seu anúncio vai aparecer 👇";
-        if (txtLowerObjt.includes("marca")) fraseTransicao = "Pra fixar marca o segredo é repetição — a mesma pessoa vai ver seu anúncio várias vezes por semana. Deixa eu te mostrar onde isso acontece 👇";
-        if (txtLowerObjt.includes("promo")) fraseTransicao = "Promoção precisa aparecer na hora certa pra quem está disponível pra comprar. Olha onde seu anúncio vai rodar 👇";
-        if (txtLowerObjt.includes("lança") || txtLowerObjt.includes("lanca")) fraseTransicao = "Lançamento precisa de barulho local — vou te mostrar as telas onde isso acontece 👇";
+        const negocioObjt = leadObjt?.negocio || "negócio";
+        const cidadeObjt = leadObjt?.cidade || "Porto Feliz";
+        let fraseTransicao = `Perfeito! Olha onde o anúncio de ${negocioObjt} vai aparecer em ${cidadeObjt} 👇`;
+        if (txtLowerObjt.includes("marca")) fraseTransicao = `Marca forte se constrói com repetição. Em ${cidadeObjt} temos telas onde a mesma pessoa vê seu anúncio de 6 a 7 vezes na visita — olha 👇`;
+        if (txtLowerObjt.includes("promo")) fraseTransicao = `Promoção precisa aparecer pra quem está ali, no momento certo, com tempo pra absorver. Olha onde seu anúncio vai rodar em ${cidadeObjt} 👇`;
+        if (txtLowerObjt.includes("lança") || txtLowerObjt.includes("lanca")) fraseTransicao = `Lançamento precisa de barulho local e repetição. Aqui onde vai aparecer em ${cidadeObjt} 👇`;
 
         await sendMsg(from, fraseTransicao);
         await new Promise(r => setTimeout(r, 1000));
