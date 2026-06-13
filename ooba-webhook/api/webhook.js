@@ -164,7 +164,7 @@ SUBSTITUA SEMPRE por uma pergunta ou proposta ativa:
 ✅ "Conseguiu dar uma olhada na apresentação? Me conta o que achou dos valores"
 ✅ "Qual dessas telas faz mais sentido pro seu público?"
 ✅ "Posso já te mandar a proposta personalizada com as telas que você gostou?"
-✅ "Bora marcar 15 min com o Paulo essa semana? Ele monta a estratégia certa pro seu negócio"
+✅ "Qual tela faz mais sentido pro seu negócio — a que fica de manhã ou de noite?"
 
 REGRA ABSOLUTA: toda mensagem sua termina com UMA PERGUNTA ou UMA PROPOSTA DE AÇÃO — nunca com afirmação passiva.
 
@@ -180,12 +180,14 @@ A primeira pergunta É SEMPRE sobre como ele divulga o negócio hoje — isso ab
 ═══════════════════════════════════
 REGRA ABSOLUTA — REUNIÃO ANTES DE QUALQUER ENCERRAMENTO
 ═══════════════════════════════════
-Esta é a regra mais importante de todas. Antes de qualquer despedida, SEMPRE tente marcar reunião com o Paulo.
+Esta é a regra mais importante de todas: A LUANA FECHA A VENDA SOZINHA.
 
-A ÚNICA EXCEÇÃO para não tentar reunião:
-- Lead disse explicitamente "não tenho interesse" ou "não quero" de forma definitiva
-- Lead claramente não é o público (ex: pessoa física sem negócio)
-Fora isso: SEMPRE tente a reunião.
+O Paulo só entra em cena em 2 situações específicas:
+1. Lead saindo sem comprar — sinais de fuga como "vou pensar", "qualquer coisa te aviso", "tchau", "depois eu te chamo" — E só se já viu os valores
+2. Lead pediu explicitamente um humano — "pode me ligar?", "tem alguém que eu possa falar?", "você é robô?", "quero falar com uma pessoa"
+
+DURANTE O FLUXO NORMAL DE VENDA: não mencione o Paulo. A Luana apresenta, tira dúvidas, recomenda telas e fecha o contrato diretamente.
+Após o lead decidir contratar → pedir e-mail e enviar o contrato: https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive_link
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LEI DO ENCERRAMENTO — SIGA SEMPRE
@@ -600,8 +602,8 @@ GATILHO DO CARROSSEL (para 5+ pontos):
 SE o lead hesitar no preço:
 "Entendo! O que pesou mais — o valor mensal ou a quantidade de pontos? Me fala que ajusto pra caber no seu orçamento 😊"
 
-SEMPRE após apresentar os valores → propor reunião:
-"Quer bater um papo rápido de 15 min com o Paulo pra ele montar uma proposta personalizada pro seu negócio? Sem compromisso — só pra tirar as dúvidas. Qual dia dessa semana fica bom?"
+DEPOIS DE APRESENTAR OS VALORES → NÃO mencione o Paulo. Continue a venda:
+"Qual plano faz mais sentido pro seu momento — mensal ou anual? E quantos pontos você acha que cobriria bem seu público? 😊"
 
 ⚡ OBRIGATÓRIO ao avançar:
 [FUNIL:etapa=fechamento;plano_interesse=PLANO_ESCOLHIDO]`,
@@ -855,6 +857,8 @@ function interceptarSaida(msgLead, respostaBot, lead) {
   const etapaAtual = lead?.etapa_funil || "abertura";
   const etapaAvancada = etapasAvancadas.includes(etapaAtual);
 
+  // Só intercepta se estiver em etapa avançada (lead já viu valores) — não durante a venda ativa
+  if (!etapaAvancada) return respostaBot;
   if (!encerrando && !etapaAvancada) return respostaBot; // Não precisa interferir
 
   // Escolher resposta de retenção baseada no contexto
@@ -1007,7 +1011,9 @@ async function salvarMsgHistorico(client, phone, msgUser, msgBot) {
         : (r.rows[0].messages || []);
     }
     msgs.push({ role: "user", content: msgUser });
-    msgs.push({ role: "assistant", content: msgBot });
+    // Limpar separadores antes de salvar no histórico
+    const msgBotLimpa = msgBot.replace(/---MSG---/g, ' ').trim();
+    msgs.push({ role: "assistant", content: msgBotLimpa });
     if (msgs.length > 60) msgs = msgs.slice(-60);
 
     if (r.rows.length > 0) {
