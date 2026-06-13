@@ -786,6 +786,12 @@ function interceptarSaida(msgLead, respostaBot, lead) {
   const leidoSaida = sinaisSaida.some(s => msgLeadLower.includes(s));
   if (!leidoSaida) return respostaBot; // Não é sinal de saída, não interfere
 
+  // Se o GPT já propôs reunião/Paulo na resposta → não duplicar
+  const jaTemReuniao = [
+    "paulo", "15 min", "agendar", "reunião", "reuniao", "qual dia", "horário", "horario"
+  ].some(s => respostaLower.includes(s));
+  if (jaTemReuniao) return respostaBot;
+
   // Detectar se a resposta da Luana está encerrando passivamente
   const encerramentosPassivos = [
     "fico à disposição",
