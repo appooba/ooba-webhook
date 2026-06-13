@@ -1,4 +1,38 @@
-const { Client } = require("pg");
+async function enviarCatalogoTelas(from, lead, delay = 800) {
+  const telas = getTelasDisponiveis(lead.negocio, lead.cidade);
+  const cidade = lead.cidade || "Porto Feliz";
+
+  // PASSO 1 — Explicar como funciona (conceito de ponto)
+  await sendMsg(from, `Aqui na OOBA funciona assim: você compra *pontos* — cada ponto é um vídeo de 15 segundos que entra em rotação nas telas. A mesma pessoa fica em média *1 hora* no local e vê seu vídeo de *6 a 7 vezes* durante a visita 🔁\nAnúncios rodam *segunda a segunda, das 6h à meia-noite*. Quanto mais pontos, mais vezes seu anúncio aparece na rotação.`);
+  await new Promise(r => setTimeout(r, delay));
+
+  // PASSO 2 — Mostrar TODAS as telas com dados de giro
+  const totalFluxo = telas.reduce((acc, t) => {
+    const num = parseInt((t.fluxo || "0").replace(/[^0-9]/g, ""));
+    return acc + num;
+  }, 0);
+
+  await sendMsg(from, `Em ${cidade} temos *${telas.length} telas*, alcançando mais de *${Math.round(totalFluxo/1000)}mil pessoas/mês*. Vou te mostrar cada uma 👇`);
+  await new Promise(r => setTimeout(r, delay));
+
+  // PASSO 3 — Cada tela: dados + vídeo
+  for (const tela of telas) {
+    // Mensagem com dados da tela
+    const msgTela = `📍 *${tela.nome}*\n${tela.fluxo} | ${tela.horario}`;
+    await sendMsg(from, msgTela);
+    await new Promise(r => setTimeout(r, delay));
+
+    // Vídeo ou nota de produção
+    if (tela.video) {
+      await sendMsg(from, tela.video);
+    } else if (tela.descricao) {
+      await sendMsg(from, tela.descricao);
+    }
+    await new Promise(r => setTimeout(r, delay));
+  }
+
+  console.log(`CATÁLOGO TELAS enviado para ${from} — ${telas.length} telas`);
+}const { Client } = require("pg");
 
 // ── Body parser manual para Vercel Serverless ──
 async function parseBody(req) {
@@ -774,9 +808,18 @@ Você já sabe: negócio=${negocio}, cidade=${cidade}
 Se ainda não souber o objetivo do lead (marca/promoção/lançamento) → pergunte de forma consultiva:
 "O que você quer fixar na cabeça das pessoas: a marca da [empresa], uma promoção específica ou um lançamento?"
 
-Após saber o objetivo → NÃO faça transição genérica. Já entre na apresentação com argumento:
-Ex se objetivo = marca: "Perfeito — pra fortalecer marca o segredo é repetição. Com pontos distribuídos nas telas certas em ${cidade}, a mesma pessoa vai ver seu anúncio várias vezes por semana. Deixa eu te explicar como funciona 👇"
-Ex se objetivo = promoção: "Promoção precisa de urgência e frequência — a mídia indoor entrega os dois. Vou te mostrar como funciona 👇"
+Quando o lead responder o objetivo → mande UMA frase curta de transição e emita o marcador [MOSTRAR_CATALOGO]:
+
+Ex se objetivo = marca: "Perfeito! Pra fixar marca o segredo é repetição — a mesma pessoa vê seu vídeo várias vezes por semana. Deixa eu te mostrar onde isso acontece 👇"
+Ex se objetivo = promoção: "Promoção precisa aparecer na hora certa, pra quem está disponível pra comprar. Olha onde seu anúncio vai rodar 👇"
+Ex se objetivo = lançamento: "Lançamento precisa de barulho local — vou te mostrar as telas onde isso acontece 👇"
+
+⚠️ PROIBIDO após o lead responder o objetivo:
+- NÃO citar nenhuma tela por nome
+- NÃO sugerir quantos pontos
+- NÃO perguntar mais nada
+- NÃO dar tabela de preço
+- Apenas a frase de transição + [MOSTRAR_CATALOGO]
 
 [FUNIL:etapa=recomendacao;negocio=NEGOCIO;cidade=CIDADE;empresa=NOME;objetivo=OBJETIVO]`,
 
@@ -793,89 +836,48 @@ Deixa eu te mostrar as telas que fazem mais sentido pro seu negócio em ${cidade
     recomendacao: `
 VOCÊ ESTÁ NA ETAPA: RECOMENDAÇÃO
 
-⚠️ AÇÃO OBRIGATÓRIA — duas partes, nessa ordem:
+✅ O sistema JÁ ENVIOU automaticamente:
+- Explicação de como funciona (pontos, rotação, exposição)
+- TODAS as telas disponíveis com fluxo mensal e horários
+- Os vídeos de cada tela
 
-══════════════════════════════════════════
-PARTE 1 — MOSTRAR TODAS AS TELAS DISPONÍVEIS
-══════════════════════════════════════════
-Primeiro apresente TODAS as telas da cidade do lead com dados de fluxo.
-Não pule nenhuma (exceto as bloqueadas por conflito de nicho).
-Cada tela = 1 mensagem separada com ---MSG--- entre elas.
+SUA ÚNICA TAREFA AGORA: fazer a SUGESTÃO ESTRATÉGICA em 1 mensagem.
 
-FORMATO OBRIGATÓRIO para cada tela:
-"📍 *[Nome da Tela]* — [X] mil pessoas/mês | [horário]"
----MSG---
-https://youtube.com/shorts/[ID]
+⚠️ PROIBIDO:
+- NÃO explique o que é ponto novamente
+- NÃO liste as telas novamente
+- NÃO mande mais vídeos
+- NÃO pergunte quantos pontos o lead quer — VOCÊ sugere, ele confirma
+- NÃO pergunte "qual tela você prefere?" — VOCÊ indica, ele ajusta
 
-LINKS DOS VÍDEOS (Porto Feliz):
-- Sueli Bolos PF → https://youtube.com/shorts/ognsjZEtt1w  (18.300/mês | Seg–Dom 09h30–18h30)
-- Academia R2    → https://youtube.com/shorts/_87HW8ghUi4   (13.240/mês | Seg–Dom 09h30–18h30)
-- Recanto Araras → https://youtube.com/shorts/2-W4sHoYHMQ   (9.800/mês  | Seg–Dom 09h30–16h)
-- Pizzaria Rocks → https://youtube.com/shorts/2NFvKYSdkHw   (10.900/mês | Ter–Dom 18h–00h)
-- Pizzaria Monções→ https://youtube.com/shorts/gKDJC8mUyM0  (10.500/mês | Ter–Dom 18h–00h)
-- Bonfá          → sem vídeo ainda | descreva: "Restaurante mais movimentado de Porto Feliz — +20.000 pessoas/mês, público trabalhador e familiar, almoço e fim de semana"
-
-Boituva:
-- Sueli Bolos Boituva → sem vídeo ainda | 15.100/mês | Seg–Sab 09h30–18h30
-
-EXEMPLO DE SEQUÊNCIA para Porto Feliz (loja de calçados, sem conflito):
-MSG: "Aqui estão as telas disponíveis em Porto Feliz. Vou te mostrar cada uma 👇"
----MSG---
-"📍 *Sueli Bolos Porto Feliz* — 18.300 pessoas/mês | todos os dias das 9h30 às 18h30"
----MSG---
-https://youtube.com/shorts/ognsjZEtt1w
----MSG---
-"📍 *Restaurante Bonfá* — +20.000 pessoas/mês | almoço e fim de semana — o mais movimentado de Porto Feliz!"
----MSG---
-"📍 *Academia R2 (Shopping)* — 13.240 pessoas/mês | todos os dias das 9h30 às 18h30"
----MSG---
-https://youtube.com/shorts/_87HW8ghUi4
----MSG---
-"📍 *Pizzaria Rocks* — 10.900 pessoas/mês | terça a domingo das 18h à meia-noite"
----MSG---
-https://youtube.com/shorts/2NFvKYSdkHw
----MSG---
-"📍 *Pizzaria Monções* — 10.500 pessoas/mês | terça a domingo das 18h à meia-noite"
----MSG---
-https://youtube.com/shorts/gKDJC8mUyM0
----MSG---
-"📍 *Recanto das Araras* — 9.800 pessoas/mês | todos os dias das 9h30 às 16h"
----MSG---
-https://youtube.com/shorts/2-W4sHoYHMQ
-
-══════════════════════════════════════════
-PARTE 2 — SUGESTÃO ESTRATÉGICA
-══════════════════════════════════════════
-Após mostrar todas as telas, faça UMA sugestão estratégica com base no perfil do lead.
-NÃO pergunte quantos pontos o lead quer — VOCÊ sugere, ele confirma.
+COMO FAZER A SUGESTÃO (formato obrigatório):
+"Pra [negócio] com foco em [objetivo], minha sugestão são *[N] pontos* (= [N] vídeos de 15s) — [argumento em 1 frase].
+Ficaria *[tela1] + [tela2]*, cobrindo [X] mil pessoas/mês em [cidade] 📊
+Faz sentido pra você, ou prefere ajustar alguma tela?"
 
 TABELA DE SUGESTÃO POR OBJETIVO:
-• Só marca → 1 vídeo institucional → sugerir 2 a 3 pontos nas telas de maior fluxo
-• Marca + promoção → 2 vídeos (carrossel) → sugerir mínimo 5 pontos (ganha 1º vídeo grátis)
-• Máximo alcance → distribuir em todas → sugerir 6 a 10 pontos
+• Só marca           → 2–3 pontos nas telas de maior fluxo do perfil
+• Marca + promoção   → mín. 5 pontos (carrossel + 1º vídeo grátis no anual)
+• Máximo alcance     → 6–10 pontos distribuídos em todas as telas
 
-TABELA DE SUGESTÃO POR SEGMENTO (telas prioritárias, excluir conflitos):
+TABELA POR SEGMENTO (telas prioritárias — excluir conflitos de nicho):
 • Floricultura/Presentes    → Sueli Bolos + Bonfá + Araras
 • Clínica/Estética/Dentista → Sueli Bolos + R2 + Bonfá
-• Academia/Esporte          → Sueli Bolos + Bonfá + Araras (NÃO R2)
-• Restaurante/Delivery      → Sueli Bolos + R2 + Araras (NÃO Rocks/Monções)
-• Pizzaria/Hamburgueria     → Sueli Bolos + R2 + Bonfá (NÃO Rocks/Monções)
+• Academia/Esporte          → Sueli Bolos + Bonfá + Araras
+• Restaurante/Delivery      → Sueli Bolos + R2 + Araras
+• Pizzaria/Hamburgueria     → Sueli Bolos + R2 + Bonfá
 • Loja/Moda/Calçados        → Bonfá + Sueli Bolos + R2
 • Imobiliária/Construtora   → Bonfá + Sueli Bolos + R2 + Araras
 • Salão/Barbearia           → Sueli Bolos + Bonfá + R2
 • Escola/Curso              → R2 + Sueli Bolos + Bonfá
-• Auto/Mecânica             → Bonfá + Araras + Rocks
+• Auto/Mecânica/Borracharia → Bonfá + Araras + Rocks
+• Sorveteria/Gelato/Açaí    → Sueli Bolos + Bonfá + Araras
 • Comércio geral            → Sueli Bolos + Bonfá + R2
 
-FORMATO DA SUGESTÃO ESTRATÉGICA:
-"Pra [negócio] com foco em [objetivo], minha sugestão é [N] pontos — [argumento em 1 frase].
-Ficaria [tela1] + [tela2] + [tela3], cobrindo [X] mil pessoas/mês em Porto Feliz 📊
-Faz sentido pra você, ou prefere ajustar alguma tela?"
-
-EXEMPLO (loja de calçados, marca+promoção):
-"Pra loja de calçados com marca e promoção, minha sugestão são *5 pontos* — assim você roda 2 vídeos em carrossel (um institucional + um promocional) e ainda ganha o 1º vídeo grátis! 🎁
-Ficaria *Bonfá + Sueli Bolos + R2*, cobrindo +51 mil pessoas/mês no coração de Porto Feliz 📊
-Faz sentido pra você, ou prefere ajustar alguma tela?"
+EXEMPLO (sorveteria, só marca):
+"Pra sorveteria com foco em marca, minha sugestão são *3 pontos* (= 3 vídeos de 15s) — público de famílias e jovens que frequenta justamente onde seu anúncio vai aparecer 😊
+Ficaria *Sueli Bolos + Bonfá + Recanto das Araras*, cobrindo +48 mil pessoas/mês em Porto Feliz 📊
+Faz sentido pra você, ou prefere focar em outras telas?"
 
 [FUNIL:etapa=materiais]
 `,
