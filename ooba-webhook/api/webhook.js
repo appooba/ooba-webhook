@@ -763,7 +763,8 @@ module.exports = async (req, res) => {
       const v = body?.entry?.[0]?.changes?.[0]?.value;
       if (v?.statuses) return res.json({ ok: true });
       const m = v?.messages?.[0];
-      if (!m || (m.type !== "text" && m.type !== "audio" && m.type !== "voice")) return res.json({ ok: true });
+      // ÁUDIO DESATIVADO TEMPORARIAMENTE — só processar texto
+      if (!m || m.type !== "text") return res.json({ ok: true });
 
       const msgId = m.id;
       console.log("MsgId recebido:", msgId);
@@ -847,7 +848,8 @@ module.exports = async (req, res) => {
         console.log(`OUT [${from}]: ${rep.substring(0, 120)}...`);
         await sendMsg(from, rep);
 
-        // ── ÁUDIO: Luana manda voice note 1 em cada 3 msgs ──
+        // ── ÁUDIO: desativado temporariamente ──
+        /*
         try {
           if (deveMandarAudio(m.type)) {
             // Pegar só o primeiro parágrafo para o áudio (mais natural e curto)
@@ -867,6 +869,7 @@ module.exports = async (req, res) => {
         } catch(audioErr) {
           console.error("Erro audio (nao critico):", audioErr.message);
         }
+        */
       }
       // ── Responder ao Meta após processar tudo ──
       if (!res.headersSent) res.json({ ok: true });
