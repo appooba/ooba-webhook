@@ -746,7 +746,7 @@ module.exports = async (req, res) => {
       const v = req.body?.entry?.[0]?.changes?.[0]?.value;
       if (v?.statuses) return res.json({ ok: true });
       const m = v?.messages?.[0];
-      if (!m || (m.type !== "text" && m.type !== "audio")) return res.json({ ok: true });
+      if (!m || (m.type !== "text" && m.type !== "audio" && m.type !== "voice")) return res.json({ ok: true });
 
       const msgId = m.id;
       if (processedMsgs.has(msgId)) { console.log("Duplicata:", msgId); return res.json({ ok: true }); }
@@ -759,11 +759,11 @@ module.exports = async (req, res) => {
       if (m.type === "text") {
         txt = m?.text?.body?.trim() || "";
 
-      } else if (m.type === "audio") {
+      } else if (m.type === "audio" || m.type === "voice") {
         // ── WHISPER: transcrever o áudio do lead ──
         try {
-          console.log("Audio recebido de", from, "— transcrevendo...");
-          const audioId = m?.audio?.id;
+          console.log("Audio/Voice recebido de", from, "— transcrevendo...");
+          const audioId = m?.audio?.id || m?.voice?.id;
           if (!audioId) return res.json({ ok: true });
 
           // 1. Buscar URL do áudio no Meta
