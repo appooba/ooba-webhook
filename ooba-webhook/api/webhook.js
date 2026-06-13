@@ -628,11 +628,11 @@ PRODUÇÃO DE VÍDEO:
 
 REGRAS DE COMUNICAÇÃO:
 1. Mensagens curtas — máximo 3 linhas por mensagem
-2. Use ---MSG--- para separar mensagens distintas (não use em excesso)
-3. NUNCA envie lista de links todos juntos numa mensagem — cada link YouTube vai em mensagem separada
-4. NUNCA use markdown [texto](url) — URL limpa gera thumbnail automático
-5. NUNCA use bullet points com links — cada link = 1 mensagem
-6. Use *negrito* com asterisco simples (não duplo)
+2. Para separar mensagens, coloque ---MSG--- em uma linha sozinha entre elas
+3. Links YouTube: cada link em uma linha separada, precedido pelo nome da tela. NUNCA liste múltiplos links na mesma mensagem
+4. NUNCA use markdown [texto](url) — escreva só a URL limpa
+5. NUNCA use bullet com links — 1 link por mensagem
+6. Use *negrito* com asterisco simples
 
 REGRA DE OURO — FECHAMENTO:
 Você fecha a venda sozinha. Nunca saia da conversa sem tentar fechar.
@@ -685,23 +685,17 @@ MSG 3 — As duas estratégias:
 
     recomendacao: `
 VOCÊ ESTÁ NA ETAPA: RECOMENDAÇÃO
-REGRA CRÍTICA: cada link YouTube DEVE estar em uma mensagem separada com ---MSG---.
-NUNCA liste telas em bullet points — isso não gera thumbnail no WhatsApp.
+Recomende as telas ideais pro negócio do lead. SEMPRE verifique conflitos de nicho antes.
+Use dados reais de fluxo (ex: "18.300 pessoas/mês").
 
-Formato OBRIGATÓRIO da resposta (copie este modelo):
-[Texto: recomende as telas com nome + dados de fluxo mensal]
----MSG---
-👇 [Nome da Tela 1]
-https://youtube.com/shorts/ID1
----MSG---
-👇 [Nome da Tela 2]
-https://youtube.com/shorts/ID2
----MSG---
-Qual dessas faz mais sentido pro perfil do seu negócio?
----MSG---
-[FUNIL:etapa=materiais]
+Explique as 2 estratégias:
+- *Foco em 1 tela*: mais frequência, mesmo público vê várias vezes
+- *Distribuição nas telas*: mais alcance, públicos diferentes em cada local
 
-VERIFICAR CONFLITOS antes de recomendar qualquer tela.`,
+Pergunte qual estratégia ele prefere.
+Depois envie os vídeos — cada link em mensagem separada com ---MSG--- em linha própria entre eles.
+
+[FUNIL:etapa=materiais]`,
 
     materiais: `
 VOCÊ ESTÁ NA ETAPA: MATERIAIS
@@ -1136,26 +1130,28 @@ async function salvarMsgHistorico(client, phone, msgUser, msgBot) {
 }
 
 function splitMensagens(text) {
-  if (!text) return [text];
+  if (!text) return [""];
 
-  // 1. Separador explícito ---MSG---
-  if (text.includes("---MSG---")) {
-    return text.split("---MSG---").map(s => s.trim()).filter(Boolean);
+  // 0. Limpar artefatos: remover ---MSG--- inline (quando vem no meio de frase), [FUNIL:...] tags
+  let t = text.replace(/\[FUNIL:[^\]]*\]/g, "").trim();
+
+  // 1. Normalizar ---MSG--- (com espaços, asteriscos etc ao redor) → separador padrão
+  t = t.replace(/\s*-{3,}MSG-{3,}\s*/g, "|||SPLIT|||");
+
+  if (t.includes("|||SPLIT|||")) {
+    return t.split("|||SPLIT|||").map(s => s.trim()).filter(Boolean);
   }
 
-  // 2. Se tiver múltiplos links YouTube na mesma mensagem → forçar separação
-  const youtubeRegex = /https?:\/\/(?:www\.)?youtube\.com\/shorts\/\S+|https?:\/\/youtu\.be\/\S+/g;
-  const links = [...text.matchAll(youtubeRegex)];
+  // 2. Múltiplos links YouTube na mesma mensagem → cada um em mensagem separada
+  const youtubeRegex = /https?:\/\/(?:www\.)?youtube\.com\/shorts\/[^\s]+|https?:\/\/youtu\.be\/[^\s]+/g;
+  const links = [...t.matchAll(youtubeRegex)];
   if (links.length > 1) {
-    // Separar cada link em sua própria mensagem
     const partes = [];
-    let restante = text;
+    let restante = t;
     for (const link of links) {
-      const url = link[0].replace(/[.,;!?)]+$/, '');
+      const url = link[0].replace(/[.,;!?)]+$/, "");
       const idx = restante.indexOf(url);
-      // Pegar texto antes do link (sem o link)
       const antes = restante.substring(0, idx).trim();
-      // Pegar nome da tela na linha antes do link
       const linhas = antes.split(/\r?\n/);
       const nomeLinha = linhas[linhas.length - 1].trim();
       const textoAntes = linhas.slice(0, -1).join("\n").trim();
@@ -1168,19 +1164,18 @@ function splitMensagens(text) {
   }
 
   // 3. Plano Mensal + Anual juntos → dividir
-  const temMensal = /plano mensal/i.test(text);
-  const temAnual = /plano anual/i.test(text);
+  const temMensal = /plano mensal/i.test(t);
+  const temAnual = /plano anual/i.test(t);
   if (temMensal && temAnual) {
-    const match = text.match(/([\s\S]*?)(📆[\s\S]*|plano anual[\s\S]*)/i);
+    const match = t.match(/([\s\S]*?)(📆[\s\S]*|plano anual[\s\S]*)/i);
     if (match && match[1] && match[2]) {
       return [match[1].trim(), match[2].trim()].filter(Boolean);
     }
   }
 
   // 4. Mensagem única
-  return [text];
+  return [t];
 }
-
 function limparMarkdown(text) {
   if (!text) return text;
 
