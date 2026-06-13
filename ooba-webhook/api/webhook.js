@@ -203,8 +203,8 @@ LEI DO ENCERRAMENTO — SIGA SEMPRE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Antes de qualquer "até mais", "estou aqui", "quando quiser me chame" → OBRIGATÓRIO passar por estas 3 tentativas:
 
-TENTATIVA 1 — Reunião direta:
-"Antes de a gente encerrar — posso agendar 15 minutos com o Paulo pra ele te mostrar os pontos certos pro seu negócio? É rápido, sem compromisso. Qual dia dessa semana fica bom?"
+TENTATIVA 1 — Retomar a venda:
+"Antes de fechar — o que ficou de dúvida? Preço, qual tela escolher ou como funciona o vídeo? Me fala que eu resolvo agora 😊"
 
 TENTATIVA 2 — Se recusar a reunião, oferecer material:
 "Sem problema! Então deixa eu te mandar a apresentação com todos os valores pra você olhar com calma. Qual é seu e-mail?"
@@ -532,7 +532,7 @@ ANTECIPE a dúvida sobre cobertura:
 "A rede OOBA em Porto Feliz cobre das 09h30 até meia-noite. Se você quiser presença total na cidade, com 6 pontos você cobre todos os horários. Mas dá pra começar menor e ir escalando."
 
 PERGUNTA INDUTORA para avançar sem o lead precisar pedir:
-"Já que você gostou da [tela], quer que eu te mande a apresentação completa com os valores? Assim você já tem tudo pra decidir 😊"
+"Já que você gostou da [tela], quer ver os valores? Tenho o mensal e o anual com 22% de desconto — qual funciona melhor pra você? 😊"
 
 Envie os links dos vídeos das telas recomendadas (URL limpa):
 "Olha o ambiente da [tela] 👇
@@ -557,7 +557,7 @@ DEPOIS — pergunta indutora imediata (não deixe silêncio):
 "Dá uma olhadinha e me fala: ficou alguma dúvida sobre os valores ou sobre como funciona? 😊"
 
 SE o lead demorar a responder após os materiais → mensagem de acompanhamento:
-"Conseguiu dar uma olhada na apresentação? Se quiser, posso te explicar qualquer parte pessoalmente — marco 15 min com o Paulo, nosso especialista. Fica mais fácil de tirar as dúvidas 😊"
+"Conseguiu dar uma olhada na apresentação? Se tiver dúvida em alguma parte, me fala aqui que eu explico agora 😊"
 
 ⚡ OBRIGATÓRIO ao avançar:
 [FUNIL:etapa=proposta]`,
@@ -610,7 +610,7 @@ MENSAGEM 2:
 ---MSG---
 
 MENSAGEM 3:
-"Se quiser posso te mandar a proposta em PDF, é só pedir aqui 😊 Ou podemos marcar uma reunião rápida com o Paulo pra ele montar a estratégia certa pro seu negócio — o que acha?"
+"Qual plano faz mais sentido pro você — mensal ou anual? Me conta quantos pontos acha que cobreria bem seu público e eu monto a indicação certa pra você 😊"
 
 IMPORTANTE: use ---MSG--- literalmente no texto para separar as 3 mensagens. Não junte tudo em uma só.
 
@@ -630,14 +630,14 @@ DEPOIS DE APRESENTAR OS VALORES → NÃO mencione o Paulo. Continue a venda:
 ═══════════════════════════════════
 SUA MISSÃO AGORA — ETAPA: FECHAMENTO
 ═══════════════════════════════════
-O lead está quase fechando! Seja direta e conduza para a decisão:
-1. Se hesitar por preço → use o argumento de estrutura e comprovação
-2. Se hesitar por dúvida → responda e reforce o valor
-3. Se quiser pensar → "Posso te ligar amanhã? Ou prefere uma reunião rápida com o Paulo?"
-4. Se quiser reunião → inicie o fluxo de agendamento
-5. Se fechar → parabenize e informe os próximos passos (envio do contrato por Paulo)
+O lead está quase fechando! VOCÊ fecha essa venda — não transfira pro Paulo.
+1. Se hesitar por preço → "1 ponto são R$13/dia. Menos que um café por dia pra sua marca aparecer pra +70mil pessoas/mês. Vamos começar com 1 ponto?"
+2. Se hesitar por dúvida → responda na hora e reforce o valor
+3. Se quiser pensar → "Faz sentido! O que ficou de dúvida — preço, qual tela ou como funciona? Me fala que eu resolvo agora."
+4. Se fechar → "Ótimo! Me passa seu e-mail que te mando o contrato agora 😊" → enviar link: https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive_link
+5. Se pedir pra falar com alguém / ligar → AÍ SIM: "Claro! O Paulo é nosso consultor, ele pode te atender pelo (15) 99751-7779 😊"
 
-CONTATO DO PAULO para passar ao lead: (15) 99751-7779
+REGRA: o contrato é enviado pela Luana. O Paulo só aparece se o lead PEDIR um humano.
 
 MARCADOR quando fechar:
 [FUNIL:etapa=fechado]
@@ -890,13 +890,13 @@ function interceptarSaida(msgLead, respostaBot, lead) {
     const opcoes = [
       `
 
-Antes de a gente se despedir${oi ? `, ${oi}` : ""} — que tal 15 minutinhos com o Paulo essa semana? Ele monta a estratégia certa pro seu negócio, sem compromisso 😊 Qual dia fica bom?`,
+${oi ? oi + ", ainda" : "Ainda"} tem dúvida sobre preço, qual tela ou como funciona o vídeo? Me fala que eu resolvo agora 😊`,
       `
 
-Só um segundo${oi ? `, ${oi}` : ""} — você já viu as telas e os valores. Faz sentido bater um papo rápido com o Paulo antes de decidir, né? É só 15 min. Qual dia essa semana fica bom pra você? 😊`,
+${oi ? oi + ", o" : "O"} que pesou mais na decisão? Me conta que posso te mostrar de outro ângulo — não quero que você perca essa visibilidade 🎯`,
       `
 
-Pera${oi ? `, ${oi}` : ""} — antes de fechar, me deixa agendar 15 min com o Paulo pra ele te mostrar exatamente quais pontos fazem mais sentido pro seu negócio. É rápido e sem compromisso. Qual dia fica bom? 🗓️`
+${oi ? oi + ", s" : "S"}e preferir conversar com alguém da nossa equipe, o Paulo pode te atender pelo (15) 99751-7779. Mas pode deixar comigo também! 😊`
     ];
 
     // Escolher opção aleatória para não parecer robótico
@@ -1014,7 +1014,7 @@ function detectarPerguntaPreco(txt) {
 
 ⭐ A partir de 5 pontos no anual: 1º vídeo grátis + 2 vídeos em carrossel 🎯`,
 
-    `Se quiser posso te mandar a proposta em PDF, é só pedir aqui 😊 Ou podemos marcar uma reunião rápida com o Paulo pra ele montar a estratégia certa pro seu negócio — o que acha?`
+    `Qual plano faz mais sentido pro seu momento — o mensal sem fidelidade ou o anual com 22% de desconto? Me conta pra eu te ajudar a escolher os pontos certos 😊`
   ];
 }
 
