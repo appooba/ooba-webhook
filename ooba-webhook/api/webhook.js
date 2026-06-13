@@ -54,7 +54,7 @@ async function uploadAudioToWhatsApp(audioBuffer) {
       contentType: "audio/ogg; codecs=opus"
     });
 
-    const res = await fetch(`https://graph.facebook.com/v19.0/${PID}/media`, {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${PID}/media`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${WAT}`,
@@ -75,7 +75,7 @@ async function uploadAudioToWhatsApp(audioBuffer) {
 // Enviar áudio pelo WhatsApp usando media_id
 async function sendAudio(to, mediaId) {
   try {
-    const res = await fetch(`https://graph.facebook.com/v19.0/${PID}/messages`, {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${PID}/messages`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${WAT}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -722,7 +722,7 @@ async function replyAI(client, txt, phone) {
 // WEBHOOK PRINCIPAL
 // ═══════════════════════════════════════════════════════
 async function sendMsg(to, body) {
-  const res = await fetch(`https://graph.facebook.com/v19.0/${PID}/messages`, {
+  const res = await fetch(`https://graph.facebook.com/v21.0/${PID}/messages`, {
     method: "POST",
     headers: { "Authorization": `Bearer ${WAT}`, "Content-Type": "application/json" },
     body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body } })
@@ -773,13 +773,17 @@ module.exports = async (req, res) => {
           if (!audioId) { console.error("audioId vazio, abortando"); return; }
 
           // 1. Buscar URL do áudio no Meta
-          const mediaRes = await fetch(`https://graph.facebook.com/v19.0/${audioId}`, {
+          const mediaRes = await fetch(`https://graph.facebook.com/v21.0/${audioId}`, {
             headers: { "Authorization": `Bearer ${WAT}` }
           });
           const mediaData = await mediaRes.json();
-          console.log("Media data:", JSON.stringify(mediaData).substring(0, 200));
+          const mediaDataStr = JSON.stringify(mediaData);
+          console.log("Media data COMPLETO:", mediaDataStr);
           const audioUrl = mediaData?.url;
-          if (!audioUrl) { console.error("URL do audio nao encontrada. mediaData:", JSON.stringify(mediaData)); return; }
+          if (!audioUrl) { 
+            console.error("URL do audio nao encontrada. Erro Meta:", mediaDataStr);
+            return; 
+          }
 
           // 2. Baixar o arquivo de áudio
           const audioDownload = await fetch(audioUrl, {
