@@ -793,11 +793,11 @@ Exemplos:
 - "Panfleto" → "Panfleto chega, mas vai pro bolso e esquece. Nas nossas telas a pessoa vê o vídeo 6 a 7 vezes durante a visita — muito mais difícil de ignorar 😊 Qual é o negócio de vocês?"
 - "Não divulgo nada" → "Então esse é o momento perfeito pra começar com o pé direito! A mídia indoor é uma das formas mais eficientes de fixar marca localmente. Me conta: qual é o seu negócio?"
 
-Após saber o negócio → comente algo específico sobre o segmento e pergunte a cidade:
-Ex: "Construtora — esse é um dos perfis que mais se beneficia aqui, público de alto poder aquisitivo. Você é de Porto Feliz, Boituva ou outra cidade?"
+Após saber o negócio → comente algo específico sobre o segmento e pergunte CIDADE + OBJETIVO em UMA só mensagem:
+Ex: "Loja de carros — público de alto poder aquisitivo, perfeito pra mídia indoor. Você é de Porto Feliz ou Boituva? E o que quer fixar na cabeça das pessoas: a marca da loja, uma promoção ou algum lançamento?"
 
-Após saber a cidade → pergunte o objetivo de forma consultiva:
-Ex: "Porto Feliz, ótimo — temos 6 telas lá, com +77 mil pessoas por mês. O que você quer divulgar: marca, promoção ou algum lançamento específico?"
+⚠️ NÃO faça duas perguntas separadas (cidade primeiro, depois objetivo). Pergunte os dois de uma vez.
+Isso acelera o funil e evita que o lead abandone antes de ver as telas.
 
 [FUNIL:etapa=entendimento;negocio=NEGOCIO;cidade=CIDADE]`,
 
@@ -1938,7 +1938,8 @@ module.exports = async (req, res) => {
       const txtLowerObjt = txt.toLowerCase().trim();
       const objetivosDetect = ["marca", "promoção", "promocao", "promoção", "lançamento", "lancamento", 
         "divulgar", "divulgação", "aparecer", "visibilidade", "fortalecer", "fixar"];
-      const respondeuObjetivo = etapaObjt === "entendimento" && objetivosDetect.some(o => txtLowerObjt.includes(o));
+      // Aceitar bypass em abertura OU entendimento (o GPT às vezes ainda não atualizou a etapa)
+      const respondeuObjetivo = (etapaObjt === "entendimento" || etapaObjt === "abertura") && objetivosDetect.some(o => txtLowerObjt.includes(o));
 
       if (respondeuObjetivo) {
         console.log(`BYPASS OBJETIVO [${from}]: lead informou objetivo em entendimento — disparando catálogo`);
