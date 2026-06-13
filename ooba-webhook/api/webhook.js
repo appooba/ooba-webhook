@@ -811,11 +811,11 @@ module.exports = async (req, res) => {
 
         } catch(whisperErr) {
           console.error("Erro Whisper:", whisperErr.message);
-          return res.json({ ok: true });
+          return // resposta ja enviada;
         }
       }
 
-      if (!from || !txt) return res.json({ ok: true });
+      if (!from || !txt) return // resposta ja enviada;
 
       console.log(`IN [${from}] etapa=? : ${txt}`);
       client = await getDB();
