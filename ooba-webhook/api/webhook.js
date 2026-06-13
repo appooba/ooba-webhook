@@ -493,6 +493,24 @@ async function processarAgendamento(client, rep, phone) {
   return rep.replace(/\[AGENDAR_REUNIAO:[^\]]+\]/g, "").trim();
 }
 
+
+// ═══════════════════════════════════════════════════════
+// LOG DE CUSTOS POR MENSAGEM
+// ═══════════════════════════════════════════════════════
+async function logCusto(client, phone, usage) {
+  try {
+    const tokens_input = usage?.prompt_tokens || 0;
+    const tokens_output = usage?.completion_tokens || 0;
+    // gpt-4o-mini: $0.15/1M input | $0.60/1M output
+    const custo_usd = (tokens_input / 1_000_000 * 0.15) + (tokens_output / 1_000_000 * 0.60);
+    await client.query(`
+      INSERT INTO message_log (phone, direction, tokens_input, tokens_output, custo_usd)
+      VALUES ($1, 'outbound', $2, $3, $4)
+    `, [phone, tokens_input, tokens_output, custo_usd]);
+    console.log(`CUSTO [${phone}]: in=${tokens_input} out=${tokens_output} $${custo_usd.toFixed(6)}`);
+  } catch(e) { console.error("logCusto:", e.message); }
+}
+
 // ═══════════════════════════════════════════════════════
 // IA — RESPOSTA COM CONSCIÊNCIA DE FUNIL
 // ═══════════════════════════════════════════════════════
@@ -531,6 +549,9 @@ async function replyAI(client, txt, phone) {
   if (rep) {
     msgs.push({ role: "assistant", content: rep });
     await saveHist(client, phone, msgs);
+
+    // Registrar custo da mensagem
+    await logCusto(client, phone, d?.usage);
 
     // Processar marcadores (funil e agendamento)
     rep = await processarFunil(client, rep, phone);
