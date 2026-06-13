@@ -939,7 +939,8 @@ Isso acelera o funil e evita que o lead abandone antes de ver as telas.
 VOCÊ ESTÁ NA ETAPA: ENTENDIMENTO
 Você já sabe: negócio=${negocio}, cidade=${cidade}
 
-Se ainda não souber o objetivo do lead (marca/promoção/lançamento) → pergunte de forma consultiva:
+⚠️ REGRA: Só dispare [MOSTRAR_CATALOGO] depois de saber O OBJETIVO do lead.
+Se ainda não souber → faça UMA pergunta só, direta:
 "O que você quer fixar na cabeça das pessoas: a marca da [empresa], uma promoção específica ou um lançamento?"
 
 Quando o lead responder o objetivo → mande UMA frase curta de transição e emita o marcador [MOSTRAR_CATALOGO]:
@@ -2158,9 +2159,11 @@ module.exports = async (req, res) => {
           (etapaPosEnvio === "recomendacao" && !jaTemVideos);
 
         if (deveLancarCatalogo) {
-          console.log(`CATÁLOGO AUTO [${from}]: disparando (etapa=${etapaPosEnvio}, jaTemVideos=${jaTemVideos})`);
+          console.log(`CATÁLOGO AUTO [${from}]: disparando (etapa=${etapaPosEnvio}, jaTemVideos=${jaTemVideos}, negocio=${leadPosEnvio?.negocio}, cidade=${leadPosEnvio?.cidade})`);
           await new Promise(r => setTimeout(r, 1200));
-          await enviarCatalogoTelas(from, leadPosEnvio || { negocio: "", cidade: "Porto Feliz" }, 800);
+          // Sempre usar dados frescos do banco — nunca do lead em memória
+          const leadFresco = await getLead(client, from);
+          await enviarCatalogoTelas(from, leadFresco || { negocio: "", cidade: "Porto Feliz" }, 800);
           // Marcar no histórico
           const histAtual2 = await getHist(client, from);
           histAtual2.push({ role: "assistant", content: "[catálogo automático: conceito de pontos + todas as telas + vídeos enviados]" });
