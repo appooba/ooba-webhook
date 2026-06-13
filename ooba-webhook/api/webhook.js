@@ -1773,10 +1773,11 @@ async function replyAI(client, txt, phone) {
         console.log(`FUNIL AUTO [${phone}]: abertura → entendimento`);
       }
     } else if (etapaAtual === "entendimento") {
-      // Avançar se a Luana começou a explicar telas/pontos
-      if (repLower.includes("tela") || repLower.includes("ponto") || repLower.includes("ooba") && repLower.includes("funciona")) {
-        await client.query("UPDATE leads SET etapa_funil='apresentacao', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
-        console.log(`FUNIL AUTO [${phone}]: entendimento → apresentacao`);
+      // Avançar automaticamente — não depende do GPT
+      // Se o GPT respondeu sobre telas/pontos/ooba → já estava indo para recomendacao
+      if (repLower.includes("tela") || repLower.includes("ponto") || repLower.includes("deixa eu mostrar") || repLower.includes("vou te mostrar") || repLower.includes("ooba") || repLower.includes("funciona")) {
+        await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+        console.log(`FUNIL AUTO [${phone}]: entendimento → recomendacao (catalogo sera disparado)`);
       }
     } else if (etapaAtual === "apresentacao") {
       // Avançar se enviou links de vídeo
@@ -1930,6 +1931,41 @@ module.exports = async (req, res) => {
         return;
       }
 
+      // ── BYPASS DE OBJETIVO: lead informou objetivo (marca/promoção/lançamento) ──
+      // Se está em entendimento e o lead respondeu o objetivo → transição + catálogo direto
+      const leadObjt = await getLead(client, from);
+      const etapaObjt = leadObjt?.etapa_funil || "abertura";
+      const txtLowerObjt = txt.toLowerCase().trim();
+      const objetivosDetect = ["marca", "promoção", "promocao", "promoção", "lançamento", "lancamento", 
+        "divulgar", "divulgação", "aparecer", "visibilidade", "fortalecer", "fixar"];
+      const respondeuObjetivo = etapaObjt === "entendimento" && objetivosDetect.some(o => txtLowerObjt.includes(o));
+
+      if (respondeuObjetivo) {
+        console.log(`BYPASS OBJETIVO [${from}]: lead informou objetivo em entendimento — disparando catálogo`);
+        // Frase de transição baseada no objetivo
+        let fraseTransicao = "Perfeito! Deixa eu te mostrar onde seu anúncio vai aparecer 👇";
+        if (txtLowerObjt.includes("marca")) fraseTransicao = "Pra fixar marca o segredo é repetição — a mesma pessoa vai ver seu anúncio várias vezes por semana. Deixa eu te mostrar onde isso acontece 👇";
+        if (txtLowerObjt.includes("promo")) fraseTransicao = "Promoção precisa aparecer na hora certa pra quem está disponível pra comprar. Olha onde seu anúncio vai rodar 👇";
+        if (txtLowerObjt.includes("lança") || txtLowerObjt.includes("lanca")) fraseTransicao = "Lançamento precisa de barulho local — vou te mostrar as telas onde isso acontece 👇";
+
+        await sendMsg(from, fraseTransicao);
+        await new Promise(r => setTimeout(r, 1000));
+
+        // Disparar catálogo completo
+        await enviarCatalogoTelas(from, leadObjt, 800);
+
+        // Salvar no histórico
+        const histObjt = await getHist(client, from);
+        histObjt.push({ role: "user", content: txt });
+        histObjt.push({ role: "assistant", content: fraseTransicao + "\n[catálogo automático enviado]" });
+        await saveHist(client, from, histObjt);
+
+        // Avançar funil para recomendacao
+        await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [from]).catch(()=>{});
+        if (!res.headersSent) res.json({ ok: true });
+        return;
+      }
+
       // ── BYPASS DE VÍDEO: perguntou sobre tipos de vídeo → resposta fixa + catálogo ──
       if (detectarPerguntaVideo(txt)) {
         const leadVideo = await getLead(client, from);
@@ -1973,17 +2009,25 @@ module.exports = async (req, res) => {
         }
 
         // ── CATÁLOGO PÓS-RESPOSTA ──
-        // Se o GPT emitiu [MOSTRAR_CATALOGO], disparar catálogo completo agora
-        if (lead._dispararCatalogo) {
-          const leadAtual = await getLead(client, from);
-          await new Promise(r => setTimeout(r, 1000));
-          await enviarCatalogoTelas(from, leadAtual || lead, 800);
+        // Disparar catálogo se:
+        // A) GPT emitiu [MOSTRAR_CATALOGO], OU
+        // B) A etapa mudou para recomendacao e ainda não foram enviados vídeos
+        const leadPosEnvio = await getLead(client, from);
+        const etapaPosEnvio = leadPosEnvio?.etapa_funil || "abertura";
+        const histPosEnvio = await getHist(client, from);
+        const jaTemVideos = histPosEnvio.some(m => m.role === "assistant" && m.content?.includes("youtube.com/shorts"));
+
+        const deveLancarCatalogo = lead._dispararCatalogo || 
+          (etapaPosEnvio === "recomendacao" && !jaTemVideos);
+
+        if (deveLancarCatalogo) {
+          console.log(`CATÁLOGO AUTO [${from}]: disparando (etapa=${etapaPosEnvio}, jaTemVideos=${jaTemVideos})`);
+          await new Promise(r => setTimeout(r, 1200));
+          await enviarCatalogoTelas(from, leadPosEnvio || { negocio: "", cidade: "Porto Feliz" }, 800);
           // Marcar no histórico
-          const histAtual = await getHist(client, from);
-          histAtual.push({ role: "assistant", content: "[catálogo de telas enviado automaticamente]" });
-          await saveHist(client, from, histAtual);
-          // Avançar funil para recomendacao
-          await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [from]).catch(()=>{});
+          const histAtual2 = await getHist(client, from);
+          histAtual2.push({ role: "assistant", content: "[catálogo automático: conceito de pontos + todas as telas + vídeos enviados]" });
+          await saveHist(client, from, histAtual2);
         }
 
         // ── ÁUDIO: desativado temporariamente ──
