@@ -1,3 +1,101 @@
+// ── TELAS OOBA — dados hardcoded, nunca dependem do GPT ──
+function getTelasDisponiveis(negocio, cidade) {
+  const neg = (negocio || "").toLowerCase();
+  const cid = (cidade || "Porto Feliz").toLowerCase();
+
+  // Matriz de conflitos de segmento (não oferecer tela concorrente ao lead)
+  const conflitos = {
+    "pizzaria": ["Pizzaria Rocks", "Pizzaria Monções"],
+    "pizza": ["Pizzaria Rocks", "Pizzaria Monções"],
+    "hamburgueria": ["Pizzaria Rocks", "Pizzaria Monções"],
+    "churrascaria": ["Restaurante Bonfá", "Recanto das Araras"],
+    "restaurante": ["Restaurante Bonfá", "Recanto das Araras"],
+    "academia": ["Academia R2"],
+    "crossfit": ["Academia R2"],
+    "fitness": ["Academia R2"],
+    "doceria": ["Sueli Bolos Porto Feliz", "Sueli Bolos Boituva"],
+    "confeitaria": ["Sueli Bolos Porto Feliz", "Sueli Bolos Boituva"],
+    "bolos": ["Sueli Bolos Porto Feliz", "Sueli Bolos Boituva"],
+    "pastelaria": ["Restaurante Bonfá", "Recanto das Araras"],
+    "lanchonete": ["Restaurante Bonfá", "Recanto das Araras"],
+  };
+
+  // Descobrir quais telas bloquear para este negócio
+  const telasBlockadas = new Set();
+  for (const [segmento, telasConflito] of Object.entries(conflitos)) {
+    if (neg.includes(segmento)) {
+      telasConflito.forEach(t => telasBlockadas.add(t));
+    }
+  }
+
+  // Todas as telas com dados completos
+  const todasTelas = [
+    {
+      nome: "Sueli Bolos Porto Feliz",
+      fluxo: "18.300 pessoas/mês",
+      horario: "Seg–Dom 09h30–18h30",
+      video: "https://youtube.com/shorts/ognsjZEtt1w",
+      cidade: "porto feliz"
+    },
+    {
+      nome: "Restaurante Bonfá",
+      fluxo: "20.000+ pessoas/mês",
+      horario: "Seg–Sex 11h–15h | Sáb–Dom 11h–18h",
+      video: null,
+      descricao: "🎬 Vídeo do Bonfá sendo finalizado — maior giro da rede, +20 mil pessoas/mês!",
+      cidade: "porto feliz"
+    },
+    {
+      nome: "Academia R2",
+      fluxo: "13.240 pessoas/mês",
+      horario: "Seg–Dom 09h30–18h30",
+      video: "https://youtube.com/shorts/_87HW8ghUi4",
+      cidade: "porto feliz"
+    },
+    {
+      nome: "Pizzaria Rocks",
+      fluxo: "10.900 pessoas/mês",
+      horario: "Ter–Dom 18h–00h",
+      video: "https://youtube.com/shorts/2NFvKYSdkHw",
+      cidade: "porto feliz"
+    },
+    {
+      nome: "Pizzaria Monções",
+      fluxo: "10.500 pessoas/mês",
+      horario: "Ter–Dom 18h–00h",
+      video: "https://youtube.com/shorts/gKDJC8mUyM0",
+      cidade: "porto feliz"
+    },
+    {
+      nome: "Recanto das Araras",
+      fluxo: "9.800 pessoas/mês",
+      horario: "Seg–Dom 09h30–16h",
+      video: "https://youtube.com/shorts/2-W4sHoYHMQ",
+      cidade: "porto feliz"
+    },
+    {
+      nome: "Sueli Bolos Boituva",
+      fluxo: "15.100 pessoas/mês",
+      horario: "Seg–Sab 09h30–18h30",
+      video: null,
+      descricao: "🎬 Vídeo da Sueli Boituva sendo finalizado — 15.100 pessoas/mês!",
+      cidade: "boituva"
+    }
+  ];
+
+  // Filtrar por cidade e remover conflitos
+  let telas = todasTelas.filter(t => {
+    if (cid.includes("boituva") && cid.includes("porto feliz")) return true; // ambas cidades
+    if (cid.includes("boituva")) return t.cidade === "boituva";
+    return t.cidade === "porto feliz"; // padrão Porto Feliz
+  });
+
+  // Remover telas bloqueadas por conflito de segmento
+  telas = telas.filter(t => !telasBlockadas.has(t.nome));
+
+  return telas;
+}
+
 async function enviarCatalogoTelas(from, lead, delay = 800) {
   const telas = getTelasDisponiveis(lead.negocio, lead.cidade);
   const cidade = lead.cidade || "Porto Feliz";
@@ -40,15 +138,21 @@ async function enviarCatalogoTelas(from, lead, delay = 800) {
   // Linha resumo de todas as telas com giro
   let linhasGiro = telas.map(t => `📍 *${t.nome}* — ${t.fluxo}`).join("\n");
 
-  const msgFinal = `*Resumo da rede em ${cidadeFinal}:*
+  // MSG A — Resumo consolidado de giro
+  const msgResumo = `*Resumo da rede em ${cidadeFinal}:*
 ${linhasGiro}
 
-Total: *+${Math.round(totalFinal/1000)} mil pessoas/mês* — anúncio rodando das 6h à meia-noite, 7 dias por semana 🔥
+Total: *+${Math.round(totalFinal/1000)} mil pessoas/mês* — das 6h à meia-noite, 7 dias por semana 🔥`;
+  await sendMsg(from, msgResumo);
+  await new Promise(r => setTimeout(r, delay));
 
-Anunciando em *todas as telas*, seu negócio aparece pra *cada pessoa* em pelo menos um momento do dia — de manhã na Sueli Bolos, no almoço no Bonfá, à noite nas Pizzarias.
+  // MSG B — Argumento de cobertura total + pergunta que força o avanço
+  const msgPergunta = `Seu anúncio de ${negocioFinal} pode aparecer em *todas essas telas* — a mesma pessoa te vê de manhã na Sueli Bolos, no almoço no Bonfá, à noite na Pizzaria.
 
-Posso montar a proposta agora — você prefere começar com *1 tela focada* ou cobrir *toda a rede*?`;
-  await sendMsg(from, msgFinal);
+Isso é presença de marca de verdade 💪
+
+Qual dessas telas você já frequenta ou conhece mais o público?`;
+  await sendMsg(from, msgPergunta);
 
   console.log(`CATÁLOGO TELAS enviado para ${from} — ${telas.length} telas`);
 }const { Client } = require("pg");
