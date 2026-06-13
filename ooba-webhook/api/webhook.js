@@ -435,7 +435,7 @@ Você já conhece o negócio e a cidade do lead. Agora explique como a OOBA func
 4. Fale sobre automação, relatórios e diferenciais
 5. Conduza para a recomendação das telas ideais para o perfil dele
 
-MARCADOR OBRIGATÓRIO quando avançar:
+⚡ OBRIGATÓRIO ao avançar:
 [FUNIL:etapa=recomendacao]`,
 
     recomendacao: `
@@ -466,7 +466,7 @@ O lead já viu as telas. Agora envie os materiais institucionais:
 3. Diga: "Dá uma olhada com calma — qualquer dúvida pode me perguntar aqui mesmo!"
 4. Aguarde o lead ler e voltar. Quando voltar, avance para a proposta.
 
-MARCADOR OBRIGATÓRIO quando avançar para valores:
+⚡ OBRIGATÓRIO ao avançar:
 [FUNIL:etapa=proposta]`,
 
     proposta: `
@@ -481,7 +481,7 @@ AGORA é a hora de apresentar os valores. O lead já conhece tudo — é hora de
 4. Use o gatilho do carrossel se ele tiver interesse em 5+ pontos
 5. Conduza para o fechamento
 
-MARCADOR OBRIGATÓRIO quando ele demonstrar interesse real:
+⚡ OBRIGATÓRIO ao avançar:
 [FUNIL:etapa=fechamento;plano_interesse=PLANO_ESCOLHIDO]`,
 
     fechamento: `
@@ -791,6 +791,59 @@ async function replyAI(client, txt, phone) {
     // Processar marcadores (funil e agendamento)
     rep = await processarFunil(client, rep, phone);
     rep = await processarAgendamento(client, rep, phone);
+
+    // ── FALLBACK DE PROGRESSÃO AUTOMÁTICA ──
+    // Se a Luana não emitiu marcador, avançar funil baseado em palavras-chave
+    const leadAtual = await getLead(client, phone);
+    const etapaAtual = leadAtual?.etapa_funil || "abertura";
+    const repLower = rep.toLowerCase();
+    const txtLower = txt.toLowerCase();
+    const todasMsgs = msgs.map(m => m.content?.toLowerCase() || "").join(" ");
+
+    if (etapaAtual === "abertura") {
+      // Detectar negócio e cidade mencionados
+      const negocioDetect = todasMsgs.match(/(?:tenho|sou dono|trabalho|minha|nossa)\s+(?:uma?\s+)?([a-záéíóúâêîôûàèìòùç\s]{3,30})/i);
+      const cidadeDetect = todasMsgs.includes("porto feliz") ? "Porto Feliz"
+                         : todasMsgs.includes("boituva") ? "Boituva" : null;
+      if (negocioDetect || cidadeDetect) {
+        const upd = { etapa_funil: "entendimento" };
+        if (cidadeDetect) upd.cidade = cidadeDetect;
+        const setClauses = Object.keys(upd).map((f, i) => `${f}=$${i+2}`).join(", ");
+        await client.query(`UPDATE leads SET ${setClauses}, updated_at=NOW() WHERE phone=$1`,
+          [phone, ...Object.values(upd)]).catch(()=>{});
+        console.log(`FUNIL AUTO [${phone}]: abertura → entendimento`);
+      }
+    } else if (etapaAtual === "entendimento") {
+      // Avançar se a Luana começou a explicar telas/pontos
+      if (repLower.includes("tela") || repLower.includes("ponto") || repLower.includes("ooba") && repLower.includes("funciona")) {
+        await client.query("UPDATE leads SET etapa_funil='apresentacao', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+        console.log(`FUNIL AUTO [${phone}]: entendimento → apresentacao`);
+      }
+    } else if (etapaAtual === "apresentacao") {
+      // Avançar se enviou links de vídeo
+      if (repLower.includes("youtube.com/shorts") || repLower.includes("ver vídeo") || repLower.includes("ver video")) {
+        await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+        console.log(`FUNIL AUTO [${phone}]: apresentacao → recomendacao`);
+      }
+    } else if (etapaAtual === "recomendacao") {
+      // Avançar se enviou materiais institucionais
+      if (repLower.includes("drive.google.com") || repLower.includes("apresentação") || repLower.includes("contrato")) {
+        await client.query("UPDATE leads SET etapa_funil='materiais', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+        console.log(`FUNIL AUTO [${phone}]: recomendacao → materiais`);
+      }
+    } else if (etapaAtual === "materiais") {
+      // Avançar se mencionou preço/valor
+      if (repLower.includes("r$") || repLower.includes("plano") || repLower.includes("mensal") || repLower.includes("anual")) {
+        await client.query("UPDATE leads SET etapa_funil='proposta', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+        console.log(`FUNIL AUTO [${phone}]: materiais → proposta`);
+      }
+    } else if (etapaAtual === "proposta" || etapaAtual === "fechamento") {
+      // Detectar interesse em reunião
+      if (txtLower.includes("seria legal") || txtLower.includes("pode ser") || txtLower.includes("quero a reunião") || txtLower.includes("marcar")) {
+        await client.query("UPDATE leads SET etapa_funil='fechamento', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+        console.log(`FUNIL AUTO [${phone}]: → fechamento`);
+      }
+    }
   }
 
   return rep;
