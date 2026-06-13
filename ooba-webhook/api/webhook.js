@@ -705,40 +705,104 @@ Após saber o objetivo → NÃO faça transição genérica. Já entre na aprese
 Ex se objetivo = marca: "Perfeito — pra fortalecer marca o segredo é repetição. Com pontos distribuídos nas telas certas em ${cidade}, a mesma pessoa vai ver seu anúncio várias vezes por semana. Deixa eu te explicar como funciona 👇"
 Ex se objetivo = promoção: "Promoção precisa de urgência e frequência — a mídia indoor entrega os dois. Vou te mostrar como funciona 👇"
 
-[FUNIL:etapa=apresentacao;negocio=NEGOCIO;cidade=CIDADE;empresa=NOME;objetivo=OBJETIVO]`,
+[FUNIL:etapa=recomendacao;negocio=NEGOCIO;cidade=CIDADE;empresa=NOME;objetivo=OBJETIVO]`,
 
     apresentacao: `
 VOCÊ ESTÁ NA ETAPA: APRESENTAÇÃO
-Explique o produto em mensagens curtas e separadas com ---MSG--- entre cada uma.
+⚠️ Etapa rápida — explique o conceito de ponto em 1 mensagem e já puxe pra recomendação.
 
-MSG 1:
-"Aqui na OOBA você compra *pontos* — cada ponto é um vídeo de 15s em rotação. Você escolhe de 1 a 10 pontos 😊"
----MSG---
-MSG 2:
-"Funciona assim: seu vídeo entra numa fila de rotação com outros anunciantes. Com 3 pontos, ele aparece 3x a cada rodada completa — quanto mais pontos, mais frequência."
----MSG---
-MSG 3 — Explique as 2 estratégias e peça a preferência:
-"Você tem duas opções de estratégia: focar *tudo em 1 tela* pra aparecer mais vezes pro mesmo público, ou *distribuir nas várias telas* pra cobrir mais gente em ${cidade}. Qual faz mais sentido pro seu negócio?"
+MSG ÚNICA:
+"Aqui na OOBA funciona por *pontos* — cada ponto é um vídeo de 15 segundos que entra em rotação nas telas. Quanto mais pontos, mais vezes seu anúncio aparece. A mesma pessoa pode ver seu vídeo de 6 a 7 vezes na mesma visita 😊
+Deixa eu te mostrar as telas que fazem mais sentido pro seu negócio em ${cidade} 👇"
 
 [FUNIL:etapa=recomendacao]`,
 
     recomendacao: `
 VOCÊ ESTÁ NA ETAPA: RECOMENDAÇÃO
-Com base no negócio e estratégia do lead, recomende as telas ideais.
+
+⚠️ AÇÃO IMEDIATA: Não pergunte nada. Já recomende as telas agora com dados e argumento.
 SEMPRE verifique conflitos de nicho antes de recomendar qualquer tela.
 
-NÃO liste as telas em bullet points. Recomende de forma consultiva com dados:
-Ex: "Pra uma construtora com foco em marca em Porto Feliz, eu recomendaria Sueli Bolos + Bonfá + Academia R2 — são os locais com público de maior poder aquisitivo da cidade, somando mais de 51 mil pessoas por mês 📊"
+═══════════════════════════════════
+TABELA DE RECOMENDAÇÃO POR SEGMENTO (Porto Feliz)
+═══════════════════════════════════
+Use como base — adapte com os dados do lead:
 
-Depois envie os vídeos — cada um em mensagem separada com ---MSG---:
-"Olha o ambiente da [tela] 👇"
----MSG---
-https://youtube.com/shorts/ID
----MSG---
-(próxima tela)
+• Floricultura / Presentes / Artesanato:
+  → Sueli Bolos PF (18.300/mês) + Bonfá (20.000/mês) + Araras (9.800/mês)
+  → Argumento: "Público feminino e familiar que frequenta cafeterias e restaurantes em datas especiais — exatamente quem compra flores"
 
-Finalize perguntando qual estratégia e quantos pontos ele quer começar:
-"Você prefere focar em 1 ou 2 telas pra ter mais frequência, ou distribuir em todas pra máximo alcance?"
+• Clínica / Estética / Saúde / Dentista:
+  → Sueli Bolos PF + Academia R2 (13.240/mês) + Bonfá
+  → Argumento: "Público que cuida da saúde e da aparência — perfil ideal pra clínica"
+
+• Academia / Nutrição / Esporte:
+  → Sueli Bolos PF + Bonfá + Araras (NÃO use R2 — concorrência direta)
+  → Argumento: "Público ativo que já está em rotina de cuidados"
+
+• Restaurante / Lanchonete / Delivery:
+  → Sueli Bolos PF + R2 + Araras (NÃO use Rocks/Monções — concorrência)
+  → Argumento: "Alcança quem já está saindo pra comer ou pensando em delivery"
+
+• Pizzaria / Hamburgueria:
+  → Sueli Bolos PF + R2 + Bonfá (NÃO use Rocks/Monções — concorrência)
+  → Argumento: "Público jantar que ainda não decidiu onde vai"
+
+• Loja de roupas / Moda / Calçados:
+  → Sueli Bolos PF + R2 + Bonfá
+  → Argumento: "Público de alto consumo — mulheres e famílias que frequentam esses locais"
+
+• Imobiliária / Construtora / Incorporadora:
+  → Bonfá + Sueli Bolos PF + R2 + Araras (4 telas = premium)
+  → Argumento: "Público de maior poder aquisitivo da cidade — decisores de compra de imóvel"
+
+• Salão / Barbearia / Estética:
+  → Sueli Bolos PF + Bonfá + R2
+  → Argumento: "Público que investe em aparência regularmente"
+
+• Escola / Curso / Faculdade:
+  → R2 + Sueli Bolos PF + Bonfá
+  → Argumento: "Público jovem e famílias — quem busca qualificação e cursos"
+
+• Auto / Mecânica / Oficina / Seguro:
+  → Bonfá + Araras + Rocks
+  → Argumento: "Público adulto, trabalhador, que usa carro no dia a dia"
+
+• Comércio geral / Loja / Mercado:
+  → Sueli Bolos PF + Bonfá + R2
+  → Argumento: "Máximo alcance no público consumidor de Porto Feliz"
+
+═══════════════════════════════════
+SCRIPT DA MENSAGEM DE RECOMENDAÇÃO
+═══════════════════════════════════
+Estrutura OBRIGATÓRIA — use SEMPRE:
+
+MSG 1 — Recomendação direta com dados:
+"Pra [negócio] com foco em [objetivo] em Porto Feliz, recomendo [tela1] + [tela2] + [tela3].
+São [X] mil pessoas/mês — [argumento específico do segmento] 📊
+Olha o ambiente de cada tela 👇"
+---MSG---
+MSG 2 — Vídeo tela 1:
+"📍 [Nome da Tela 1] — [X] mil pessoas/mês"
+---MSG---
+https://youtube.com/shorts/[ID]
+---MSG---
+MSG 3 — Vídeo tela 2:
+"📍 [Nome da Tela 2] — [X] mil pessoas/mês"
+---MSG---
+https://youtube.com/shorts/[ID]
+---MSG---
+MSG 4 — Fechamento com escolha:
+"Com essas [N] telas, seu anúncio alcança [total] pessoas/mês em Porto Feliz.
+Quer focar em [tela principal] pra mais frequência, ou distribuir em todas pra máximo alcance? 📍"
+
+LINKS DOS VÍDEOS:
+- Sueli Bolos Porto Feliz: https://youtube.com/shorts/ognsjZEtt1w
+- Academia R2: https://youtube.com/shorts/_87HW8ghUi4
+- Pizzaria Rocks: https://youtube.com/shorts/2NFvKYSdkHw
+- Pizzaria Monções: https://youtube.com/shorts/gKDJC8mUyM0
+- Recanto das Araras: https://youtube.com/shorts/2-W4sHoYHMQ
+- Bonfá: (vídeo em produção — descreva o local: "Restaurante movimentado, +20mil pessoas/mês, público trabalhador e familiar")
 
 [FUNIL:etapa=materiais]`,
 
