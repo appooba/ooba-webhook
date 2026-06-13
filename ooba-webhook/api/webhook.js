@@ -1227,16 +1227,72 @@ function limparMarkdown(text) {
   if (!text) return text;
 
   // [qualquer texto](https://...) → apenas a URL
-  // Garante que a URL fique sozinha na linha para gerar thumb
   text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, (match, label, url) => {
     return url;
   });
 
-  // **texto** → texto (negrito markdown não funciona no WhatsApp nativo via API)
-  // WhatsApp usa *texto* para negrito, não **texto**
+  // • item: https://link → remover o bullet e o texto antes do link, deixar URL limpa
+  // Ex: "• Sueli Bolos: https://youtube..." → "https://youtube..."
+  text = text.replace(/[•\-\*]\s*[^:\n]+:\s*(https?:\/\/\S+)/g, (match, url) => {
+    return url;
+  });
+
+  // **texto** → *texto* (negrito WhatsApp)
   text = text.replace(/\*\*([^*]+)\*\*/g, '*$1*');
 
   return text;
+}
+
+// Separa múltiplos links YouTube/Drive em mensagens individuais com contexto
+function separarLinksEmMensagens(text) {
+  if (!text) return [text];
+
+  const youtubeRegex = /(https?:\/\/(?:www\.)?youtube\.com\/shorts\/\S+|https?:\/\/youtu\.be\/\S+)/g;
+  const driveRegex = /(https?:\/\/drive\.google\.com\/\S+)/g;
+
+  const links = [];
+  let match;
+
+  // Coletar todos os links YouTube
+  while ((match = youtubeRegex.exec(text)) !== null) {
+    links.push({ url: match[1], index: match.index });
+  }
+
+  // Se só tem 1 link ou nenhum → não precisa separar
+  if (links.length <= 1) return [text];
+
+  // Tem múltiplos links → separar em mensagens
+  // Texto antes do primeiro link vai na primeira mensagem
+  const firstLinkIdx = links[0].index;
+  const textoBefore = text.substring(0, firstLinkIdx).trim();
+
+  const mensagens = [];
+  if (textoBefore) mensagens.push(textoBefore);
+
+  // Cada link vira uma mensagem separada com o nome da tela
+  const nomeTelas = {
+    'ognsjZEtt1w': 'Sueli Bolos Porto Feliz 📍',
+    '_87HW8ghUi4': 'Academia R2 📍',
+    'gKDJC8mUyM0': 'Pizzaria Monções 📍',
+    '2NFvKYSdkHw': 'Pizzaria Rocks 📍',
+    '2-W4sHoYHMQ': 'Recanto das Araras 📍',
+  };
+
+  for (const link of links) {
+    const urlClean = link.url.replace(/[.,;!?]+$/, ''); // remove pontuação no final
+    // Identificar nome da tela pelo ID do vídeo
+    let nomeTela = '';
+    for (const [id, nome] of Object.entries(nomeTelas)) {
+      if (urlClean.includes(id)) { nomeTela = nome; break; }
+    }
+    if (nomeTela) {
+      mensagens.push("\xF0\x9F\x91\x87 " + nomeTela + "\n" + urlClean);
+    } else {
+      mensagens.push(urlClean);
+    }
+  }
+
+  return mensagens;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1578,13 +1634,21 @@ module.exports = async (req, res) => {
         console.log(`OUT [${from}]: ${rep.substring(0, 120)}...`);
 
         // Dividir em múltiplas mensagens se houver separadores ---MSG--- ou blocos distintos de plano
-        const partes = splitMensagens(rep);
+        const partesBruto = splitMensagens(rep);
+
+        // Expandir cada parte: se tiver múltiplos links YouTube, separar em mensagens individuais
+        const partes = [];
+        for (const p of partesBruto) {
+          const subPartes = separarLinksEmMensagens(p);
+          partes.push(...subPartes);
+        }
+
         for (let i = 0; i < partes.length; i++) {
           // Limpar qualquer ---MSG--- residual que o GPT tenha incluído no texto
           const parte = partes[i].replace(/---MSG---/g, '').trim();
           if (parte) {
             await sendMsg(from, parte);
-            if (i < partes.length - 1) await new Promise(r => setTimeout(r, 800));
+            if (i < partes.length - 1) await new Promise(r => setTimeout(r, 900));
           }
         }
 
