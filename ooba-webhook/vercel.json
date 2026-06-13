@@ -1,7 +1,14 @@
 {
   "version": 2,
   "routes": [
-    { "src": "/webhook", "dest": "/api/webhook.js" }
+    {
+      "src": "/webhook",
+      "dest": "/api/webhook.js"
+    },
+    {
+      "src": "/api/followup",
+      "dest": "/api/followup.js"
+    }
   ],
   "functions": {
     "api/webhook.js": {
