@@ -553,10 +553,10 @@ APRESENTE ASSIM — com âncora de valor:
 
 REGRA DE APRESENTAÇÃO DE PREÇOS — OBRIGATÓRIO
 Quando o lead perguntar sobre preços, planos ou quantos pontos pode contratar:
-SEMPRE envie em DUAS mensagens separadas — mensal primeiro, anual depois.
+SEMPRE envie em EXATAMENTE 3 mensagens separadas, usando ---MSG--- entre elas:
 
-MENSAGEM 1 — PLANO MENSAL (envie exatamente assim):
-"📅 *Plano Mensal* (sem fidelidade):
+MENSAGEM 1:
+"📅 *Esse é o mensal* (sem fidelidade):
 
 • 1 ponto → R$ 400/mês
 • 2 pontos → R$ 550/mês
@@ -569,31 +569,30 @@ MENSAGEM 1 — PLANO MENSAL (envie exatamente assim):
 • 9 pontos → R$ 1.250/mês
 • 10 pontos → R$ 1.350/mês"
 
-MENSAGEM 2 — PLANO ANUAL (envie logo em seguida, sem esperar resposta):
-"📆 *Plano Anual* (22% de desconto + bônus):
+---MSG---
+
+MENSAGEM 2:
+"📆 *Esse é o anual* (22% de desconto):
 
 • 1 ponto → R$ 200/mês
 • 2 pontos → R$ 450/mês
 • 3 pontos → R$ 550/mês
 • 4 pontos → R$ 650/mês
-• 5 pontos → R$ 750/mês ⭐ 1º vídeo grátis + carrossel
-• 6 pontos → R$ 850/mês ⭐ 1º vídeo grátis + carrossel
-• 7 pontos → R$ 950/mês ⭐ 1º vídeo grátis + carrossel
-• 8 pontos → R$ 1.050/mês ⭐ 1º vídeo grátis + carrossel
-• 9 pontos → R$ 1.150/mês ⭐ 1º vídeo grátis + carrossel
-• 10 pontos → R$ 1.250/mês ⭐ 1º vídeo grátis + carrossel
+• 5 pontos → R$ 750/mês ⭐
+• 6 pontos → R$ 850/mês ⭐
+• 7 pontos → R$ 950/mês ⭐
+• 8 pontos → R$ 1.050/mês ⭐
+• 9 pontos → R$ 1.150/mês ⭐
+• 10 pontos → R$ 1.250/mês ⭐
 
-No anual acima de 5 pontos: seu 1º vídeo já vem incluído + você roda 2 vídeos em carrossel (institucional + promocional) alternando automaticamente 🎯"
+⭐ A partir de 5 pontos no anual: 1º vídeo grátis + 2 vídeos em carrossel 🎯"
 
-DEPOIS das duas mensagens → SEMPRE perguntar:
-"Qual faz mais sentido pro seu momento? E quantos pontos você acha que cobriria bem seu público? 😊"
+---MSG---
 
-TABELA DE REFERÊNCIA (uso interno):
-- 1 ponto: R$400/mês | R$200/mês no anual
-- 2 pontos: R$550/mês | R$450/mês no anual
-- 3 pontos: R$650/mês | R$550/mês no anual
-- 5 pontos: R$850/mês | R$750/mês no anual (BÔNUS: 1º vídeo grátis + carrossel)
-- 10 pontos: R$1.350/mês | R$1.250/mês no anual
+MENSAGEM 3:
+"Se quiser posso te mandar a proposta em PDF, é só pedir aqui 😊 Ou podemos marcar uma reunião rápida com o Paulo pra ele montar a estratégia certa pro seu negócio — o que acha?"
+
+IMPORTANTE: use ---MSG--- literalmente no texto para separar as 3 mensagens. Não junte tudo em uma só.
 
 GATILHO DO CARROSSEL (para 5+ pontos):
 "No plano anual com 5 pontos ou mais, você roda 2 vídeos em carrossel — um institucional e um promocional, alternando automaticamente. Dobra o impacto sem custo extra 🎯"
@@ -909,6 +908,40 @@ Pera${oi ? `, ${oi}` : ""} — antes de fechar, me deixa agendar 15 min com o Pa
 // ═══════════════════════════════════════════════════════
 // SPLIT DE MENSAGENS — divide resposta longa em múltiplas
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// INJETAR PDF — garante que o link seja enviado quando lead pede proposta
+// ═══════════════════════════════════════════════════════
+function injetarPDF(msgLead, respostaBot) {
+  if (!msgLead || !respostaBot) return respostaBot;
+
+  const lead = msgLead.toLowerCase();
+  const bot = respostaBot.toLowerCase();
+
+  // Detectar pedido de PDF/proposta pelo lead
+  const pedindoPDF = [
+    "manda o pdf", "manda a proposta", "quero o pdf", "quero a proposta",
+    "pode mandar", "manda aqui", "sim, pode mandar", "sim pode mandar",
+    "quero sim", "pode sim", "manda", "me manda", "pdf", "proposta"
+  ].some(s => lead.includes(s));
+
+  if (!pedindoPDF) return respostaBot;
+
+  // Se a resposta já tem o link do drive → não duplicar
+  if (bot.includes("drive.google.com") || bot.includes("apresentação") || bot.includes("apresentacao")) {
+    return respostaBot;
+  }
+
+  // Injetar o link da apresentação com valores
+  const linkApresentacao = "https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link";
+
+  return respostaBot.trimEnd() + `
+
+Aqui está 👇
+${linkApresentacao}
+
+Qualquer dúvida sobre os valores é só falar 😊`;
+}
+
 function splitMensagens(text) {
   if (!text) return [text];
 
@@ -1091,6 +1124,10 @@ async function replyAI(client, txt, phone) {
     // ── INTERCEPTADOR DE SAÍDA ──
     // Se o lead sinalizou saída e a Luana vai encerrar passivamente → forçar tentativa de reunião
     rep = interceptarSaida(txt, rep, lead);
+
+    // ── DETECTOR DE PEDIDO DE PDF ──
+    // Se o lead pediu PDF/proposta e a resposta não tem o link → injetar o link da apresentação
+    rep = injetarPDF(txt, rep);
 
     // ── FALLBACK DE PROGRESSÃO AUTOMÁTICA ──
     // Se a Luana não emitiu marcador, avançar funil baseado em palavras-chave
