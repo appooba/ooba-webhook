@@ -918,11 +918,14 @@ Exemplos:
 - "Panfleto" → "Panfleto chega, mas vai pro bolso e esquece. Nas nossas telas a pessoa vê o vídeo 6 a 7 vezes durante a visita — muito mais difícil de ignorar 😊 Qual é o negócio de vocês?"
 - "Não divulgo nada" → "Então esse é o momento perfeito pra começar com o pé direito! A mídia indoor é uma das formas mais eficientes de fixar marca localmente. Me conta: qual é o seu negócio?"
 
-Após saber o negócio → comente algo específico sobre o segmento e pergunte CIDADE + OBJETIVO em UMA só mensagem:
-Ex: "Loja de carros — público de alto poder aquisitivo, perfeito pra mídia indoor. Você é de Porto Feliz ou Boituva? E o que quer fixar na cabeça das pessoas: a marca da loja, uma promoção ou algum lançamento?"
+Após saber o negócio → comente algo específico sobre o segmento e pergunte SOMENTE A CIDADE:
+Ex: "Floricultura é perfeito — o público que frequenta academias e restaurantes adora presentear com flores. Você é de Porto Feliz ou Boituva?"
 
-⚠️ NÃO faça duas perguntas separadas (cidade primeiro, depois objetivo). Pergunte os dois de uma vez.
-Isso acelera o funil e evita que o lead abandone antes de ver as telas.
+⚠️ REGRA DE OURO: UMA PERGUNTA POR MENSAGEM. Nunca pergunte cidade e objetivo juntos.
+Sequência obrigatória:
+1. Sabe o negócio → pergunta SÓ a cidade
+2. Sabe a cidade → pergunta SÓ o objetivo (marca, promoção ou lançamento)
+3. Sabe o objetivo → emite [MOSTRAR_CATALOGO]
 
 [FUNIL:etapa=entendimento;negocio=NEGOCIO;cidade=CIDADE]`,
 
@@ -930,9 +933,9 @@ Isso acelera o funil e evita que o lead abandone antes de ver as telas.
 VOCÊ ESTÁ NA ETAPA: ENTENDIMENTO
 Você já sabe: negócio=${negocio}, cidade=${cidade}
 
-⚠️ REGRA: Só dispare [MOSTRAR_CATALOGO] depois de saber O OBJETIVO do lead.
-Se ainda não souber → faça UMA pergunta só, direta:
-"O que você quer fixar na cabeça das pessoas: a marca da [empresa], uma promoção específica ou um lançamento?"
+⚠️ REGRA: UMA PERGUNTA POR VEZ. Sequência obrigatória:
+- Se não souber a cidade → pergunte SÓ a cidade
+- Se souber a cidade mas não o objetivo → pergunte SÓ o objetivo: "O que você quer fixar na cabeça das pessoas: a marca da [empresa], uma promoção específica ou um lançamento?"
 
 Quando o lead responder o objetivo → mande UMA frase curta de transição e emita o marcador [MOSTRAR_CATALOGO]:
 
