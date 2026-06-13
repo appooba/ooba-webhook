@@ -2,89 +2,83 @@ const VT = "ooba2026";
 const WAT = process.env.WHATSAPP_TOKEN || "";
 const PID = "1189704930882063";
 const OAI_KEY = process.env.OPENAI_API_KEY || "";
-const BASE44_API_KEY = process.env.BASE44_API_KEY || "";
-const BASE44_APP_ID = "69f645345c37a4db77e0e07d";
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || "";
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
 
 const SYS = `Você é o Vendedor OOBA, consultor virtual de mídia indoor no WhatsApp.
 
-PERSONALIDADE: consultivo, próximo, usa dados, mensagens curtas (máx 2-3 linhas por vez), estilo WhatsApp.
+PERSONALIDADE: consultivo, próximo, usa dados, mensagens curtas (máx 2-3 linhas), estilo WhatsApp.
 
 REGRAS ABSOLUTAS:
 - NUNCA fale preço antes de gerar valor
 - NUNCA recomece a conversa — continue exatamente de onde parou
-- NUNCA repita uma pergunta que o cliente já respondeu
+- NUNCA repita pergunta já respondida
 - NUNCA faça mais de 1 pergunta por mensagem
-- Se o cliente resistir, aprofunde o argumento — NÃO recomece o fluxo
+- Se o cliente resistir, aprofunde — NÃO recomece o fluxo
 - Responda SEMPRE em português do Brasil
 
-FLUXO DE VENDAS (siga a ordem, nunca volte atrás):
-1. ABERTURA: apresente-se e pergunte "Hoje quais tipos de marketing você utiliza?"
+FLUXO (siga a ordem, nunca volte atrás):
+1. ABERTURA: apresente-se brevemente e pergunte "Hoje quais tipos de marketing você utiliza?"
 2. VALIDAÇÃO: elogie o que ele usa e apresente indoor como complemento
-3. DIFERENCIAIS: use dados (1h no local, vídeo 15s aparece 6-7x, roda 6h-meia-noite, +70mil pessoas/mês, OOH +123% 2017-2024)
-4. ENTENDIMENTO: pergunte sobre o negócio e qual público quer atingir
-5. PROPOSTA: indique os pontos ideais com base no negócio dele
+3. DIFERENCIAIS: use dados (pessoa fica 1h no local, vídeo 15s aparece 6-7x, roda 6h-meia-noite, +70mil pessoas/mês, OOH +123% 2017-2024)
+4. ENTENDIMENTO: pergunte sobre o negócio e público-alvo
+5. PROPOSTA: indique os pontos ideais com dados de fluxo
 6. FECHAMENTO: apresente preços e feche
 
-PONTOS DISPONÍVEIS (Porto Feliz e Boituva):
-- Sueli Bolos Porto Feliz: 18.300 pessoas/mês
-- Academia R2 Shopping: 13.240 pessoas/mês
-- Pizzaria Rocks: 10.900 pessoas/mês
-- Pizzaria Monções: 10.500 pessoas/mês
-- Restaurante Araras: 9.800 pessoas/mês
-- Sueli Bolos Boituva: 15.100 pessoas/mês
+PONTOS (Porto Feliz e Boituva):
+- Sueli Bolos Porto Feliz: 18.300/mês
+- Sueli Bolos Boituva: 15.100/mês
+- Academia R2 Shopping: 13.240/mês
+- Pizzaria Rocks: 10.900/mês
+- Pizzaria Monções: 10.500/mês
+- Restaurante Araras: 9.800/mês
 Total: +70 mil pessoas/mês
 
 PREÇOS (só após gerar valor):
-1pt: R$400/mês ou R$200/mês anual
-2pt: R$550/mês ou R$450/mês anual
-3pt: R$650/mês ou R$550/mês anual
-4pt: R$750/mês ou R$650/mês anual
-5pt: R$850/mês ou R$750/mês anual
-Bônus anual +3pts: rodízio entre locais. +5pts: 1º vídeo grátis + carrossel 2 vídeos.
+1pt: R$400/mês | R$200/mês anual
+2pt: R$550/mês | R$450/mês anual
+3pt: R$650/mês | R$550/mês anual
+4pt: R$750/mês | R$650/mês anual
+5pt+: R$850/mês | R$750/mês anual
+Bônus anual +3pts: rodízio. +5pts: 1º vídeo grátis + carrossel 2 vídeos.
 
-CONTATO FINAL: (11) 92127-6113 | contato@ooba.com.br | www.ooba.com.br`;
+CONTATO: (11) 92127-6113 | contato@ooba.com.br | www.ooba.com.br`;
 
-const BASE_URL = `https://base44.app/api/apps/${BASE44_APP_ID}`;
+// Histórico em memória (fallback se Redis não configurado)
+const memHist = {};
 
 async function getHist(phone) {
-  try {
-    const res = await fetch(`${BASE_URL}/entities/ConversationHistory/filter`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": BASE44_API_KEY },
-      body: JSON.stringify({ phone })
-    });
-    if (!res.ok) {
-      console.error("getHist HTTP:", res.status, await res.text());
-      return { id: undefined, msgs: [] };
-    }
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      const msgs = JSON.parse(data[0].messages || "[]");
-      console.log(`Histórico carregado: ${msgs.length} mensagens para ${phone}`);
-      return { id: data[0].id, msgs };
-    }
-  } catch(e) { console.error("getHist:", e.message); }
-  return { id: undefined, msgs: [] };
+  if (REDIS_URL && REDIS_TOKEN) {
+    try {
+      const res = await fetch(`${REDIS_URL}/get/hist:${phone}`, {
+        headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
+      });
+      const d = await res.json();
+      if (d?.result) {
+        const msgs = JSON.parse(d.result);
+        console.log(`Redis: ${msgs.length} msgs para ${phone}`);
+        return msgs;
+      }
+    } catch(e) { console.error("Redis get:", e.message); }
+  }
+  return memHist[phone] || [];
 }
 
-async function saveHist(phone, id, msgs) {
-  try {
-    const payload = { phone, messages: JSON.stringify(msgs.slice(-30)) };
-    const url = id
-      ? `${BASE_URL}/entities/ConversationHistory/${id}`
-      : `${BASE_URL}/entities/ConversationHistory`;
-    const method = id ? "PUT" : "POST";
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", "x-api-key": BASE44_API_KEY },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) {
-      console.error("saveHist HTTP:", res.status, await res.text());
-    } else {
-      console.log(`Histórico salvo: ${msgs.length} mensagens para ${phone}`);
-    }
-  } catch(e) { console.error("saveHist:", e.message); }
+async function saveHist(phone, msgs) {
+  const data = JSON.stringify(msgs.slice(-30));
+  if (REDIS_URL && REDIS_TOKEN) {
+    try {
+      await fetch(`${REDIS_URL}/set/hist:${phone}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${REDIS_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ value: data, ex: 86400 * 30 }) // 30 dias
+      });
+      console.log(`Redis: salvo ${msgs.length} msgs para ${phone}`);
+      return;
+    } catch(e) { console.error("Redis set:", e.message); }
+  }
+  memHist[phone] = msgs.slice(-30);
+  console.log(`Mem: salvo ${msgs.length} msgs para ${phone}`);
 }
 
 async function sendMsg(to, body) {
@@ -94,15 +88,12 @@ async function sendMsg(to, body) {
     body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body } })
   });
   const d = await res.json();
-  if (d?.error) {
-    console.error("WA send error:", JSON.stringify(d.error));
-  } else {
-    console.log("WA sent:", d?.messages?.[0]?.id);
-  }
+  if (d?.error) console.error("WA error:", JSON.stringify(d.error));
+  else console.log("WA sent:", d?.messages?.[0]?.id);
 }
 
 async function replyAI(txt, phone) {
-  const { id, msgs } = await getHist(phone);
+  const msgs = await getHist(phone);
   msgs.push({ role: "user", content: txt });
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -116,21 +107,17 @@ async function replyAI(txt, phone) {
     })
   });
 
-  if (!res.ok) {
-    console.error("OpenAI HTTP:", res.status, await res.text());
-    return "";
-  }
+  if (!res.ok) { console.error("OpenAI:", res.status, await res.text()); return ""; }
 
   const d = await res.json();
   const rep = d?.choices?.[0]?.message?.content?.trim() || "";
   if (rep) {
     msgs.push({ role: "assistant", content: rep });
-    await saveHist(phone, id, msgs);
+    await saveHist(phone, msgs);
   }
   return rep;
 }
 
-// Deduplicação de mensagens já processadas
 const processedMsgs = new Set();
 
 module.exports = async (req, res) => {
@@ -154,10 +141,7 @@ module.exports = async (req, res) => {
         return res.json({ ok: true });
       }
       processedMsgs.add(msgId);
-      if (processedMsgs.size > 200) {
-        const first = processedMsgs.values().next().value;
-        processedMsgs.delete(first);
-      }
+      if (processedMsgs.size > 200) processedMsgs.delete(processedMsgs.values().next().value);
 
       const from = m.from;
       const txt = m?.text?.body?.trim() || "";
@@ -166,12 +150,12 @@ module.exports = async (req, res) => {
       console.log(`IN [${from}]: ${txt}`);
       const rep = await replyAI(txt, from);
       if (rep) {
-        console.log(`OUT [${from}]: ${rep}`);
+        console.log(`OUT [${from}]: ${rep.substring(0, 80)}...`);
         await sendMsg(from, rep);
       }
       return res.json({ ok: true });
     } catch(e) {
-      console.error("ERR:", e.message, e.stack);
+      console.error("ERR:", e.message);
       return res.status(500).json({ error: String(e) });
     }
   }
