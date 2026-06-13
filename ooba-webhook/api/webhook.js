@@ -551,7 +551,44 @@ Agora apresente os valores com contexto. NUNCA jogue o preço seco.
 APRESENTE ASSIM — com âncora de valor:
 "Com [X] pontos nas telas [recomendadas], você alcança [Y] mil pessoas/mês em [cidade]. O investimento é R$[VALOR]/mês — menos de R$[VALOR/30]/dia, menos que um impulsionamento no Instagram, mas com muito mais fixação 😊"
 
-TABELA DE REFERÊNCIA:
+REGRA DE APRESENTAÇÃO DE PREÇOS — OBRIGATÓRIO
+Quando o lead perguntar sobre preços, planos ou quantos pontos pode contratar:
+SEMPRE envie em DUAS mensagens separadas — mensal primeiro, anual depois.
+
+MENSAGEM 1 — PLANO MENSAL (envie exatamente assim):
+"📅 *Plano Mensal* (sem fidelidade):
+
+• 1 ponto → R$ 400/mês
+• 2 pontos → R$ 550/mês
+• 3 pontos → R$ 650/mês
+• 4 pontos → R$ 750/mês
+• 5 pontos → R$ 850/mês
+• 6 pontos → R$ 950/mês
+• 7 pontos → R$ 1.050/mês
+• 8 pontos → R$ 1.150/mês
+• 9 pontos → R$ 1.250/mês
+• 10 pontos → R$ 1.350/mês"
+
+MENSAGEM 2 — PLANO ANUAL (envie logo em seguida, sem esperar resposta):
+"📆 *Plano Anual* (22% de desconto + bônus):
+
+• 1 ponto → R$ 200/mês
+• 2 pontos → R$ 450/mês
+• 3 pontos → R$ 550/mês
+• 4 pontos → R$ 650/mês
+• 5 pontos → R$ 750/mês ⭐ 1º vídeo grátis + carrossel
+• 6 pontos → R$ 850/mês ⭐ 1º vídeo grátis + carrossel
+• 7 pontos → R$ 950/mês ⭐ 1º vídeo grátis + carrossel
+• 8 pontos → R$ 1.050/mês ⭐ 1º vídeo grátis + carrossel
+• 9 pontos → R$ 1.150/mês ⭐ 1º vídeo grátis + carrossel
+• 10 pontos → R$ 1.250/mês ⭐ 1º vídeo grátis + carrossel
+
+No anual acima de 5 pontos: seu 1º vídeo já vem incluído + você roda 2 vídeos em carrossel (institucional + promocional) alternando automaticamente 🎯"
+
+DEPOIS das duas mensagens → SEMPRE perguntar:
+"Qual faz mais sentido pro seu momento? E quantos pontos você acha que cobriria bem seu público? 😊"
+
+TABELA DE REFERÊNCIA (uso interno):
 - 1 ponto: R$400/mês | R$200/mês no anual
 - 2 pontos: R$550/mês | R$450/mês no anual
 - 3 pontos: R$650/mês | R$550/mês no anual
@@ -867,6 +904,33 @@ Pera${oi ? `, ${oi}` : ""} — antes de fechar, me deixa agendar 15 min com o Pa
   }
 
   return novaResposta.trimEnd() + sufixo;
+}
+
+// ═══════════════════════════════════════════════════════
+// SPLIT DE MENSAGENS — divide resposta longa em múltiplas
+// ═══════════════════════════════════════════════════════
+function splitMensagens(text) {
+  if (!text) return [text];
+
+  // 1. Separador explícito ---MSG--- que o GPT pode usar
+  if (text.includes("---MSG---")) {
+    return text.split("---MSG---").map(s => s.trim()).filter(Boolean);
+  }
+
+  // 2. Detectar se tem Plano Mensal E Plano Anual na mesma mensagem → dividir
+  const temMensal = /plano mensal/i.test(text);
+  const temAnual = /plano anual/i.test(text);
+
+  if (temMensal && temAnual) {
+    // Tentar dividir na linha do Plano Anual
+    const match = text.match(/([\s\S]*?)(📆[\s\S]*|plano anual[\s\S]*)/i);
+    if (match && match[1] && match[2]) {
+      return [match[1].trim(), match[2].trim()].filter(Boolean);
+    }
+  }
+
+  // 3. Mensagem única — retorna como está
+  return [text];
 }
 
 function limparMarkdown(text) {
@@ -1199,7 +1263,15 @@ module.exports = async (req, res) => {
       const rep = await replyAI(client, txt, from);
       if (rep) {
         console.log(`OUT [${from}]: ${rep.substring(0, 120)}...`);
-        await sendMsg(from, rep);
+
+        // Dividir em múltiplas mensagens se houver separadores ---MSG--- ou blocos distintos de plano
+        const partes = splitMensagens(rep);
+        for (let i = 0; i < partes.length; i++) {
+          if (partes[i].trim()) {
+            await sendMsg(from, partes[i].trim());
+            if (i < partes.length - 1) await new Promise(r => setTimeout(r, 800));
+          }
+        }
 
         // ── ÁUDIO: desativado temporariamente ──
         /*
