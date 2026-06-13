@@ -1,0 +1,7 @@
+telefone,nome,negocio,cidade,ja_anunciou,telas_anunciadas,periodo_anuncio,motivo_saida,potencial_retorno,tags
+1599991234,João Silva,Loja de Roupas Estilo,Porto Feliz,sim,Pizzaria Rocks,jan-mar 2026,encerrou campanha,alto,ex_cliente
+1599995678,Maria Costa,Clínica Estética Bella,Porto Feliz,sim,"Sueli Bolos, Academia R2",2025,achou caro,alto,ex_cliente
+1599997890,Carlos Mendes,Restaurante Sabor & Arte,Porto Feliz,não,,,,alto,potencial
+1599993210,Ana Paula,Salão de Beleza Ana,Boituva,não,,,,medio,lista_fria
+1599994567,Roberto Lima,Auto Center Lima,Porto Feliz,sim,Pizzaria Monções,out-dez 2025,pausa temporaria,alto,ex_cliente
+1599996789,Fernanda Dias,Escola de Idiomas Top,Porto Feliz,não,,,,medio,potencial
