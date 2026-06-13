@@ -155,6 +155,39 @@ Use essa frase para:
 NÃO use essa frase toda mensagem — só quando for impactar. No máximo 1x por conversa.
 
 ═══════════════════════════════════
+REGRAS DE OURO DO FUNIL — SIGA SEMPRE
+═══════════════════════════════════
+Você NÃO é um chatbot que responde perguntas. Você é uma CONSULTORA que CONDUZ o lead pelo funil.
+
+REGRA 1 — NUNCA FALE DE PREÇO ANTES DA HORA:
+Se o lead perguntar "qual o valor?" / "quanto custa?" / "qual o preço?" ANTES de você ter:
+  ✅ Entendido o negócio dele
+  ✅ Recomendado as telas certas
+  ✅ Enviado os vídeos das telas
+→ BLOQUEIE o preço com: "Boa pergunta! Mas antes de falar em investimento, preciso entender o seu negócio pra te recomendar as telas certas — se não, o preço não faz sentido sem saber o que você vai alcançar. Me conta: qual é o seu negócio e em qual cidade você está? 😊"
+
+REGRA 2 — SEQUÊNCIA DO FUNIL É INVIOLÁVEL:
+O lead SÓ recebe preço depois de passar por:
+  1. Entendimento (qual negócio, qual cidade)
+  2. Apresentação (como funciona — pontos, telas, rotação, exposição)
+  3. Recomendação (quais telas fazem sentido pro perfil DELE, aplicando filtro de conflito)
+  4. Vídeos (links YouTube das telas recomendadas)
+  5. Materiais (apresentação + contrato)
+  → SÓ ENTÃO: Proposta com preços
+Se o lead pular etapas, VOCÊ reconduz sem ser rude.
+
+REGRA 3 — VERIFIQUE O SEGMENTO ANTES DE QUALQUER RECOMENDAÇÃO:
+Antes de citar QUALQUER tela, identifique o segmento do lead e consulte as REGRAS DE CONFLITO.
+NUNCA mencione telas bloqueadas — nem como exemplo, nem na lista geral.
+Se o lead mencionar o segmento DEPOIS de você já ter citado telas → corrija imediatamente e peça desculpas.
+
+REGRA 4 — CADA MENSAGEM TEM UM OBJETIVO:
+Nunca envie informação solta. Cada mensagem deve:
+  → Apresentar um dado/benefício
+  → Fazer UMA pergunta indutora que avança o funil
+Exemplo: "Seu consultório poderia aparecer pra 18.300 pessoas/mês na Sueli Bolos. Quer ver como o ambiente da tela é? 😊"
+
+═══════════════════════════════════
 FRASES PROIBIDAS — NUNCA USE
 ═══════════════════════════════════
 ❌ "se tiver dúvida é só me avisar"
@@ -848,6 +881,36 @@ async function upsertLead(client, phone, firstMsg, updates = {}) {
 // WhatsApp só gera thumbnail quando URL está solta no texto
 // ═══════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════
+// INTERCEPTADOR DE PREÇO ANTECIPADO — bloqueia preço antes do funil
+// ═══════════════════════════════════════════════════════
+function interceptarPrecoAntecipado(msgLead, lead) {
+  if (!msgLead) return null;
+  const msg = msgLead.toLowerCase().trim();
+
+  const perguntasPreco = [
+    "qual o valor", "quanto custa", "qual o preço", "qual o preco",
+    "me fala o preço", "me fala o preco", "qual é o valor", "qual e o valor",
+    "valor dos planos", "tabela de preço", "tabela de preco", "quanto fica",
+    "qual o investimento", "caro?", "é caro", "e caro", "tem desconto",
+    "valor mensal", "valor anual", "quanto por mes", "quanto por mês"
+  ];
+
+  const isPerguntaPreco = perguntasPreco.some(p => msg.includes(p));
+  if (!isPerguntaPreco) return null;
+
+  // Etapas que já passaram da recomendação — pode falar de preço
+  const etapasLiberadas = ['recomendacao', 'materiais', 'proposta', 'fechamento', 'reuniao'];
+  const etapaAtual = lead?.etapa_funil || 'abertura';
+  if (etapasLiberadas.includes(etapaAtual)) return null;
+
+  // Bloqueio: lead perguntou preço cedo demais
+  const negocio = lead?.negocio || 'seu negócio';
+  return `Boa pergunta! Mas antes de falar em investimento, preciso entender melhor ${negocio !== 'seu negócio' ? `sobre ${negocio}` : 'o seu negócio'} pra te recomendar as telas certas — o valor só faz sentido quando você souber exatamente quantas pessoas vai alcançar 😊
+
+Me conta: ${negocio === 'seu negócio' ? 'qual é o seu negócio e em qual cidade você está?' : 'você já conhece as telas que temos disponíveis?'}`;
+}
+
+// ═══════════════════════════════════════════════════════
 // INTERCEPTADOR DE SAÍDA — impede o lead de escapar sem tentar reunião
 // ═══════════════════════════════════════════════════════
 function interceptarSaida(msgLead, respostaBot, lead) {
@@ -1273,7 +1336,14 @@ async function replyAI(client, txt, phone) {
 
     // ── INTERCEPTADOR DE SAÍDA ──
     // Se o lead sinalizou saída e a Luana vai encerrar passivamente → forçar tentativa de reunião
-    rep = interceptarSaida(txt, rep, lead);
+    // ── INTERCEPTADOR DE PREÇO ANTECIPADO ──
+    // Se o lead pediu preço antes do funil estar pronto → redirecionar
+    const bloqueioPreco = interceptarPrecoAntecipado(txt, lead);
+    if (bloqueioPreco) {
+      rep = bloqueioPreco;
+    } else {
+      rep = interceptarSaida(txt, rep, lead);
+    }
 
     // ── DETECTOR DE PEDIDO DE PDF ──
     // Se o lead pediu PDF/proposta e a resposta não tem o link → injetar o link da apresentação
