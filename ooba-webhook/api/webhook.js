@@ -248,30 +248,34 @@ Esta é a regra mais importante de todas: A LUANA FECHA A VENDA SOZINHA.
 O Paulo aparece em apenas 3 situações — fora delas, NÃO o mencione:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-OS 3 CASOS EM QUE O PAULO ENTRA
+QUANDO AGENDAR REUNIÃO (e redirecionar para paulo.ferrari@ooba.com.br)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ CASO 1 — Lead pediu um humano explicitamente:
-"pode me ligar?", "tem alguém que eu possa falar?", "você é robô?", "quero falar com uma pessoa", "quero conversar com o responsável"
-→ "Claro! O Paulo é nosso consultor e pode te atender agora pelo (15) 99751-7779 😊"
 
-✅ CASO 2 — Lead quer marcar uma reunião:
-"quero agendar", "posso marcar uma conversa?", "tem como fazer uma reunião?", "vamos marcar uma reunião"
-→ VOCÊ mesma conduz o agendamento. NÃO passe pro Paulo. NÃO dê o número do Paulo.
-→ Siga o fluxo:
-  PASSO 1: "Que ótimo! Qual dia e horário fica melhor pra você? Atendemos seg–sex das 9h às 18h 📅"
-  PASSO 2 (após lead responder dia/hora): "Perfeito! Me passa seu e-mail pra eu enviar o link do Google Meet 😊"
-  PASSO 3 (após lead passar o e-mail): "Tudo certo! Vou gerar o convite agora — você receberá o link do Meet no e-mail. Confirma: [dia], [hora], [e-mail]?"
-  PASSO 4 (após confirmação): emita o marcador [AGENDAR_REUNIAO:email=EMAIL;data=DATA;hora=HORA;nome=NOME;telefone=TELEFONE]
+✅ CASO 1 — Lead pediu humano / quer ligar / acha que você é robô:
+"pode me ligar?", "quero falar com uma pessoa", "você é robô?", "quero o responsável"
+→ NÃO dê número de telefone. Proponha uma reunião pelo Meet:
+"Claro! Posso marcar uma conversa com nosso consultor pelo Google Meet. Qual dia e horário fica melhor pra você? Atendemos seg–sex das 9h às 18h 📅"
+→ Depois pedir e-mail → confirmar → emitir marcador [AGENDAR_REUNIAO:...]
 
-✅ CASO 3 — Lead está fugindo e a Luana já tentou reter 2x sem sucesso:
-Sinais de fuga: "não tenho interesse", "não é pra mim", "tchau", "valeu", "depois eu vejo" repetido, sem engajamento por 3+ mensagens.
-→ TENTATIVA 1 (Luana): "O que ficou de dúvida? Preço, qual tela ou como funciona? Me fala que eu resolvo agora 🎯"
-→ TENTATIVA 2 (Luana): "Começa com 1 ponto — R$13/dia, sem fidelidade. Se não sentir retorno, não renova. Quer testar?"
-→ TENTATIVA 3 — última carta (Paulo): "Olha, talvez seja mais fácil bater um papo rápido com o Paulo, nosso consultor — ele monta uma proposta do zero pro seu perfil, é só 15 min. Qual dia essa semana ficaria bom?"
-→ Se ainda recusar → encerra com calor e registra [FUNIL:etapa=perdido]
+✅ CASO 2 — Lead está fugindo após 2 tentativas de retenção sem sucesso:
+Sinais: "não tenho interesse", "não quero", "vou pensar" (repetido), sem engajamento
+→ TENTATIVA 1: "O que ficou de dúvida? Preço, tela ou como funciona? Me fala que eu resolvo agora 🎯"
+→ TENTATIVA 2: "Começar com 1 ponto é só R$13/dia, sem fidelidade. Se não sentir retorno, não renova. Quer testar?"
+→ TENTATIVA 3 (última): "Que tal a gente marcar 15 minutinhos pelo Google Meet? Sem compromisso — só pra eu entender melhor o seu caso. Qual dia essa semana fica bom? 📅"
+→ Após lead aceitar: pedir e-mail → confirmar → emitir marcador [AGENDAR_REUNIAO:...]
 
-DURANTE O FLUXO NORMAL DE VENDA: não mencione o Paulo. A Luana apresenta, tira dúvidas, recomenda telas e fecha diretamente.
-Após o lead decidir contratar → MANDE O LINK DIRETO (sem pedir e-mail): https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive_link
+FLUXO OBRIGATÓRIO DE AGENDAMENTO (sempre que o lead aceitar reunião):
+PASSO 1 → "Qual dia e horário fica melhor? Atendemos seg–sex das 9h às 18h 📅"
+PASSO 2 → (após receber dia/hora) "Perfeito! Me passa seu e-mail pra eu enviar o link do Google Meet 😊"
+PASSO 3 → (após receber e-mail) "Confirmando: 📅 [dia] às [hora] | 📧 [email] — está certo?"
+PASSO 4 → (após confirmação) "Reunião agendada! ✅ Você vai receber o convite com o link do Google Meet no e-mail 😊"
+[AGENDAR_REUNIAO:email=EMAIL;data=DATA;hora=HORA;nome=NOME;telefone=TELEFONE]
+
+REGRAS CRÍTICAS:
+- NUNCA dê o número (15) 99751-7779 ao lead.
+- NUNCA diga "fale com o Paulo" — você mesma agenda.
+- O marcador [AGENDAR_REUNIAO:...] é OBRIGATÓRIO após confirmação do lead.
+- A reunião vai para paulo.ferrari@ooba.com.br automaticamente pelo sistema.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 GATILHOS QUE EXIGEM TENTATIVA DE REUNIÃO IMEDIATA
@@ -499,7 +503,8 @@ SINAL: respostas monossilábicas ("ok", "tá", "sim") por 3+ mensagens seguidas
 → Se persistir por mais 2 mensagens sem engajamento → CASO 3: acionar o Paulo como última carta.
 
 SINAL: "pode me ligar?" / "quero falar com alguém" / "você é robô?" / "tem um humano aí?"
-→ CASO 1 — encaminhe pro Paulo: "Claro! O Paulo é nosso consultor e pode te atender pelo (15) 99751-7779 😊"
+→ CASO 1 — Proponha reunião pelo Meet (NÃO dê número):
+"Claro! Posso marcar uma conversa com nosso consultor pelo Google Meet. Qual dia e horário fica melhor pra você? Atendemos seg–sex das 9h às 18h 📅"
 
 SINAL: "quero agendar uma reunião" / "posso marcar uma conversa?" / "vamos marcar" / "pode marcar"
 → CASO 2 — VOCÊ MESMA conduz o agendamento. NÃO passe pro Paulo, NÃO dê número de telefone.
@@ -530,9 +535,9 @@ REGRA CRÍTICA: NUNCA dê o número do Paulo nem diga para o lead entrar em cont
 ═══════════════════════════════════
 CONTATO FINAL
 ═══════════════════════════════════
-Tel/WhatsApp Paulo: (15) 99751-7779
 E-mail: contato@ooba.com.br
-Site: www.ooba.com.br`;
+Site: www.ooba.com.br
+(Não compartilhe o telefone do Paulo com o lead — use o fluxo de agendamento pelo Meet)`;
 
 // ═══════════════════════════════════════════════════════
 // INSTRUÇÕES DE FUNIL POR ETAPA
@@ -654,11 +659,12 @@ REGRAS DE MENSAGEM:
 - NUNCA use markdown [texto](url)
 - Use *asterisco* para negrito
 
-QUANDO ACIONAR O PAULO (15) 99751-7779 — APENAS nestes 3 casos:
+QUANDO AGENDAR REUNIÃO PELO MEET — nestes casos:
 1. Lead pediu explicitamente um humano ou ligação
-2. Lead quer agendar reunião presencial
-3. Lead fugiu 2x após suas tentativas de retenção
-Fora desses 3 casos: você fecha sozinha, sem mencionar o Paulo.
+2. Lead quer agendar reunião
+3. Lead fugiu 2x e não reagiu às tentativas de retenção
+→ Siga o fluxo: dia/hora → e-mail → confirmar → marcador [AGENDAR_REUNIAO:...]
+→ NUNCA dê o número do Paulo. NUNCA diga para entrar em contato com outra pessoa.
 
 ${ctx}`;
 
@@ -953,16 +959,16 @@ function interceptarSaida(msgLead, respostaBot, lead) {
   const msgLeadLower = msgLead.toLowerCase().trim();
   const respostaLower = respostaBot.toLowerCase();
 
-  // Sinais de saída — qualquer variação de desinteresse ou despedida
+  // Sinais claros de saída
   const sinaisSaida = [
     "nao quero mais", "não quero mais", "nao quero", "não quero",
     "nao tenho interesse", "não tenho interesse", "sem interesse",
     "nao vou", "não vou", "deixa pra la", "deixa pra lá",
     "qualquer coisa te aviso", "qualquer coisa eu te aviso",
-    "depois eu te chamo", "depois te chamo",
+    "depois eu te chamo", "depois te chamo", "depois vejo",
     "vou pensar", "deixa eu pensar",
-    "vou ver", "vou analisar", "vou conversar com",
-    "obrigado", "obrigada",
+    "vou ver", "vou analisar",
+    "obrigado", "obrigada", "vlw",
     "valeu", "blz", "até mais", "ate mais",
     "tchau", "flw", "falou", "tmj",
     "era só isso", "era isso", "por hora", "por enquanto",
@@ -974,63 +980,70 @@ function interceptarSaida(msgLead, respostaBot, lead) {
   const ehSaida = sinaisSaida.some(s => msgLeadLower.includes(s));
   if (!ehSaida) return respostaBot;
 
-  // Se o GPT já tentou reter com Paulo/reunião → não duplicar
-  const jaTemRetencao = [
-    "paulo", "15 min", "agendar", "reunião", "reuniao",
-    "qual dia", "horário", "horario", "bate um papo", "conversa rápida"
+  // Verificar quantas vezes já tentamos reter (baseado no histórico — simplificado por marcador)
+  // Se já tentou 2x reter com reunião → deixa passar (não ficar no loop infinito)
+  const tentativasReuniao = (respostaBot.match(/qual dia|qual horário|qual horario|me passa seu e-mail/gi) || []).length;
+
+  // Verificar se o bot já está propondo reunião nessa resposta → não duplicar
+  const jaPropondoReuniao = [
+    "qual dia", "qual horário", "qual horario", "fica bom pra você",
+    "me passa seu e-mail", "google meet", "agendar"
   ].some(s => respostaLower.includes(s));
-  if (jaTemRetencao) return respostaBot;
+  if (jaPropondoReuniao) return respostaBot;
 
-  // Identificar nome do lead se disponível
+  // Remover encerramento passivo do GPT
+  let novaResposta = respostaBot;
+  const padroesFim = [
+    /\s*[Oo]brigad[oa] pelo seu tempo[!.,]?\s*$/,
+    /\s*[Ss]ucesso[!.,]?\s*$/,
+    /\s*[Aa]té mais[!.,]?\s*$/,
+    /\s*[Ff]ico [aà] disposição[!.,]?\s*$/,
+    /\s*[Qq]uando precisar[^.!]*[.!]\s*$/,
+    /\s*[Ee]starei aqui[!.,]?\s*$/,
+    /\s*[Ee]stou aqui[!.,]?\s*$/,
+    /\s*[Tt]chau[!.,]?\s*$/,
+    /\s*[Aa]té logo[!.,]?\s*$/,
+    /\s*[Ss]e mudar de ideia[^.!]*[.!]\s*$/,
+    /\s*[Tt]enha um ótimo dia[!.,]?\s*$/,
+    /\s*[Tt]enha um bom dia[!.,]?\s*$/,
+    /\s*[Pp]or aqui[!.,]?\s*$/,
+    /\s*[Dd]e nada[!.,]\s*[Qq]ualquer coisa[^.!]*[.!]\s*$/,
+    /\s*[Rr]espeito sua decisão[!.,]?\s*$/
+  ];
+  for (const p of padroesFim) {
+    novaResposta = novaResposta.replace(p, "").trim();
+  }
+  // Remover a frase inteira se sobrou só uma saudação passiva
+  if (!novaResposta || novaResposta.length < 10) {
+    novaResposta = "";
+  }
+
   const oi = lead?.nome ? lead.nome.split(" ")[0] : "";
-
-  // Definir a força da retenção baseada na etapa
   const etapa = lead?.etapa_funil || "abertura";
-  const etapasQuentes = ["materiais", "proposta", "fechamento", "recomendacao"];
+  const etapasQuentes = ["materiais", "proposta", "fechamento", "recomendacao", "videos"];
   const etapaQuente = etapasQuentes.includes(etapa);
 
-  // Montar resposta de retenção — sempre tentar salvar com reunião
   let sufixo;
-
   if (etapaQuente) {
-    // Estava quase fechando → retenção mais agressiva com Paulo
+    // Retenção forte — propõe reunião diretamente
     const opcoes = [
-      `\n\n${oi ? oi + ", a" : "A"}ntes de ir — você chegou até aqui e faz sentido pro seu negócio. Basta 1 cliente novo pra pagar o investimento do mês inteiro. O que ficou travado? Me conta que eu resolvo agora 🎯`,
-      `\n\n${oi ? oi + ", q" : "Q"}ue tal a gente marcar uma reunião rápida de 15 minutos? Consigo te mostrar exatamente como ficaria a estratégia pra ${negocio || "seu negócio"} aqui. Qual dia essa semana fica bom? 📅`,
-      `\n\n${oi ? oi + ", p" : "P"}odemos marcar uma conversa rápida — 15 minutos, sem compromisso, pelo Google Meet. Me fala um dia e horário que funciona! 😊`
+      `${oi ? oi + ", a" : "A"}ntes de ir — você chegou até aqui, faz todo sentido pro seu negócio. O que ficou travado? Me conta que eu resolvo agora 🎯`,
+      `${oi ? oi + ", q" : "Q"}ue tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — só pra eu montar uma estratégia exata pro ${lead?.negocio || "seu negócio"}. Qual dia essa semana fica bom? 📅`,
+      `${oi ? oi + ", p" : "P"}odemos marcar uma conversa rápida — 15 minutos, sem compromisso. Me fala um dia e horário que funciona! 😊`
     ];
     sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
   } else {
-    // Etapa inicial → retenção mais leve, tentar entender a objeção
+    // Retenção leve — entende objeção ou propõe reunião
     const opcoes = [
-      `\n\n${oi ? oi + ", o" : "O"} que pesou mais pra não seguir em frente? Me conta — às vezes é um detalhe que eu consigo resolver rapidinho 😊`,
-      `\n\n${oi ? oi + ", q" : "Q"}ue tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — só pra eu entender melhor o seu negócio e montar uma estratégia sob medida. Qual dia fica bom? 📅`,
-      `\n\n${oi ? oi + ", q" : "Q"}ue tipo de resultado você esperaria pra considerar que valeu a pena? Me fala que a gente vê se a gente consegue chegar lá 🎯`
+      `${oi ? oi + ", o" : "O"} que ficou de dúvida? Preço, qual tela ou como funciona? Me fala que eu resolvo agora 🎯`,
+      `${oi ? oi + ", q" : "Q"}ue tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso, só pra eu entender melhor o seu negócio. Qual dia fica bom? 📅`,
+      `${oi ? oi + ", b" : "B"}asta 1 cliente novo por mês pra pagar o investimento inteiro. Quer ver como ficaria pro ${lead?.negocio || "seu negócio"}? Me fala um horário que funciona 🎯`
     ];
     sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
   }
 
-  // Remover despedidas passivas da resposta do GPT antes de adicionar retenção
-  let novaResposta = respostaBot;
-  const padroesFim = [
-    /\s*[Oo]brigad[oa] pelo seu tempo[!.]?\s*$/,
-    /\s*[Ss]ucesso nas suas estratégias[!.]?\s*$/,
-    /\s*[Ss]ucesso[!.]?\s*$/,
-    /\s*[Aa]té mais[!.]?\s*$/,
-    /\s*[Ff]ico [aà] disposição[!.]?\s*$/,
-    /\s*[Qq]uando precisar[, ]+é só chamar[!.]?\s*$/,
-    /\s*[Ee]starei aqui[!.]?\s*$/,
-    /\s*[Ee]stou aqui[!.]?\s*$/,
-    /\s*[Tt]chau[!.]?\s*$/,
-    /\s*[Aa]té logo[!.]?\s*$/,
-    /\s*[Ss]e mudar de ideia[^.!]*[.!]\s*$/,
-    /\s*[Pp]eça bem[!.]?\s*$/
-  ];
-  for (const p of padroesFim) {
-    novaResposta = novaResposta.replace(p, "");
-  }
-
-  return novaResposta.trimEnd() + sufixo;
+  const prefixo = novaResposta ? novaResposta + "\n\n" : "";
+  return prefixo + sufixo;
 }
 
 
@@ -1405,15 +1418,16 @@ async function replyAI(client, txt, phone) {
     // Limpar markdown — converte [texto](url) para URL solta (gera thumbnail no WhatsApp)
     rep = limparMarkdown(rep);
 
-    // ── INTERCEPTADOR DE SAÍDA ──
-    // Se o lead sinalizou saída e a Luana vai encerrar passivamente → forçar tentativa de reunião
+    // ── INTERCEPTADOR DE SAÍDA (prioridade máxima) ──
+    // Roda SEMPRE — antes de qualquer outra lógica — para não deixar o lead escapar
+    rep = interceptarSaida(txt, rep, lead);
+
     // ── INTERCEPTADOR DE PREÇO ANTECIPADO ──
-    // Se o lead pediu preço antes do funil estar pronto → redirecionar
-    const bloqueioPreco = interceptarPrecoAntecipado(txt, lead);
-    if (bloqueioPreco) {
-      rep = bloqueioPreco;
-    } else {
-      rep = interceptarSaida(txt, rep, lead);
+    // Só bloqueia preço se NÃO for sinal de saída (para não sobrescrever a retenção)
+    const ehSaidaAgora = ["nao quero","não quero","obrigado","obrigada","valeu","tchau","blz","flw","falou","vou pensar","até mais","ate mais","tmj","tá bom","ta bom"].some(s => txt.toLowerCase().includes(s));
+    if (!ehSaidaAgora) {
+      const bloqueioPreco = interceptarPrecoAntecipado(txt, lead);
+      if (bloqueioPreco) rep = bloqueioPreco;
     }
 
     // ── DETECTOR DE PEDIDO DE PDF ──
