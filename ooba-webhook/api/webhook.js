@@ -1720,7 +1720,60 @@ async function processarFunil(client, rep, phone) {
 // ═══════════════════════════════════════════════════════
 // PROCESSAR AGENDAMENTO
 // ═══════════════════════════════════════════════════════
+// Detecta e-mail em qualquer texto
+function extrairEmail(txt) {
+  const m = txt.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  return m ? m[0].toLowerCase() : null;
+}
+
+// Detecta horário em qualquer texto (ex: "15h", "15:00", "3 da tarde")
+function extrairHorario(txt) {
+  const m = txt.match(/(\d{1,2})[h:](\d{0,2})|às (\d{1,2})h|(\d{1,2}) da tarde|(\d{1,2}) da manhã/i);
+  if (!m) return null;
+  const hora = m[1] || m[3] || m[4] || m[5];
+  const min = m[2] || "00";
+  return hora ? `${hora.padStart(2,"0")}:${min.padStart(2,"00")}` : null;
+}
+
 async function processarAgendamento(client, rep, phone) {
+  // ── DETECÇÃO AUTOMÁTICA ──
+  // Se o GPT não emitiu o marcador mas o lead já deu e-mail + horário → dispara sozinho
+  const emailNaResposta = extrairEmail(rep);
+  const lead = await getLead(client, phone);
+  const emailNoLead = lead?.email_lead;
+
+  if (!rep.includes("[AGENDAR_REUNIAO:") && emailNaResposta) {
+    // Lead acabou de passar o e-mail — verificar se já temos o horário no histórico
+    const hist = await getHist(client, phone);
+    let horarioEncontrado = null;
+    let dataEncontrada = null;
+
+    // Varrer histórico do usuário em busca de dia e hora
+    for (const m of [...hist].reverse()) {
+      if (m.role === "user") {
+        if (!horarioEncontrado) horarioEncontrado = extrairHorario(m.content);
+        if (!dataEncontrada) {
+          const dm = m.content.match(/(segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo|amanhã|amanha|hoje|\d{1,2}\/\d{1,2})/i);
+          if (dm) dataEncontrada = dm[0];
+        }
+        if (horarioEncontrado && dataEncontrada) break;
+      }
+    }
+
+    // Também checar a mensagem atual do assistente em busca de horário (ex: "amanhã às 15h")
+    if (!horarioEncontrado) horarioEncontrado = extrairHorario(rep);
+    if (!dataEncontrada) {
+      const dm = rep.match(/(segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo|amanhã|amanha|hoje|\d{1,2}\/\d{1,2})/i);
+      if (dm) dataEncontrada = dm[0];
+    }
+
+    if (horarioEncontrado && dataEncontrada) {
+      console.log(`AGENDAMENTO AUTO DETECTADO [${phone}]: email=${emailNaResposta} data=${dataEncontrada} hora=${horarioEncontrado}`);
+      // Injetar o marcador automaticamente na resposta
+      rep += `\n[AGENDAR_REUNIAO:email=${emailNaResposta};data=${dataEncontrada};hora=${horarioEncontrado};telefone=${phone}]`;
+    }
+  }
+
   const match = rep.match(/\[AGENDAR_REUNIAO:([^\]]+)\]/);
   if (!match) return rep;
 
