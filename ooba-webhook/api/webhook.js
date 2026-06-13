@@ -754,6 +754,10 @@ module.exports = async (req, res) => {
       processedMsgs.add(msgId);
       if (processedMsgs.size > 200) processedMsgs.delete(processedMsgs.values().next().value);
 
+      // ── Responder ao Meta IMEDIATAMENTE (exigência: < 5s) ──
+      // O processamento continua em background via Promise separada
+      res.json({ ok: true });
+
       const from = m.from;
       let txt = "";
 
@@ -840,10 +844,10 @@ module.exports = async (req, res) => {
           console.error("Erro audio (nao critico):", audioErr.message);
         }
       }
-      return res.json({ ok: true });
+      // resposta já enviada antecipadamente
     } catch(e) {
       console.error("ERR:", e.message);
-      return res.status(500).json({ error: String(e) });
+      // resposta já enviada, só logar o erro
     } finally {
       if (client) await client.end().catch(() => {});
     }
