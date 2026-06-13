@@ -942,6 +942,86 @@ ${linkApresentacao}
 Qualquer dúvida sobre os valores é só falar 😊`;
 }
 
+// ═══════════════════════════════════════════════════════
+// DETECTOR DE PREÇO — responde direto sem passar pelo GPT
+// ═══════════════════════════════════════════════════════
+function detectarPerguntaPreco(txt) {
+  if (!txt) return null;
+  const t = txt.toLowerCase().trim();
+
+  const gatilhos = [
+    "quanto custa", "qual o custo", "qual o preço", "qual o valor",
+    "quantos pontos", "quantos pontos posso", "quais os planos",
+    "tem plano", "planos disponíveis", "planos disponiveis",
+    "me fala o preço", "me fala o valor", "me fala os valores",
+    "qual o investimento", "quanto é", "quanto fica",
+    "tabela de preços", "tabela de precos", "valores",
+    "preço", "preco", "plano mensal", "plano anual"
+  ];
+
+  const perguntando = gatilhos.some(g => t.includes(g));
+  if (!perguntando) return null;
+
+  // Retornar as 3 mensagens fixas, sem depender do GPT
+  return [
+    `📅 *Esse é o mensal* (sem fidelidade):
+
+• 1 ponto → R$ 400/mês
+• 2 pontos → R$ 550/mês
+• 3 pontos → R$ 650/mês
+• 4 pontos → R$ 750/mês
+• 5 pontos → R$ 850/mês
+• 6 pontos → R$ 950/mês
+• 7 pontos → R$ 1.050/mês
+• 8 pontos → R$ 1.150/mês
+• 9 pontos → R$ 1.250/mês
+• 10 pontos → R$ 1.350/mês`,
+
+    `📆 *Esse é o anual* (22% de desconto):
+
+• 1 ponto → R$ 200/mês
+• 2 pontos → R$ 450/mês
+• 3 pontos → R$ 550/mês
+• 4 pontos → R$ 650/mês
+• 5 pontos → R$ 750/mês ⭐
+• 6 pontos → R$ 850/mês ⭐
+• 7 pontos → R$ 950/mês ⭐
+• 8 pontos → R$ 1.050/mês ⭐
+• 9 pontos → R$ 1.150/mês ⭐
+• 10 pontos → R$ 1.250/mês ⭐
+
+⭐ A partir de 5 pontos no anual: 1º vídeo grátis + 2 vídeos em carrossel 🎯`,
+
+    `Se quiser posso te mandar a proposta em PDF, é só pedir aqui 😊 Ou podemos marcar uma reunião rápida com o Paulo pra ele montar a estratégia certa pro seu negócio — o que acha?`
+  ];
+}
+
+// Salvar mensagem no histórico sem chamar o GPT
+async function salvarMsgHistorico(client, phone, msgUser, msgBot) {
+  try {
+    const r = await client.query("SELECT messages FROM conversations WHERE phone=$1", [phone]);
+    let msgs = [];
+    if (r.rows.length > 0) {
+      msgs = typeof r.rows[0].messages === 'string'
+        ? JSON.parse(r.rows[0].messages)
+        : (r.rows[0].messages || []);
+    }
+    msgs.push({ role: "user", content: msgUser });
+    msgs.push({ role: "assistant", content: msgBot });
+    if (msgs.length > 60) msgs = msgs.slice(-60);
+
+    if (r.rows.length > 0) {
+      await client.query("UPDATE conversations SET messages=$1, updated_at=NOW() WHERE phone=$2",
+        [JSON.stringify(msgs), phone]);
+    } else {
+      await client.query("INSERT INTO conversations (phone, messages, updated_at) VALUES ($1,$2,NOW())",
+        [phone, JSON.stringify(msgs)]);
+    }
+  } catch(e) {
+    console.error("salvarMsgHistorico error:", e.message);
+  }
+}
+
 function splitMensagens(text) {
   if (!text) return [text];
 
@@ -1296,6 +1376,18 @@ module.exports = async (req, res) => {
       console.log(`IN [${from}] etapa=? : ${txt}`);
       client = await getDB();
       await initDB(client);
+
+      // ── BYPASS DE PREÇOS: não passa pelo GPT, manda direto ──
+      const respostasPreco = detectarPerguntaPreco(txt);
+      if (respostasPreco) {
+        for (let i = 0; i < respostasPreco.length; i++) {
+          await sendMsg(from, respostasPreco[i]);
+          if (i < respostasPreco.length - 1) await new Promise(r => setTimeout(r, 900));
+        }
+        // Salvar no histórico para manter contexto
+        await salvarMsgHistorico(client, from, txt, respostasPreco.join("\n\n---MSG---\n\n"));
+        return;
+      }
 
       const rep = await replyAI(client, txt, from);
       if (rep) {
