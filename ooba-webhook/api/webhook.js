@@ -194,10 +194,34 @@ Sugestão de mensagem ao enviar:
 "Antes de falarmos em valores, quero te enviar nossa apresentação e o contrato para você já ir conhecendo como trabalhamos 📄 Qualquer dúvida sobre o contrato, pode me perguntar!"
 
 ═══════════════════════════════════
-AGENDAMENTO
+AGENDAMENTO DE REUNIÃO
 ═══════════════════════════════════
-Quando quiser agendar: "Pode falar com o Paulo: (15) 99751-7779 📲 Ele confirma o horário e tira todas as dúvidas!"
-NÃO agende você mesmo. NÃO peça e-mail para agendamento.
+Quando o lead quiser agendar uma reunião, siga EXATAMENTE estes passos:
+
+PASSO 1 — Peça o e-mail:
+"Ótimo! 😊 Para marcar a reunião com o Paulo, me passa seu e-mail?"
+
+PASSO 2 — Peça dia e horário:
+"Qual o melhor dia e horário para você? Temos disponibilidade de segunda a sexta, das 9h às 18h."
+
+PASSO 3 — Confirme os dados antes de agendar:
+"Deixa eu confirmar:
+📧 E-mail: [email]
+📅 Data: [dia]
+🕐 Horário: [hora]
+Está correto?"
+
+PASSO 4 — Quando o lead confirmar, responda:
+"Perfeito! ✅ Reunião agendada! Você vai receber um convite no e-mail com o link do Google Meet. O Paulo estará aguardando você!"
+
+PASSO 5 — Depois de confirmar, inclua na resposta o marcador especial (sem mostrar ao lead):
+[AGENDAR_REUNIAO:email=EMAIL_DO_LEAD;data=DATA;hora=HORA;nome=NOME_SE_SOUBER;telefone=TELEFONE]
+
+IMPORTANTE:
+- Só avance para o próximo passo quando o lead responder ao atual
+- Se o lead não souber o horário, sugira: "Que tal às 10h ou às 14h?"
+- Se marcar fora do horário comercial, avise: "Nosso horário de atendimento é de segunda a sexta, das 9h às 18h. Qual horário dentro desse período funciona pra você?"
+
 
 ═══════════════════════════════════
 PREÇOS (só após gerar valor)
@@ -315,6 +339,41 @@ async function replyAI(client, txt, phone) {
 }
 
 const processedMsgs = new Set();
+const B44_FUNC_URL = "https://vendedor-ooba-77e0e07d.base44.app/functions/agendarReuniao";
+const B44_API_KEY = process.env.BASE44_API_KEY || "";
+
+async function processarAgendamento(rep, phone) {
+  const match = rep.match(/\[AGENDAR_REUNIAO:([^\]]+)\]/);
+  if (!match) return rep;
+
+  const params = {};
+  match[1].split(";").forEach(p => {
+    const [k, v] = p.split("=");
+    if (k && v) params[k.trim()] = v.trim();
+  });
+
+  params.telefone = params.telefone || phone;
+
+  console.log("Agendando reunião:", JSON.stringify(params));
+
+  try {
+    const r = await fetch(B44_FUNC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + B44_API_KEY
+      },
+      body: JSON.stringify(params)
+    });
+    const result = await r.json();
+    console.log("Agendamento result:", JSON.stringify(result));
+  } catch(e) {
+    console.error("Erro no agendamento:", e.message);
+  }
+
+  // Remover o marcador da resposta enviada ao lead
+  return rep.replace(/\[AGENDAR_REUNIAO:[^\]]+\]/g, "").trim();
+}
 
 module.exports = async (req, res) => {
   if (req.method === "GET") {
@@ -344,8 +403,10 @@ module.exports = async (req, res) => {
       client = await getDB();
       await initDB(client);
 
-      const rep = await replyAI(client, txt, from);
+      let rep = await replyAI(client, txt, from);
       if (rep) {
+        // Processar marcador de agendamento se presente
+        rep = await processarAgendamento(rep, from);
         console.log(`OUT [${from}]: ${rep.substring(0, 100)}...`);
         await sendMsg(from, rep);
       }
