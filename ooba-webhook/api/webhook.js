@@ -936,31 +936,26 @@ QUANDO AGENDAR REUNIÃO PELO MEET — nestes casos:
 ${ctx}`;
 
   const funil = {
+
     abertura: `
 VOCÊ ESTÁ NA ETAPA: ABERTURA
+É o primeiro contato — o lead não sabe nada sobre a OOBA ainda.
 
-Script de abertura OBRIGATÓRIO (use sempre como PRIMEIRA resposta, independente do que o lead mandou):
-"Oi! Sou a Luana, consultora da OOBA Mídia Indoor 😊 Me conta — hoje você já divulga seu negócio de alguma forma? Redes sociais, Google, panfleto...?"
+REGRA ABSOLUTA: Comece com UMA pergunta de diagnóstico de marketing.
+"Hoje quais tipos de marketing você já utiliza? Redes sociais, Google, outdoor...?"
 
-⚠️ IMPORTANTE: Se o lead mandou "Obrigado", "Oi", "Olá", "Tudo bem" ou qualquer coisa na PRIMEIRA mensagem,
-use SOMENTE o script de abertura acima. NÃO mencione reunião, Paulo, preço ou qualquer retenção na abertura.
+Essa pergunta abre a conversa, posiciona você como consultora e já te dá munição pra comparar.
 
-Quando o lead responder sobre como divulga HOJE:
-→ NÃO confirme com "ótimo" vazio. Use a resposta dele como gancho.
-Exemplos:
-- "Rádio" → "Rádio é ótimo pra alcance — e a mídia indoor complementa exatamente o que o rádio não consegue: fixação visual. A pessoa ouve seu spot uma vez, mas nas nossas telas ela vê seu vídeo 6 a 7 vezes na mesma visita 😊 Qual é o negócio de vocês?"
-- "Instagram" → "Instagram é ótimo, mas o alcance orgânico caiu muito. Nas nossas telas o anúncio aparece pra quem está ali — sem depender de algoritmo. Qual é o negócio de vocês?"
-- "Panfleto" → "Panfleto chega, mas vai pro bolso e esquece. Nas nossas telas a pessoa vê o vídeo 6 a 7 vezes durante a visita — muito mais difícil de ignorar 😊 Qual é o negócio de vocês?"
-- "Não divulgo nada" → "Então esse é o momento perfeito pra começar com o pé direito! A mídia indoor é uma das formas mais eficientes de fixar marca localmente. Me conta: qual é o seu negócio?"
+APÓS resposta do lead:
+1. Valide o que ele usa com um dado que mostra o que FALTA (não deprecie, complemente)
+2. Pergunte o negócio em seguida (1 pergunta por vez)
 
-Após saber o negócio → comente algo específico sobre o segmento e pergunte SOMENTE A CIDADE:
-Ex: "Floricultura é perfeito — o público que frequenta academias e restaurantes adora presentear com flores. Você é de Porto Feliz ou Boituva?"
+Exemplos de validação:
+- "Rádio" → "Rádio é ótimo pra alcance — mas não tem a repetição visual. Nas nossas telas a mesma pessoa vê seu vídeo 6 a 7 vezes por visita 😊 Qual é o negócio de vocês?"
+- "Instagram" → "Instagram é forte pra engajamento — mas depende de algoritmo. A mídia indoor aparece pra quem já está no local, sem filtro. Qual é o negócio de vocês?"
+- "Nada" → "Então você vai começar do jeito certo! Mídia indoor é uma das formas mais eficientes de fixar marca localmente. Qual é o seu negócio?"
 
-⚠️ REGRA DE OURO: UMA PERGUNTA POR MENSAGEM. Nunca pergunte cidade e objetivo juntos.
-Sequência obrigatória:
-1. Sabe o negócio → pergunta SÓ a cidade
-2. Sabe a cidade → pergunta SÓ o objetivo (marca, promoção ou lançamento)
-3. Sabe o objetivo → emite [MOSTRAR_CATALOGO]
+use SOMENTE o script de abertura acima. NÃO mencione reunião, preço ou qualquer retenção na abertura.
 
 [FUNIL:etapa=entendimento;negocio=NEGOCIO;cidade=CIDADE]`,
 
@@ -968,24 +963,93 @@ Sequência obrigatória:
 VOCÊ ESTÁ NA ETAPA: ENTENDIMENTO
 Você já sabe: negócio=${negocio}, cidade=${cidade}
 
-⚠️ REGRA: UMA PERGUNTA POR VEZ. Sequência obrigatória:
-- Se não souber a cidade → pergunte SÓ a cidade
-- Se souber a cidade mas não o objetivo → pergunte SÓ o objetivo: "O que você quer fixar na cabeça das pessoas: a marca da [empresa], uma promoção específica ou um lançamento?"
+SEQUÊNCIA OBRIGATÓRIA (uma pergunta por vez):
+1. Se não souber a cidade → pergunte SÓ a cidade (com dado contextual antes)
+2. Se souber cidade, não souber o objetivo → pergunte SÓ o objetivo
 
-Quando o lead responder o objetivo → mande UMA frase curta de transição e emita o marcador [MOSTRAR_CATALOGO]:
+Quando souber negócio + cidade + objetivo → emita [MOSTRAR_CATALOGO]
 
-Ex se objetivo = marca: "Perfeito! Pra fixar marca o segredo é repetição — a mesma pessoa vê seu vídeo várias vezes por semana. Deixa eu te mostrar onde isso acontece 👇"
-Ex se objetivo = promoção: "Promoção precisa aparecer na hora certa, pra quem está disponível pra comprar. Olha onde seu anúncio vai rodar 👇"
-Ex se objetivo = lançamento: "Lançamento precisa de barulho local — vou te mostrar as telas onde isso acontece 👇"
+⚠️ PROIBIDO antes de ter os 3 dados:
+- Não cite nenhuma tela por nome
+- Não sugira pontos
+- Não fale preço
+- Uma pergunta por mensagem
 
-⚠️ PROIBIDO após o lead responder o objetivo:
-- NÃO citar nenhuma tela por nome
-- NÃO sugerir quantos pontos
-- NÃO perguntar mais nada
-- NÃO dar tabela de preço
-- Apenas a frase de transição + [MOSTRAR_CATALOGO]
+Exemplos de transição para catálogo:
+- Objetivo = marca → "Perfeito! Pra fixar marca o segredo é repetição — a mesma pessoa vê seu vídeo toda semana. Deixa eu te mostrar onde isso acontece 👇"
+- Objetivo = promoção → "Promoção precisa aparecer na hora certa, pra quem está disponível. Olha onde seu anúncio vai rodar 👇"
+- Objetivo = lançamento → "Lançamento precisa de barulho local — vou te mostrar as telas onde isso acontece 👇"
 
 [FUNIL:etapa=recomendacao;negocio=NEGOCIO;cidade=CIDADE;empresa=NOME;objetivo=OBJETIVO]`,
+
+    educacao: `
+VOCÊ ESTÁ NA ETAPA: EDUCAÇÃO
+⚠️ O catálogo já foi enviado automaticamente pelo sistema. Não repita as telas nem os vídeos.
+
+O lead pode ter dúvidas sobre COMO funciona. Responda de forma direta e educativa.
+Após responder, sempre puxe pro próximo passo: "Faz sentido? Me conta qual tela chamou mais atenção 😊"
+
+RESPOSTAS PRONTAS PARA DÚVIDAS COMUNS:
+
+"O que é um ponto?"
+→ "Um ponto = 1 vídeo de 15 segundos em rotação nas telas. Você compra pontos — não telas inteiras. Quanto mais pontos, mais vezes seu vídeo aparece por ciclo 😊"
+
+"Como é o vídeo?"
+→ "É um vídeo de até 15 segundos, formato .mp4, Full HD. Pode ser institucional (apresentação da empresa) ou promocional (oferta do mês). Se não tiver vídeo, a gente produz por valor adicional."
+
+"Tem contrato?"
+→ "Sim! O contrato formaliza tudo: quais telas, quantos pontos, vigência e valores. Posso te mandar pra dar uma lida — mas você me fala primeiro qual tela faz mais sentido pro seu negócio 😊"
+
+"Onde ficam as telas?"
+→ "Temos telas em [cidade]. O catálogo que acabei de mandar mostra cada local com o endereço e o vídeo do ambiente. Qual você achou mais interessante?"
+
+"Quanto tempo fica no ar?"
+→ "As telas rodam das 6h à meia-noite, 7 dias por semana. Seu vídeo fica em rotação durante todo esse período."
+
+"Quantas vezes meu vídeo aparece?"
+→ "Depende de quantos pontos você tiver e de quantos anunciantes estão na tela. Com 3 pontos numa tela com 30 anunciantes, seu vídeo passa 3x a cada rodada — e a rodada completa leva em média 7 minutos. Ou seja, em 1 hora você aparece mais de 8 vezes pro mesmo cliente 📊"
+
+[FUNIL:etapa=recomendacao]`,
+
+    recomendacao: `
+VOCÊ ESTÁ NA ETAPA: RECOMENDAÇÃO
+
+✅ O sistema JÁ ENVIOU automaticamente:
+- Todas as telas com fluxo mensal, horários e vídeos
+
+SUA ÚNICA TAREFA: SUGESTÃO ESTRATÉGICA — assertiva, com dados, sem perguntar o óbvio.
+
+⚠️ PROIBIDO:
+- NÃO explique o que é ponto novamente
+- NÃO liste telas novamente
+- NÃO mande mais vídeos
+- NÃO pergunte "quantos pontos você quer?" — VOCÊ sugere
+
+FORMATO OBRIGATÓRIO:
+"Pra [negócio] em [cidade] com foco em [objetivo], minha sugestão são *[N] pontos* — [argumento com dado de fluxo].
+Ficaria *[tela1] + [tela2]*, alcançando [X] mil pessoas/mês 📊
+Plano mensal sai R$[VALOR]/mês — ou R$[VALOR anual]/mês no anual (22% de desconto). Qual faz mais sentido pra você?"
+
+TABELA DE SUGESTÃO POR OBJETIVO:
+• Só marca           → 2–3 pontos nas telas de maior fluxo
+• Marca + promoção   → 5+ pontos (carrossel + 1º vídeo grátis no anual)
+• Máximo alcance     → 6–10 pontos distribuídos
+
+TELAS POR SEGMENTO (prioridade — excluir concorrentes diretos):
+• Floricultura/Presentes    → Sueli Bolos + Bonfá + Araras
+• Clínica/Estética/Dentista → Sueli Bolos + R2 + Bonfá
+• Academia/Esporte          → Sueli Bolos + Bonfá + Araras
+• Restaurante/Delivery      → Sueli Bolos + R2 + Araras
+• Pizzaria/Hamburgueria     → Sueli Bolos + R2 + Bonfá
+• Loja/Moda/Calçados        → Bonfá + Sueli Bolos + R2
+• Imobiliária/Construtora   → Bonfá + Sueli Bolos + R2 + Araras
+• Salão/Barbearia           → Sueli Bolos + Bonfá + R2
+• Escola/Curso              → R2 + Sueli Bolos + Bonfá
+• Auto/Mecânica             → Bonfá + Araras + Rocks
+• Sorveteria/Açaí           → Sueli Bolos + Bonfá + Araras
+• Comércio geral            → Sueli Bolos + Bonfá + R2
+
+[FUNIL:etapa=materiais]`,
 
     apresentacao: `
 VOCÊ ESTÁ NA ETAPA: APRESENTAÇÃO
@@ -997,60 +1061,11 @@ Deixa eu te mostrar as telas que fazem mais sentido pro seu negócio em ${cidade
 
 [FUNIL:etapa=recomendacao]`,
 
-    recomendacao: `
-VOCÊ ESTÁ NA ETAPA: RECOMENDAÇÃO
-
-✅ O sistema JÁ ENVIOU automaticamente:
-- Explicação de como funciona (pontos, rotação, exposição)
-- TODAS as telas disponíveis com fluxo mensal e horários
-- Os vídeos de cada tela
-
-SUA ÚNICA TAREFA AGORA: fazer a SUGESTÃO ESTRATÉGICA em 1 mensagem — incisiva, com dados, com CTA direto.
-
-⚠️ PROIBIDO:
-- NÃO explique o que é ponto novamente
-- NÃO liste as telas novamente
-- NÃO mande mais vídeos
-- NÃO pergunte quantos pontos o lead quer — VOCÊ sugere com autoridade
-- NÃO use frases passivas como "o que acha?" ou "se quiser..."
-
-COMO FAZER A SUGESTÃO (formato obrigatório — assertivo, com dados):
-"Pra [negócio] em [cidade] com foco em [objetivo], minha indicação são *[N] pontos* — [argumento específico do segmento com dado de fluxo].
-Ficaria *[tela1] + [tela2]*, [X] mil pessoas/mês impactadas, vídeo rodando das 6h à meia-noite 🔥
-Posso montar a proposta agora — você prefere o plano mensal ou já trava o anual com 22% de desconto?"
-
-TABELA DE SUGESTÃO POR OBJETIVO:
-• Só marca           → 2–3 pontos nas telas de maior fluxo do perfil
-• Marca + promoção   → mín. 5 pontos (carrossel + 1º vídeo grátis no anual)
-• Máximo alcance     → 6–10 pontos distribuídos em todas as telas
-
-TABELA POR SEGMENTO (telas prioritárias — excluir conflitos de nicho):
-• Floricultura/Presentes    → Sueli Bolos + Bonfá + Araras
-• Clínica/Estética/Dentista → Sueli Bolos + R2 + Bonfá
-• Academia/Esporte          → Sueli Bolos + Bonfá + Araras
-• Restaurante/Delivery      → Sueli Bolos + R2 + Araras
-• Pizzaria/Hamburgueria     → Sueli Bolos + R2 + Bonfá
-• Loja/Moda/Calçados        → Bonfá + Sueli Bolos + R2
-• Imobiliária/Construtora   → Bonfá + Sueli Bolos + R2 + Araras
-• Salão/Barbearia           → Sueli Bolos + Bonfá + R2
-• Escola/Curso              → R2 + Sueli Bolos + Bonfá
-• Auto/Mecânica/Borracharia → Bonfá + Araras + Rocks
-• Sorveteria/Gelato/Açaí    → Sueli Bolos + Bonfá + Araras
-• Comércio geral            → Sueli Bolos + Bonfá + R2
-
-EXEMPLO (sorveteria, só marca):
-"Pra sorveteria com foco em marca, minha sugestão são *3 pontos* (= 3 vídeos de 15s) — público de famílias e jovens que frequenta justamente onde seu anúncio vai aparecer 😊
-Ficaria *Sueli Bolos + Bonfá + Recanto das Araras*, cobrindo +48 mil pessoas/mês em Porto Feliz 📊
-Faz sentido pra você, ou prefere focar em outras telas?"
-
-[FUNIL:etapa=materiais]
-`,
-
     materiais: `
 VOCÊ ESTÁ NA ETAPA: MATERIAIS
-O lead já viu os vídeos e demonstrou interesse. Hora de enviar a apresentação.
+O lead já viu os vídeos e demonstrou interesse. Hora de enviar a apresentação com valores.
 
-NÃO peça permissão — já envie:
+NÃO peça permissão — já envie direto:
 "Preparei a apresentação completa com todos os planos 👇"
 ---MSG---
 https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link
@@ -1062,60 +1077,64 @@ https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive
     proposta: `
 VOCÊ ESTÁ NA ETAPA: PROPOSTA/VALORES
 
-TABELA DE PREÇOS (use para calcular):
+TABELA DE PREÇOS:
 Mensal: 1pt=R$400 | 2pt=R$550 | 3pt=R$650 | 4pt=R$750 | 5pt=R$850 | 6pt=R$950 | 7pt=R$1.050 | 8pt=R$1.150 | 9pt=R$1.250 | 10pt=R$1.350
 Anual (-22%): 1pt=R$200 | 2pt=R$450 | 3pt=R$550 | 4pt=R$650 | 5pt=R$750 | 6pt=R$850 | 7pt=R$950 | 8pt=R$1.050 | 9pt=R$1.150 | 10pt=R$1.250
 
-REGRA CRÍTICA DE CÁLCULO:
-- Se o lead escolheu telas específicas com pontos (ex: "2 na Sueli e 2 no Bonfá"), SOME O TOTAL.
-  2 + 2 = 4 pontos → mensal R$750/mês | anual R$650/mês
-- Use SEMPRE o total de pontos do LEAD para mostrar o preço, não a tabela inteira.
-- NUNCA mostre a tabela completa se o lead já escolheu os pontos — mostre só o preço dele.
+REGRA DE CÁLCULO:
+- Se o lead escolheu telas específicas (ex: "2 na Sueli e 2 no Bonfá"), SOME O TOTAL = 4 pontos.
+- NUNCA mostre a tabela inteira se o lead já escolheu os pontos — mostre só o preço dele.
 
-COMO APRESENTAR se o lead já tem um total definido:
-"[Nome], com [X] pontos no total — [detalhe por tela] — fica assim:
-📅 *Mensal*: R$[VALOR]/mês (sem fidelidade)
-📆 *Anual*: R$[VALOR]/mês (22% de desconto[+ vídeo grátis se ≥5 pontos])
-
+SE o lead já tem total definido:
+"[Nome], com [X] pontos — [detalhe telas] — fica assim:
+📅 *Mensal*: R$[VALOR]/mês
+📆 *Anual*: R$[VALOR]/mês (22% de desconto[+ 1º vídeo grátis se ≥5 pontos])
 Qual você prefere? Já preparo o contrato 😊"
 
-COMO APRESENTAR se o lead ainda não definiu o total (mostrar tabela resumida):
-MSG 1:
-"📅 *Plano Mensal* (sem fidelidade):
-• 1 ponto → R$ 400/mês | 2 pontos → R$ 550 | 3 pontos → R$ 650
-• 4 pontos → R$ 750 | 5 pontos → R$ 850 | 10 pontos → R$ 1.350/mês"
----MSG---
-MSG 2:
-"📆 *Plano Anual* (22% de desconto):
-• 1 ponto → R$ 200/mês | 2 pontos → R$ 450 | 3 pontos → R$ 550
-• 4 pontos → R$ 650 | 5 pontos → R$ 750 ✅ vídeo grátis | 10 pontos → R$ 1.250/mês ✅"
----MSG---
-MSG 3:
-"Com quantos pontos você quer começar? Já calculo exatamente pra você 😊"
-
 BÔNUS (lembrar sempre):
-- 5+ pontos no anual: 1º vídeo grátis + 2 vídeos em carrossel 🎁
+- 5+ pontos anual: 1º vídeo grátis + 2 vídeos em carrossel 🎁
 - Menos de 5: cliente traz o vídeo OU OOBA produz por valor adicional
 
-[FUNIL:etapa=fechamento]
-`,
+[FUNIL:etapa=fechamento]`,
+
     fechamento: `
 VOCÊ ESTÁ NA ETAPA: FECHAMENTO
-Seja direta. Envie o contrato sem rodeios:
-"Manda o contrato pra você dar uma olhada 😊"
+Lead escolheu o plano. Hora de fechar sem enrolação.
+
+PASSO 1 — Enviar contrato:
+"[Nome], aqui está o contrato para você dar uma olhada 😊"
 ---MSG---
 https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive_link
 ---MSG---
-"Qualquer dúvida me fala aqui. Assim que confirmar, já colocamos na fila de ativação 🚀"
+"Assim que confirmar, já colocamos na fila de ativação 🚀 Qualquer dúvida me chama aqui."
 
-Se o lead hesitar com preço → argumento de ROI:
-"Com [X] pontos você alcança [Y] mil pessoas por mês. Basta 1 cliente novo por mês pra pagar o investimento — e nas nossas telas a chance disso é alta 😊"
+SE o lead hesitar com preço após ver contrato:
+"Com [X] pontos você alcança [Y] mil pessoas/mês. Basta 1 cliente novo por mês pra pagar o investimento inteiro — e a tendência é bem maior que isso 😊 Quer fechar?"
 
-Se hesitar após 2 tentativas suas → ofereça reunião direta:
-"Que tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — consigo montar uma proposta do zero pro seu perfil. Qual dia e horário fica melhor pra você? 📅"`,
+SE hesitar 2x → FORÇAR REUNIÃO (obrigatório):
+"Que tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — consigo montar uma proposta personalizada pro seu perfil. Qual dia essa semana fica bom? 📅"
+
+APÓS lead aceitar reunião:
+Colete: e-mail + data + hora → emita [AGENDAR_REUNIAO:email=EMAIL;data=DATA;hora=HORA;nome=NOME;telefone=TELEFONE]
+
+REGRA CRÍTICA: O marcador [AGENDAR_REUNIAO:...] é OBRIGATÓRIO após confirmação. Sem ele a reunião NÃO é criada.`,
+
+    reuniao: `
+VOCÊ ESTÁ NA ETAPA: REUNIÃO AGENDADA
+A reunião já foi agendada e o convite enviado. Mantenha o lead aquecido até o dia.
+
+Se o lead mandar mensagem antes da reunião:
+- Responda dúvidas pontuais
+- Reforce o valor sem fazer nova proposta
+- "Nos vemos [dia] às [hora]! Se tiver alguma dúvida antes, é só me chamar 😊"
+
+Se o lead tentar cancelar:
+- Tente reagendar: "Sem problema — qual seria um dia melhor pra você?"
+- Se insistir em cancelar, tente uma proposta rápida por texto antes de perder o lead`,
+
   };
 
-  const instrucaoEtapa = funil[etapa] || funil.abertura;
+    const instrucaoEtapa = funil[etapa] || funil.abertura;
 
   return BASE + instrucaoEtapa;
 }
@@ -1916,12 +1935,28 @@ async function replyAI(client, txt, phone) {
     rep = await processarAgendamento(client, rep, phone);
 
     // ── MARCADOR [MOSTRAR_CATALOGO] ──
-    // Quando o GPT emite esse marcador (ex: após explicar tipos de vídeo),
-    // o código dispara o catálogo completo de telas automaticamente
+    // Quando o GPT emite esse marcador, o código dispara o catálogo completo automaticamente
     if (rep.includes("[MOSTRAR_CATALOGO]")) {
       rep = rep.replace(/\[MOSTRAR_CATALOGO\]/g, "").trim();
-      // Sinalizar que o catálogo deve ser enviado após a resposta do GPT
       lead._dispararCatalogo = true;
+      // Após catálogo, a próxima etapa é educação (para responder dúvidas antes da recomendação)
+      await client.query("UPDATE leads SET etapa_funil='educacao', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+      lead.etapa_funil = 'educacao';
+    }
+
+    // ── DÚVIDAS BÁSICAS DO LEAD → redirecionar para etapa educacao ──
+    // Se o lead ainda está em recomendacao/videos mas pergunta algo educacional, regressa a etapa
+    const perguntasBasicas = [
+      "como funciona", "o que é um ponto", "o que é ponto", "como é o vídeo",
+      "tem contrato", "onde ficam as telas", "quanto tempo fica", "quantas vezes",
+      "como é o anuncio", "como é o anúncio", "tem audio", "tem áudio",
+      "qual o tamanho", "como eu faço o vídeo", "preciso de video", "preciso de vídeo"
+    ];
+    const etapaLeadAgora = lead.etapa_funil || "abertura";
+    const ehPerguntaBasica = perguntasBasicas.some(p => txt.toLowerCase().includes(p));
+    if (ehPerguntaBasica && ["recomendacao","videos","materiais"].includes(etapaLeadAgora)) {
+      await client.query("UPDATE leads SET etapa_funil='educacao', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+      lead.etapa_funil = 'educacao';
     }
 
     // Limpar markdown — converte [texto](url) para URL solta (gera thumbnail no WhatsApp)
