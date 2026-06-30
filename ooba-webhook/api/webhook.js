@@ -144,14 +144,22 @@ async function enviarCatalogoTelas(from, lead, delay = 800) {
   await sendMsg(from, `Temos *${telas.length} telas disponíveis* para ${negocio} em ${cidade}, com *+${Math.round(totalFluxo/1000)} mil pessoas/mês* no total. Olha cada uma 👇`);
   await new Promise(r => setTimeout(r, 1000));
 
-  // ── PASSO 3: Cada tela — texto descritivo + vídeo separado (para gerar thumbnail) ──
+  // ── PASSO 3: Cada tela — formato rico (texto separado do link para thumbnail) ──
   for (const tela of telas) {
-    await sendMsg(from, `📍 *${tela.nome}*\n👥 ${tela.fluxo}\n🕐 ${tela.horario}`);
-    await new Promise(r => setTimeout(r, 1800));
+    // Texto com dados completos (igual ao Bonfá que o usuário aprovou)
+    const msgTela = [
+      `📍 *${tela.nome}*`,
+      `👥 *${tela.fluxo}*`,
+      `🕐 ${tela.horario}`
+    ].join("\n");
+    await sendMsg(from, msgTela);
+    await new Promise(r => setTimeout(r, 1800)); // delay para WhatsApp processar antes do link
+
+    // Link do vídeo em mensagem SEPARADA (gera thumbnail automático)
     if (tela.video) {
       await sendMsg(from, tela.video);
     } else {
-      await sendMsg(from, tela.descricao || `🎬 Vídeo do ${tela.nome} em produção — disponível em breve!`);
+      await sendMsg(from, tela.descricao || `🎬 Vídeo do *${tela.nome}* em produção em breve!`);
     }
     await new Promise(r => setTimeout(r, 1800));
   }
@@ -969,6 +977,12 @@ FORMATO DAS MENSAGENS:
 - NUNCA use markdown [texto](url) — só URL limpa
 - Use *negrito* com asterisco
 - Mensagens curtas, no estilo WhatsApp — sem parágrafos longos
+
+REGRA CRÍTICA — TELAS E VÍDEOS:
+- NUNCA liste telas, fluxos, horários ou links de vídeo no seu texto de resposta
+- O sistema envia o catálogo completo automaticamente com formatação correta
+- Se precisar mostrar as telas → emita apenas [MOSTRAR_CATALOGO] e o sistema cuida do resto
+- Listar telas manualmente quebra o filtro de concorrentes e o formato visual
 
 AGENDAMENTO DE REUNIÃO (Google Meet):
 Colete: e-mail + data + hora → emita o marcador:
@@ -2366,8 +2380,11 @@ module.exports = async (req, res) => {
         const histPosEnvio = await getHist(client, from);
         const jaTemVideos = histPosEnvio.some(m => m.role === "assistant" && m.content?.includes("youtube.com/shorts"));
 
+        // Disparar catálogo se:
+        // A) GPT emitiu o marcador [MOSTRAR_CATALOGO]
+        // B) Etapa avançou para recomendacao ou educacao sem ter enviado vídeos antes
         const deveLancarCatalogo = lead._dispararCatalogo || 
-          (etapaPosEnvio === "recomendacao" && !jaTemVideos);
+          (["recomendacao","educacao"].includes(etapaPosEnvio) && !jaTemVideos);
 
         if (deveLancarCatalogo) {
           console.log(`CATÁLOGO AUTO [${from}]: disparando (etapa=${etapaPosEnvio}, jaTemVideos=${jaTemVideos}, negocio=${leadPosEnvio?.negocio}, cidade=${leadPosEnvio?.cidade})`);
