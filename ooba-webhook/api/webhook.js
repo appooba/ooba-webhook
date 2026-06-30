@@ -125,60 +125,55 @@ function getTelasDisponiveis(negocio, cidade) {
 
 // ══════════════════════════════════════════════════════════════
 // 🔒 BLOCO TRAVADO — NÃO MODIFICAR
-// enviarCatalogoTelas — fluxo oficial de apresentação das telas
-// Ordem: conceito de pontos → gancho total → cada tela (texto + URL sozinha) → resumo + CTA
-// Aprovado em: 13/06/2026
+// enviarCatalogoTelas — apresentação completa: telas + vídeos + apresentação + contrato
+// Filosofia: mostrar TUDO primeiro, sugerir só se o lead pedir
+// Filtro: nunca mostrar tela de concorrente direto do segmento do lead
+// Aprovado: 30/06/2026
 // ══════════════════════════════════════════════════════════════
 async function enviarCatalogoTelas(from, lead, delay = 800) {
   const telas = getTelasDisponiveis(lead.negocio, lead.cidade);
   const cidade = lead.cidade || "Porto Feliz";
+  const negocio = lead.negocio || "seu negócio";
 
-  // PASSO 1 — Explicar como funciona (conceito de ponto)
-  await sendMsg(from, `Aqui na OOBA funciona assim: você compra *pontos* — cada ponto é um vídeo de 15 segundos que entra em rotação nas telas. A mesma pessoa fica em média *1 hora* no local e vê seu vídeo de *6 a 7 vezes* durante a visita 🔁\nAnúncios rodam *segunda a segunda, das 6h à meia-noite*. Quanto mais pontos, mais vezes seu anúncio aparece na rotação.`);
-  await new Promise(r => setTimeout(r, delay));
+  // ── PASSO 1: Como funciona (educação rápida) ──
+  await sendMsg(from, `Deixa eu te explicar como funciona a OOBA 😊\n\nA gente instala telas digitais dentro de estabelecimentos onde as pessoas ficam paradas por bastante tempo. Você compra *pontos* — cada ponto é um vídeo de *15 segundos* que fica rodando nas telas em rotação contínua.\n\nA pessoa fica em média *1 hora* no local e vê seu vídeo *6 a 7 vezes* durante a visita. As telas rodam *das 6h à meia-noite, 7 dias por semana* 🔁`);
+  await new Promise(r => setTimeout(r, 1200));
 
-  // PASSO 2 — Gancho de transição com total de giro (direto, sem tabela separada)
-  const totalFluxo = telas.reduce((acc, t) => {
-    const num = parseInt((t.fluxo || "0").replace(/[^0-9]/g, ""));
-    return acc + num;
-  }, 0);
+  // ── PASSO 2: Gancho — total de giro disponível ──
+  const totalFluxo = telas.reduce((acc, t) => acc + parseInt((t.fluxo || "0").replace(/[^0-9]/g, "")), 0);
+  await sendMsg(from, `Temos *${telas.length} telas disponíveis* para ${negocio} em ${cidade}, com *+${Math.round(totalFluxo/1000)} mil pessoas/mês* no total. Olha cada uma 👇`);
+  await new Promise(r => setTimeout(r, 1000));
 
-  await sendMsg(from, `Em ${cidade} são *${telas.length} telas* com *+${Math.round(totalFluxo/1000)} mil pessoas/mês* no total. Olha cada uma 👇`);
-  await new Promise(r => setTimeout(r, delay));
-
-  // PASSO 3 — Cada tela: texto com giro PRIMEIRO, depois URL sozinha (gera thumbnail)
+  // ── PASSO 3: Cada tela — texto descritivo + vídeo separado (para gerar thumbnail) ──
   for (const tela of telas) {
-    // MSG 1: nome + giro + horário (só texto)
-    const msgTela = `📍 *${tela.nome}* — ${tela.fluxo} | ${tela.horario}`;
-    await sendMsg(from, msgTela);
-    await new Promise(r => setTimeout(r, 1800)); // delay maior para WhatsApp gerar thumbnail
-
-    // MSG 2: URL sozinha na mensagem (WhatsApp gera thumbnail automático)
+    await sendMsg(from, `📍 *${tela.nome}*\n👥 ${tela.fluxo}\n🕐 ${tela.horario}`);
+    await new Promise(r => setTimeout(r, 1800));
     if (tela.video) {
       await sendMsg(from, tela.video);
     } else {
-      await sendMsg(from, tela.descricao || "🎬 Vídeo em produção");
+      await sendMsg(from, tela.descricao || `🎬 Vídeo do ${tela.nome} em produção — disponível em breve!`);
     }
     await new Promise(r => setTimeout(r, 1800));
   }
 
-  // MENSAGEM FINAL PERSUASIVA — após mostrar tudo, CTA direto sem depender do lead
-  await new Promise(r => setTimeout(r, delay));
-  const negocioFinal = lead?.negocio || "seu negócio";
-  const cidadeFinal = lead?.cidade || "Porto Feliz";
-  const totalFinal = telas.reduce((acc, t) => acc + parseInt((t.fluxo||"0").replace(/[^0-9]/g,"")), 0);
+  // ── PASSO 4: Apresentação institucional com valores ──
+  await new Promise(r => setTimeout(r, 800));
+  await sendMsg(from, `Aqui está nossa apresentação completa com todos os planos e valores 👇`);
+  await new Promise(r => setTimeout(r, 1000));
+  await sendMsg(from, `https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link`);
+  await new Promise(r => setTimeout(r, 1800));
 
-  // MSG FINAL — argumento de cobertura + total de giro + CTA (sem repetir cada tela)
-  const msgFinal = `São *+${Math.round(totalFinal/1000)} mil pessoas/mês* na rede toda 🔥
+  // ── PASSO 5: Contrato ──
+  await sendMsg(from, `E o nosso contrato para você já ir conhecendo 📋`);
+  await new Promise(r => setTimeout(r, 1000));
+  await sendMsg(from, `https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive_link`);
+  await new Promise(r => setTimeout(r, 1800));
 
-Seu anúncio de *${negocioFinal}* pode rodar em todas essas telas — a mesma pessoa te vê de manhã na Sueli Bolos, no almoço no Bonfá, à noite na Pizzaria.
-
-Isso é presença de marca de verdade 💪
-
-Qual dessas telas faz mais sentido pro seu público?`;
+  // ── PASSO 6: CTA final — aberto, sem sugerir ainda ──
+  const msgFinal = `É isso! Agora você já viu como funciona, as telas disponíveis, os valores e o contrato 😊\n\nQual dessas telas chamou mais atenção pra *${negocio}*? Se quiser, posso te fazer uma sugestão estratégica de quais combinam mais com o seu público.`;
   await sendMsg(from, msgFinal);
 
-  console.log(`CATÁLOGO TELAS enviado para ${from} — ${telas.length} telas`);
+  console.log(`CATÁLOGO COMPLETO enviado para ${from} — ${telas.length} telas + apresentação + contrato`);
 }const { Client } = require("pg");
 
 // ── Body parser manual para Vercel Serverless ──
@@ -1035,38 +1030,36 @@ TRANSIÇÕES PARA O CATÁLOGO (use conforme o segmento):
     educacao: `
 ${base}
 
-━━━ ETAPA: EDUCAÇÃO ━━━
-O catálogo de telas foi enviado automaticamente. O lead está vendo as opções.
+━━━ ETAPA: EDUCAÇÃO / PÓS-CATÁLOGO ━━━
+O sistema JÁ ENVIOU para o lead:
+✅ Explicação de como funciona (pontos, rotação, exposição)
+✅ Todas as telas disponíveis com fluxo mensal e horários
+✅ Vídeos de cada tela
+✅ Apresentação institucional com valores
+✅ Contrato
 
-SEU OBJETIVO: responder dúvidas, criar desejo e conduzir para a sugestão.
+SEU PAPEL AGORA: responder dúvidas e esperar o lead reagir.
+NÃO repita nada que já foi enviado. NÃO faça sugestão estratégica ainda.
+Sugestão só se o lead pedir explicitamente ("qual você indica?", "qual é melhor pra mim?", etc.)
 
-REGRAS:
-→ Responda qualquer dúvida de forma simples e natural (ver respostas prontas abaixo)
-→ Após responder, SEMPRE puxe de volta ao funil com uma pergunta que avança
-→ NUNCA encerre uma resposta sem uma pergunta ou CTA
-
-RESPOSTAS PARA DÚVIDAS COMUNS:
+COMO RESPONDER DÚVIDAS:
 "O que é um ponto?"
-→ "Cada ponto é um vídeo de 15s em rotação nas telas. Você compra de 1 a 10 pontos — quanto mais pontos, mais vezes seu vídeo aparece. A mesma pessoa que está no local pode ver seu anúncio 6, 7 vezes na mesma visita 😊 Qual tela você achou mais interessante?"
+→ "Cada ponto é um vídeo de 15s rodando em rotação. Quanto mais pontos, mais vezes seu vídeo aparece por ciclo — a mesma pessoa pode ver seu anúncio 6 a 7 vezes numa visita 😊 Alguma tela chamou mais atenção?"
 
 "Como é o vídeo?"
-→ "É um vídeo de até 15s, formato .mp4, Full HD, sem áudio. Pode ser institucional (apresenta sua empresa) ou promocional (uma oferta). Se você fechar 5 pontos no anual, o 1º vídeo já sai grátis! Você já tem um vídeo ou precisaria produzir?"
+→ "Até 15s, .mp4, Full HD, sem áudio. Pode ser institucional (apresentação da empresa) ou promocional (oferta). Se fechar 5+ pontos no anual, o 1º vídeo sai grátis! Você já tem um vídeo pronto ou precisaria produzir?"
 
 "Tem contrato?"
-→ "Sim! Temos um contrato formal que especifica telas, pontos, vigência e valores. Mas antes de eu te mandar — qual tela fez mais sentido pro seu negócio? Já consigo montar a proposta junto com o contrato 😊"
-
-"Onde ficam as telas?"
-→ Referencie as telas do catálogo já enviado com o endereço/local. "Você viu o catálogo que mandei? A [Sueli Bolos] fica no coração de Porto Feliz, por exemplo — 18 mil pessoas passam por lá todo mês. Alguma chamou mais atenção?"
-
-"Quantas vezes meu vídeo aparece?"
-→ "Depende de quantos pontos você tiver. Com 3 pontos, seu vídeo passa 3x a cada ciclo completo — e o ciclo leva cerca de 7 minutos. Em 1 hora de permanência, a pessoa vê seu anúncio mais de 8 vezes 📊 Faz sentido?"
-
-"Tem áudio?"
-→ "Não tem áudio — e isso é proposital! Sem áudio o anúncio chama mais atenção visualmente, porque se destaca do ambiente. E nas telas o visual já é suficiente pra fixar a marca 😊"
+→ "Sim! Já te mandei o link do contrato ali em cima 😊 Dá uma conferida — especifica telas, pontos, vigência e valores. Ficou alguma dúvida sobre ele?"
 
 "Quanto custa?"
-→ Nessa etapa, NÃO dê preço ainda. Conduza para a sugestão primeiro:
-"Depende de quantas telas e pontos fazem sentido pro seu negócio. Deixa eu te fazer uma sugestão estratégica primeiro — aí o preço vai fazer muito mais sentido 😊 Qual tela chamou mais atenção?"
+→ NÃO dê preço ainda. "Os valores estão na apresentação que te mandei 😊 Mas antes, qual dessas telas fez mais sentido pro seu público? Assim consigo calcular exatamente o que faz sentido pra você."
+
+"Qual você indica?" / "Qual é melhor pra mim?" / "Me faz uma sugestão"
+→ AGORA sim, emita [FUNIL:etapa=recomendacao] e faça a sugestão estratégica.
+
+REGRA FINAL: cada resposta termina com UMA pergunta que avança o funil.
+Nunca encerre com "qualquer coisa estou aqui" — isso mata a venda.
 
 [FUNIL:etapa=recomendacao]`,
 
