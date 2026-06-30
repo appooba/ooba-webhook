@@ -111,10 +111,13 @@ function getTelasDisponiveis(negocio, cidade) {
   ];
 
   // Filtrar por cidade e remover conflitos
+  // Se lead não é de Porto Feliz nem Boituva (ou não informou), mostrar TODAS as telas
   let telas = todasTelas.filter(t => {
-    if (cid.includes("boituva") && cid.includes("porto feliz")) return true; // ambas cidades
-    if (cid.includes("boituva")) return t.cidade === "boituva";
-    return t.cidade === "porto feliz"; // padrão Porto Feliz
+    const cidNorm = cid.replace(/[áàâã]/g,"a").replace(/[éèê]/g,"e").replace(/[íì]/g,"i").replace(/[óòôõ]/g,"o").replace(/[úù]/g,"u");
+    if (cidNorm.includes("porto feliz") && cidNorm.includes("boituva")) return true;
+    if (cidNorm.includes("boituva")) return t.cidade === "boituva";
+    if (cidNorm.includes("porto feliz") || cidNorm.includes("porto")) return t.cidade === "porto feliz";
+    return true; // cidade não identificada → mostra todas as telas disponíveis
   });
 
   // Remover telas bloqueadas por conflito de segmento
@@ -141,7 +144,12 @@ async function enviarCatalogoTelas(from, lead, delay = 800) {
 
   // ── PASSO 2: Gancho — total de giro disponível ──
   const totalFluxo = telas.reduce((acc, t) => acc + parseInt((t.fluxo || "0").replace(/[^0-9]/g, "")), 0);
-  await sendMsg(from, `Temos *${telas.length} telas disponíveis* para ${negocio} em ${cidade}, com *+${Math.round(totalFluxo/1000)} mil pessoas/mês* no total. Olha cada uma 👇`);
+  // Montar texto de cobertura dinâmico por cidades presentes no resultado
+  const temPF = telas.some(t => t.cidade === "porto feliz");
+  const temBT = telas.some(t => t.cidade === "boituva");
+  let coberturaTexto = temPF && temBT ? "Porto Feliz e Boituva" : temBT ? "Boituva" : "Porto Feliz";
+
+  await sendMsg(from, `Temos *${telas.length} telas* em ${coberturaTexto} com *+${Math.round(totalFluxo/1000)} mil pessoas/mês* no total. Olha cada uma 👇`);
   await new Promise(r => setTimeout(r, 1000));
 
   // ── PASSO 3: Cada tela — formato rico (texto separado do link para thumbnail) ──
@@ -986,25 +994,27 @@ Após saber: marketing atual + negócio → emita [FUNIL:etapa=entendimento;nego
 ${base}
 
 ━━━ ETAPA: ENTENDIMENTO ━━━
-Você já sabe o negócio. Precisa entender: cidade.
+Você já sabe o negócio. Precisa entender: onde o lead quer divulgar.
 
-REGRA: Você é a especialista — não pergunte "como você quer usar as telas" ou "qual seu objetivo".
-Você JÁ SABE o que funciona para cada segmento. Mostre isso.
+REGRA: Não pergunte "você é de Porto Feliz ou Boituva?" — isso é informação interna nossa.
+Pergunte de forma natural onde é o negócio e onde ele quer alcançar clientes.
 
 SEQUÊNCIA:
-1. Ao saber o negócio → conecte diretamente ao público das telas + pergunte SÓ a cidade
-   "Loja de roupas — o público que frequenta academia e restaurante é exatamente quem compra moda. Você é de Porto Feliz ou Boituva?"
-   "Clínica — frequentadores de academia e cafeteria têm poder aquisitivo alto, perfil perfeito. Você é daqui de Porto Feliz?"
-   "Pizzaria — turno noturno nas nossas telas é ideal pra quem decide onde jantar. Você é de Porto Feliz ou Boituva?"
+1. Ao saber o negócio → conecte ao valor + pergunte onde fica o negócio
+   Exemplos:
+   "Loja de roupas — o público que frequenta academia, restaurante e cafeteria é exatamente quem compra moda 😊 Onde fica a sua loja?"
+   "Clínica — frequentadores de academia e cafeteria têm poder aquisitivo alto, perfil perfeito. Onde você está localizado?"
+   "Academia — quem cuida do corpo também investe em saúde, estética e qualidade de vida. Onde fica a academia?"
 
-2. Ao saber a cidade → frase de transição + [MOSTRAR_CATALOGO] imediatamente.
-   NÃO pergunte objetivo — você já sugere com base no segmento.
+2. Lead responde onde é → se for Porto Feliz, Boituva ou região → frase de transição + [MOSTRAR_CATALOGO]
+   Se for outra cidade/região → diga: "Temos telas em Porto Feliz e Boituva — se você atende clientes nessas regiões, faz todo sentido anunciar aqui 😊 Deixa eu te mostrar 👇"
+   Em ambos os casos → [MOSTRAR_CATALOGO]
 
-TRANSIÇÕES PARA O CATÁLOGO (use conforme o segmento):
+TRANSIÇÕES PARA O CATÁLOGO:
 • Loja/Moda → "Pra loja de roupas o segredo é aparecer onde as pessoas estão dispostas a gastar. Deixa eu te mostrar as telas 👇"
-• Clínica/Estética → "Pra clínica o foco é fixar a marca — a mesma pessoa te vê toda semana até você virar referência na cabeça dela. Olha onde isso acontece 👇"
-• Restaurante/Pizzaria → "Pra restaurante o timing é tudo — aparecer nas telas quando as pessoas estão decidindo onde jantar. Deixa eu mostrar 👇"
-• Loja/Comércio geral → "Pra comércio o ideal é presença constante — não uma campanha isolada, mas aparecer toda semana. Veja as telas 👇"
+• Clínica/Estética → "Pra clínica o foco é fixar a marca — a mesma pessoa te vê toda semana até você virar referência. Olha onde isso acontece 👇"
+• Pizzaria/Restaurante → "Pra gastronomia o timing é tudo — aparecer nas telas quando as pessoas estão decidindo onde comer. Deixa eu mostrar 👇"
+• Academia/Saúde → "Pra academia o ideal é aparecer pra quem já tem hábito saudável — o público perfeito. Veja as telas 👇"
 • Qualquer segmento → "Deixa eu te mostrar onde seu anúncio vai aparecer — com os vídeos reais dos ambientes 👇"
 
 [FUNIL:etapa=educacao;negocio=NEGOCIO;cidade=CIDADE]`,
