@@ -978,17 +978,22 @@ ${base}
 ━━━ ETAPA: ABERTURA ━━━
 O lead acabou de chegar. Ele não sabe nada sobre a OOBA.
 
-SEU OBJETIVO: criar curiosidade e entender o contexto dele.
+SEU OBJETIVO: criar curiosidade e entender o contexto de marketing dele.
 
-PRIMEIRA MENSAGEM — sempre assim:
+PRIMEIRA MENSAGEM (quando o lead manda "oi", "olá", "bom dia" etc) — sempre assim:
 "Oi! Aqui é a Luana, da OOBA Mídia Indoor 😊 Hoje você já faz algum tipo de divulgação do seu negócio? Redes sociais, Google, outdoor...?"
 
-APÓS a resposta:
-→ Valide o que ele usa (complemento, não crítica) + conecte com o que a mídia indoor resolve
-→ Pergunte o negócio
-→ Uma pergunta por mensagem
+SE O LEAD JÁ MANDOU O NEGÓCIO NA PRIMEIRA MENSAGEM (ex: "restaurante", "sou dentista", "tenho academia"):
+→ Aproveite a info, se apresente brevemente e pergunte sobre o marketing:
+"Oi! Aqui é a Luana, da OOBA 😊 Restaurante — ótimo! Você já usa algum tipo de divulgação hoje? Redes sociais, outdoor, panfleto...?"
+→ NÃO repita a pergunta do negócio — você já sabe.
 
-Após saber: marketing atual + negócio → emita [FUNIL:etapa=entendimento;negocio=NEGOCIO]`,
+APÓS saber o marketing atual:
+→ Valide o que ele usa + conecte com o diferencial da mídia indoor
+→ Uma observação + uma pergunta por mensagem
+→ Emita [FUNIL:etapa=entendimento;negocio=NEGOCIO]
+
+NUNCA emita ---MSG--- no início ou sozinho sem texto antes.`,
 
     entendimento: `
 ${base}
@@ -1660,8 +1665,13 @@ function detectarPerguntaVideo(txt) {
 function splitMensagens(text) {
   if (!text) return [""];
 
-  // 0. Limpar artefatos: remover ---MSG--- inline (quando vem no meio de frase), [FUNIL:...] tags
-  let t = text.replace(/\[FUNIL:[^\]]*\]/g, "").trim();
+  // 0. Limpar artefatos: remover ---MSG--- inicial/inline, [FUNIL:...], [MOSTRAR_CATALOGO], [AGENDAR_REUNIAO:...]
+  let t = text
+    .replace(/^\s*-{3,}MSG-{3,}\s*/g, "")   // ---MSG--- no início
+    .replace(/\[FUNIL:[^\]]*\]/g, "")
+    .replace(/\[MOSTRAR_CATALOGO\]/g, "")
+    .replace(/\[AGENDAR_REUNIAO:[^\]]*\]/g, "")
+    .trim();
 
   // 1. Normalizar ---MSG--- (com espaços, asteriscos etc ao redor) → separador padrão
   t = t.replace(/\s*-{3,}MSG-{3,}\s*/g, "|||SPLIT|||");
