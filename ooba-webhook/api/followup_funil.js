@@ -80,7 +80,7 @@ module.exports = async (req, res) => {
       WHERE l.etapa_funil IN ('abertura', 'entendimento')
         AND jsonb_array_length(c.messages::jsonb) >= 2
         AND c.updated_at < NOW() - INTERVAL '24 hours'
-        AND c.updated_at > NOW() - INTERVAL '7 days'
+        AND c.updated_at > NOW() - INTERVAL '30 days'
         AND (l.total_abordagens IS NULL OR l.total_abordagens < 3)
         AND (l.data_ultima_abordagem IS NULL OR l.data_ultima_abordagem < NOW() - INTERVAL '24 hours')
       ORDER BY c.updated_at ASC

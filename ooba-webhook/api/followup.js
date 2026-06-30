@@ -92,8 +92,8 @@ module.exports = async (req, res) => {
         AND l.etapa_funil != 'fechado'
         AND l.etapa_funil != 'reuniao'
         AND c.updated_at < NOW() - INTERVAL '20 hours'
-        AND c.updated_at > NOW() - INTERVAL '72 hours'
-        AND (l.data_ultima_abordagem IS NULL OR l.data_ultima_abordagem < NOW() - INTERVAL '24 hours')
+        AND c.updated_at > NOW() - INTERVAL '30 days'
+        AND (l.data_ultima_abordagem IS NULL OR l.data_ultima_abordagem < NOW() - INTERVAL '48 hours')
         AND l.total_abordagens < 3
       ORDER BY c.updated_at DESC
       LIMIT 15
@@ -129,7 +129,8 @@ module.exports = async (req, res) => {
         // Salvar no histórico de conversa para manter contexto
         const convR = await client.query("SELECT messages FROM conversations WHERE phone=$1", [lead.phone]);
         if (convR.rows.length > 0) {
-          const msgs = convR.rows[0].messages || [];
+          const msgsRaw = convR.rows[0].messages;
+          const msgs = typeof msgsRaw === 'string' ? JSON.parse(msgsRaw || '[]') : (msgsRaw || []);
           msgs.push({ role: "assistant", content: mensagem });
           await client.query("UPDATE conversations SET messages=$1, updated_at=NOW() WHERE phone=$2", 
             [JSON.stringify(msgs), lead.phone]);
