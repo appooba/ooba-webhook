@@ -990,8 +990,11 @@ SE O LEAD JÁ MANDOU O NEGÓCIO NA PRIMEIRA MENSAGEM (ex: "restaurante", "sou de
 
 APÓS saber o marketing atual:
 → Valide o que ele usa + conecte com o diferencial da mídia indoor
-→ Uma observação + uma pergunta por mensagem
-→ Emita [FUNIL:etapa=entendimento;negocio=NEGOCIO]
+→ Pergunte o negócio (UMA pergunta por mensagem)
+→ Quando souber o negócio → emita imediatamente [FUNIL:etapa=entendimento;negocio=NOME_DO_NEGOCIO]
+
+⚠️ NUNCA pergunte marketing duas vezes. Se já perguntou e o lead respondeu → siga em frente.
+⚠️ NUNCA pergunte "qual é o seu negócio?" se o lead já disse qual é o negócio.
 
 NUNCA emita ---MSG--- no início ou sozinho sem texto antes.`,
 
@@ -2108,17 +2111,49 @@ async function replyAI(client, txt, phone) {
     const todasMsgs = msgs.map(m => m.content?.toLowerCase() || "").join(" ");
 
     if (etapaAtual === "abertura") {
-      // Detectar negócio e cidade mencionados
-      const negocioDetect = todasMsgs.match(/(?:tenho|sou dono|trabalho|minha|nossa)\s+(?:uma?\s+)?([a-záéíóúâêîôûàèìòùç\s]{3,30})/i);
+      // ── Detectar negócio: resposta direta ("academia", "restaurante") OU com contexto ("tenho uma loja")
+      // A pergunta da Luana foi "qual é o seu negócio?" — a resposta pode ser só o nome
+      const msgLeadLower = txtLower.trim();
+      const negocioKeywords = [
+        "academia","academias","crossfit","pilates","fitness","gym",
+        "restaurante","restaurantes","lanchonete","pizzaria","hamburgueria","churrascaria","bar","café","cafe","padaria","confeitaria","doceria",
+        "loja","lojas","moda","roupa","roupas","calçados","calcados","sapato","sapatos","boutique",
+        "clínica","clinica","dentista","médico","medico","estética","estetica","saúde","saude","fisioterapia","psicólogo","psicologo",
+        "salão","salao","barbearia","cabeleireiro","manicure","nail",
+        "imobiliária","imobiliaria","construtora","incorporadora","corretor","corretora",
+        "escola","curso","faculdade","colégio","colegio","creche",
+        "farmácia","farmacia","drogaria",
+        "hotel","pousada","hostel","airbnb",
+        "mecânica","mecanica","oficina","auto","autopeças","autopecas",
+        "supermercado","mercado","mercearia","hortifruti",
+        "advocacia","advogado","advocacia","jurídico","juridico",
+        "contabilidade","contador","contabilidade",
+        "pet shop","petshop","veterinário","veterinario",
+        "sorveteria","açaí","acai","sorvete"
+      ];
+      // Detectar negócio: mensagem atual do lead é uma palavra/frase de negócio
+      let negocioDetectado = null;
+      for (const kw of negocioKeywords) {
+        if (msgLeadLower.includes(kw)) {
+          negocioDetectado = txtLower.trim(); // usa o que o lead disse como negócio
+          break;
+        }
+      }
+      // Também detecta padrão "tenho uma X", "sou dono de X", "minha X"
+      if (!negocioDetectado) {
+        const m = txtLower.match(/(?:tenho|sou dono|trabalho com|minha|nossa|meu)\s+(?:uma?\s+)?([a-záéíóúâêîôûàèìòùç\s]{2,25})/i);
+        if (m) negocioDetectado = m[1].trim();
+      }
       const cidadeDetect = todasMsgs.includes("porto feliz") ? "Porto Feliz"
                          : todasMsgs.includes("boituva") ? "Boituva" : null;
-      if (negocioDetect || cidadeDetect) {
+      if (negocioDetectado || cidadeDetect) {
         const upd = { etapa_funil: "entendimento" };
+        if (negocioDetectado) upd.negocio = negocioDetectado;
         if (cidadeDetect) upd.cidade = cidadeDetect;
         const setClauses = Object.keys(upd).map((f, i) => `${f}=$${i+2}`).join(", ");
         await client.query(`UPDATE leads SET ${setClauses}, updated_at=NOW() WHERE phone=$1`,
           [phone, ...Object.values(upd)]).catch(()=>{});
-        console.log(`FUNIL AUTO [${phone}]: abertura → entendimento`);
+        console.log(`FUNIL AUTO [${phone}]: abertura → entendimento (negocio=${negocioDetectado})`);
       }
     } else if (etapaAtual === "entendimento") {
       // Avançar automaticamente — não depende do GPT
