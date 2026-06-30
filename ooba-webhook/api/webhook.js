@@ -402,6 +402,13 @@ SUBSTITUA SEMPRE por uma pergunta ou proposta ativa:
 
 REGRA ABSOLUTA: toda mensagem sua termina com UMA PERGUNTA ou UMA PROPOSTA DE AÇÃO — nunca com afirmação passiva.
 
+🚫 PROIBIDO ABSOLUTAMENTE:
+- Inventar nomes de telas ("Tela A", "Tela B", "Tela C" ou qualquer nome de tela)
+- Inventar números de fluxo ou pessoas/mês
+- Mencionar preço (R$) antes de o sistema ter enviado o catálogo automático de telas
+- Fazer recomendação de pontos antes de o lead ter visto o catálogo
+Quando quiser mostrar telas → emita APENAS [MOSTRAR_CATALOGO] e pare. O sistema cuida do resto.
+
 ═══════════════════════════════════
 PRIMEIRA MENSAGEM — SCRIPT OBRIGATÓRIO
 ═══════════════════════════════════
@@ -2396,9 +2403,24 @@ module.exports = async (req, res) => {
         return;
       }
 
-      const rep = await replyAI(client, txt, from);
+      let rep = await replyAI(client, txt, from);
       if (rep) {
         console.log(`OUT [${from}]: ${rep.substring(0, 120)}...`);
+
+        // ── TRAVA ANTI-INVENÇÃO: bloquear resposta com preço/recomendação se catálogo não foi enviado ──
+        const histAntiInv = await getHist(client, from);
+        const jaTemCatalogoReal = histAntiInv.some(m => 
+          m.role === "assistant" && 
+          (m.content?.includes("youtube.com/shorts") || m.content?.includes("catálogo automático"))
+        );
+        const repTemPreco = /R\$\s*[\d.,]+|plano\s*(mensal|anual)|por\s*mês|\/mês|tela\s*[A-C]/i.test(rep);
+        const repTemRecomendacaoFalsa = /tela [A-C]|tela [A-Z][\s,]|ponto [0-9]/i.test(rep);
+
+        if (!jaTemCatalogoReal && (repTemPreco || repTemRecomendacaoFalsa)) {
+          console.log(`ANTI-INVENCAO [${from}]: GPT tentou enviar preco/recomendacao sem catalogo — BLOQUEADO`);
+          rep = `Antes de falar em números, quero te mostrar onde seu anúncio vai aparecer — com vídeos reais dos ambientes 😊 Olha 👇`;
+          lead._forceCatalogo = true;
+        }
 
         // Dividir em múltiplas mensagens se houver separadores ---MSG--- ou blocos distintos de plano
         const partesBruto = splitMensagens(rep);
