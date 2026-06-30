@@ -925,8 +925,15 @@ Você é uma vendedora consultiva experiente. Sua missão é:
 2. Apresentar a solução de forma que ele QUEIRA comprar
 3. Conduzir ao fechamento sem deixar o lead escapar
 
-REGRA DE OURO: Cada mensagem sua deve AVANÇAR o funil.
+REGRA DE OURO #1: Cada mensagem sua deve AVANÇAR o funil.
 Nunca termine uma mensagem sem uma ação clara para o lead tomar.
+
+REGRA DE OURO #2: NUNCA fale preço antes do lead entender o valor.
+Preço só depois que o lead:
+  ✅ Sabe o que é um ponto e como funciona a rotação
+  ✅ Viu os vídeos e conhece os ambientes das telas
+  ✅ Entendeu quantas pessoas frequentam cada local
+Se o lead perguntar preço antes disso → redirecione: "Antes do número, deixa eu te mostrar o que você está comprando."
 
 COMO UM VENDEDOR PROFISSIONAL SE COMPORTA:
 ✅ Escuta o lead e usa o que ele disse no próximo argumento
@@ -1291,7 +1298,7 @@ async function upsertLead(client, phone, firstMsg, updates = {}) {
 // WhatsApp só gera thumbnail quando URL está solta no texto
 // ═══════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════
-// INTERCEPTADOR DE PREÇO ANTECIPADO — bloqueia preço antes do funil
+// INTERCEPTADOR DE PREÇO ANTECIPADO — bloqueia preço antes do lead entender o valor
 // ═══════════════════════════════════════════════════════
 function interceptarPrecoAntecipado(msgLead, lead) {
   if (!msgLead) return null;
@@ -1302,22 +1309,35 @@ function interceptarPrecoAntecipado(msgLead, lead) {
     "me fala o preço", "me fala o preco", "qual é o valor", "qual e o valor",
     "valor dos planos", "tabela de preço", "tabela de preco", "quanto fica",
     "qual o investimento", "caro?", "é caro", "e caro", "tem desconto",
-    "valor mensal", "valor anual", "quanto por mes", "quanto por mês"
+    "valor mensal", "valor anual", "quanto por mes", "quanto por mês",
+    "quanto é", "quanto e ", "qual o custo", "qual seria o valor",
+    "me passa o valor", "me passa o preço", "preço?", "preco?",
+    "quanto cobram", "qual o plano", "quais os planos", "tem plano"
   ];
 
   const isPerguntaPreco = perguntasPreco.some(p => msg.includes(p));
   if (!isPerguntaPreco) return null;
 
-  // Etapas que já passaram da recomendação — pode falar de preço
-  const etapasLiberadas = ['recomendacao', 'materiais', 'proposta', 'fechamento', 'reuniao'];
-  const etapaAtual = lead?.etapa_funil || 'abertura';
+  // Etapas liberadas — lead já entendeu o produto e viu as telas
+  const etapasLiberadas = ["recomendacao", "materiais", "proposta", "fechamento", "reuniao"];
+  const etapaAtual = lead?.etapa_funil || "abertura";
   if (etapasLiberadas.includes(etapaAtual)) return null;
 
-  // Bloqueio: lead perguntou preço cedo demais
-  const negocio = lead?.negocio || 'seu negócio';
-  return `Boa pergunta! Mas antes de falar em investimento, preciso entender melhor ${negocio !== 'seu negócio' ? `sobre ${negocio}` : 'o seu negócio'} pra te recomendar as telas certas — o valor só faz sentido quando você souber exatamente quantas pessoas vai alcançar 😊
+  // Bloqueio com redirecionamento — leva ao próximo passo do funil
+  const negocio = lead?.negocio || "";
+  const cidade = lead?.cidade || "";
 
-Me conta: ${negocio === 'seu negócio' ? 'qual é o seu negócio e em qual cidade você está?' : 'você já conhece as telas que temos disponíveis?'}`;
+  // Respostas variadas por contexto
+  if (!negocio) {
+    return `O investimento depende de quantas pessoas você quer alcançar e em quais locais. Antes de te passar qualquer número, preciso entender o seu negócio pra fazer uma recomendação que faça sentido pra você 😊 Qual é o seu segmento?`;
+  }
+
+  if (negocio && !cidade) {
+    return `O valor depende das telas e da cobertura que faz sentido pro seu ${negocio}. Deixa eu te mostrar primeiro onde seu anúncio vai aparecer — aí o número vai fazer muito mais sentido. Você é de Porto Feliz ou Boituva?`;
+  }
+
+  // Lead tem negócio e cidade mas ainda não viu o catálogo
+  return `Antes do valor, deixa eu te mostrar o que você está comprando — o catálogo das telas com os vídeos dos ambientes. Quando você ver onde seu anúncio vai aparecer e quantas pessoas frequentam cada local, o investimento vai fazer sentido por si só 😊 Um segundo 👇`;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1995,11 +2015,17 @@ async function replyAI(client, txt, phone) {
     rep = interceptarSaida(txt, rep, lead, msgs);
 
     // ── INTERCEPTADOR DE PREÇO ANTECIPADO ──
-    // Só bloqueia preço se NÃO for sinal de saída (para não sobrescrever a retenção)
+    // Bloqueia qualquer preço se o lead ainda não entendeu o produto (não viu catálogo)
     const ehSaidaAgora = ["nao quero","não quero","obrigado","obrigada","valeu","tchau","blz","flw","falou","vou pensar","até mais","ate mais","tmj","tá bom","ta bom"].some(s => txt.toLowerCase().includes(s));
     if (!ehSaidaAgora) {
       const bloqueioPreco = interceptarPrecoAntecipado(txt, lead);
-      if (bloqueioPreco) rep = bloqueioPreco;
+      if (bloqueioPreco) {
+        // Se o bloqueio sugere mostrar catálogo, dispara automaticamente
+        if (bloqueioPreco.includes("catálogo") || bloqueioPreco.includes("Um segundo")) {
+          lead._dispararCatalogo = true;
+        }
+        rep = bloqueioPreco;
+      }
     }
 
     // ── DETECTOR DE PEDIDO DE PDF ──
