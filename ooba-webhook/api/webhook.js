@@ -1002,11 +1002,14 @@ REGRA: Não pergunte "você é de Porto Feliz ou Boituva?" — isso é informaç
 Pergunte de forma natural onde é o negócio e onde ele quer alcançar clientes.
 
 SEQUÊNCIA:
-1. Ao saber o negócio → conecte ao valor + pergunte onde fica o negócio
+1. Ao saber o negócio → conecte ao valor da mídia indoor pra esse segmento + pergunte APENAS onde fica o negócio
+   ⚠️ NÃO pergunte "como você vai usar", "qual seu objetivo", "já pensou em usar mídia indoor" — isso atrasa o funil.
+   A próxima pergunta é SEMPRE: onde fica o negócio.
    Exemplos:
-   "Loja de roupas — o público que frequenta academia, restaurante e cafeteria é exatamente quem compra moda 😊 Onde fica a sua loja?"
-   "Clínica — frequentadores de academia e cafeteria têm poder aquisitivo alto, perfil perfeito. Onde você está localizado?"
-   "Academia — quem cuida do corpo também investe em saúde, estética e qualidade de vida. Onde fica a academia?"
+   "Loja de roupas — quem frequenta cafeteria e restaurante tem poder de compra e está receptivo. Onde fica a sua loja?"
+   "Clínica — o perfil de público das nossas telas é exatamente quem investe em saúde. Onde você está localizado?"
+   "Academia — nosso público é ativo, cuida do corpo, investe em saúde. Onde fica a academia?"
+   "Pizzaria — aparecer nas telas no horário certo faz toda a diferença. Onde fica a sua pizzaria?"
 
 2. Lead responde onde é → se for Porto Feliz, Boituva ou região → frase de transição + [MOSTRAR_CATALOGO]
    Se for outra cidade/região → diga: "Temos telas em Porto Feliz e Boituva — se você atende clientes nessas regiões, faz todo sentido anunciar aqui 😊 Deixa eu te mostrar 👇"
@@ -1619,8 +1622,13 @@ async function salvarMsgHistorico(client, phone, msgUser, msgBot) {
         : (r.rows[0].messages || []);
     }
     msgs.push({ role: "user", content: msgUser });
-    // Limpar separadores antes de salvar no histórico
-    const msgBotLimpa = msgBot.replace(/---MSG---/g, ' ').trim();
+    // Limpar separadores e marcadores internos antes de salvar no histórico
+    const msgBotLimpa = msgBot
+      .replace(/---MSG---/g, ' ')
+      .replace(/\[MOSTRAR_CATALOGO\]/g, '')
+      .replace(/\[FUNIL:[^\]]*\]/g, '')
+      .replace(/\[AGENDAR_REUNIAO:[^\]]*\]/g, '')
+      .trim();
     msgs.push({ role: "assistant", content: msgBotLimpa });
     if (msgs.length > 60) msgs = msgs.slice(-60);
 
@@ -1974,6 +1982,23 @@ async function replyAI(client, txt, phone) {
     rep = await processarFunil(client, rep, phone);
     rep = await processarAgendamento(client, rep, phone);
 
+    // ── DETECTOR DE CIDADE DA MENSAGEM DO LEAD ──
+    // Garante que cidade é salva mesmo que o GPT não emita [FUNIL:...cidade=X]
+    {
+      const leadAtualCidade = await getLead(client, phone);
+      if (!leadAtualCidade?.cidade) {
+        const txtNorm2 = txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+        let cidadeDetect2 = null;
+        if (txtNorm2.includes("porto feliz") || txtNorm2.includes("porto")) cidadeDetect2 = "Porto Feliz";
+        else if (txtNorm2.includes("boituva")) cidadeDetect2 = "Boituva";
+        if (cidadeDetect2) {
+          await client.query("UPDATE leads SET cidade=$1, updated_at=NOW() WHERE phone=$2",
+            [cidadeDetect2, phone]).catch(()=>{});
+          console.log(`CIDADE AUTO [${phone}]: salva → ${cidadeDetect2}`);
+        }
+      }
+    }
+
     // ── MARCADOR [MOSTRAR_CATALOGO] ──
     // Quando o GPT emite esse marcador, o código dispara o catálogo completo automaticamente
     if (rep.includes("[MOSTRAR_CATALOGO]")) {
@@ -2138,8 +2163,14 @@ async function replyAI(client, txt, phone) {
         const m = txtLower.match(/(?:tenho|sou dono|trabalho com|minha|nossa|meu)\s+(?:uma?\s+)?([a-záéíóúâêîôûàèìòùç\s]{2,25})/i);
         if (m) negocioDetectado = m[1].trim();
       }
-      const cidadeDetect = todasMsgs.includes("porto feliz") ? "Porto Feliz"
-                         : todasMsgs.includes("boituva") ? "Boituva" : null;
+      // Detectar cidade: verificar tanto histórico completo quanto mensagem atual
+      const txtNorm = txtLower.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+      const todasNorm = todasMsgs.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+      const cidadeDetect = (todasNorm.includes("porto feliz") || todasNorm.includes("porto feliz"))
+        ? "Porto Feliz"
+        : (todasNorm.includes("boituva"))
+        ? "Boituva"
+        : null;
       if (negocioDetectado || cidadeDetect) {
         const upd = { etapa_funil: "entendimento" };
         if (negocioDetectado) upd.negocio = negocioDetectado;
