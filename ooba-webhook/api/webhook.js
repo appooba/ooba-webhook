@@ -1120,6 +1120,22 @@ Se hesitar após 2 tentativas suas → acione Paulo:
   return BASE + instrucaoEtapa;
 }
 
+// ═══════════════════════════════════════════════════════
+// APRENDIZADO — Carregar patches dinâmicos do banco
+// ═══════════════════════════════════════════════════════
+async function loadPromptPatches(client) {
+  try {
+    const r = await client.query(
+      "SELECT trigger, conteudo FROM prompt_patches WHERE ativo = TRUE ORDER BY eficacia_score DESC LIMIT 10"
+    );
+    if (!r.rows.length) return "";
+    const patches = r.rows.map(p => `• Se o lead mencionar "${p.trigger}": ${p.conteudo}`).join("\n");
+    return `\n\n═══ APRENDIZADO DINÂMICO ═══\n${patches}`;
+  } catch(e) {
+    return "";
+  }
+}
+
 
 // ═══════════════════════════════════════════════════════
 // BANCO DE DADOS
@@ -1266,12 +1282,9 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   const msgLeadLower = msgLead.toLowerCase().trim();
   const respostaLower = respostaBot.toLowerCase();
   const etapa = lead?.etapa_funil || "abertura";
-
-  // Nunca interceptar na etapa inicial se ainda não houve apresentação
-  // (evita confundir "obrigado" como primeira mensagem com sinal de saída)
   const numTrocas = (msgs || []).length;
 
-  // Sinais FORTES de saída — interceptar sempre (mínimo 1 troca = lead já foi apresentado)
+  // ── SINAIS FORTES de saída — interceptar sempre ──
   const sinaisFortes = [
     "nao quero mais", "não quero mais", "nao quero", "não quero",
     "nao tenho interesse", "não tenho interesse", "sem interesse",
@@ -1281,8 +1294,7 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
     "tchau", "ate mais", "até mais", "flw", "falou"
   ];
 
-  // Sinais FRACOS de saída — só interceptar se já houver ao menos 4 mensagens trocadas
-  // (evita pegar "obrigado" de abertura, "blz" de confirmação, etc.)
+  // ── SINAIS FRACOS de saída — interceptar com ≥4 msgs ──
   const sinaisFracos = [
     "obrigado", "obrigada", "vlw", "valeu", "blz", "tmj",
     "era só isso", "era isso", "por hora", "por enquanto",
@@ -1292,22 +1304,45 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
     "depois eu te chamo", "depois te chamo", "depois vejo"
   ];
 
+  // ── SINAIS DE QUERER HUMANO — interceptar SEMPRE com ≥2 msgs ──
+  // Qualquer hesitação ou pedido de atendimento humano → reunião imediata
+  const sinaisHumano = [
+    "quero falar com", "falar com alguém", "falar com uma pessoa",
+    "tem alguém", "tem uma pessoa", "atendimento humano",
+    "fala com o paulo", "fala com paulo", "chama o paulo",
+    "quero o paulo", "me passa o contato", "me passa o número",
+    "prefiro falar", "posso ligar", "vocês atendem por telefone",
+    "tem telefone", "número de telefone",
+    // Hesitações implícitas (sem pedir humano, mas claramente saindo)
+    "preciso pensar melhor", "não sei", "nao sei", "ainda não decidi",
+    "ainda nao decidi", "tô em dúvida", "to em duvida",
+    "não tenho certeza", "nao tenho certeza", "tô com dúvida",
+    "parece caro", "é muito caro", "muito caro", "ta caro", "tá caro",
+    "não tenho dinheiro", "nao tenho dinheiro", "sem grana", "sem budget",
+    "vou ver com meu sócio", "vou ver com minha sócia", "vou falar com meu marido",
+    "vou falar com minha esposa", "vou ver com meu marido",
+    "preciso consultar", "vou consultar"
+  ];
+
   const ehSaidaForte = sinaisFortes.some(s => msgLeadLower.includes(s));
   const ehSaidaFraca = sinaisFracos.some(s => msgLeadLower.includes(s));
+  const ehPedidoHumano = sinaisHumano.some(s => msgLeadLower.includes(s));
 
-  // Só intercepta sinal fraco se conversa já tem pelo menos 4 mensagens (2 trocas)
-  const ehSaida = ehSaidaForte || (ehSaidaFraca && numTrocas >= 4);
+  const ehSaida = ehSaidaForte
+    || (ehSaidaFraca && numTrocas >= 4)
+    || (ehPedidoHumano && numTrocas >= 2);
+
   if (!ehSaida) return respostaBot;
 
-  // Verificar se o bot já está propondo reunião nessa resposta → não duplicar
+  // Já propondo reunião? Não duplicar
   const jaPropondoReuniao = [
     "qual dia", "qual horário", "qual horario", "fica bom pra você",
     "me passa seu e-mail", "google meet", "agendar", "15 minutos"
   ].some(s => respostaLower.includes(s));
   if (jaPropondoReuniao) return respostaBot;
 
-  // Não interceptar na etapa abertura com sinal fraco (lead está só chegando)
-  if (etapa === "abertura" && ehSaidaFraca) return respostaBot;
+  // Não interceptar abertura com sinal fraco comum
+  if (etapa === "abertura" && ehSaidaFraca && !ehPedidoHumano) return respostaBot;
 
   // Remover encerramento passivo do GPT
   let novaResposta = respostaBot;
@@ -1339,7 +1374,16 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   const etapaQuente = etapasQuentes.includes(etapa);
 
   let sufixo;
-  if (etapaQuente) {
+
+  // Se pediu humano → reunião direta, sem rodeios
+  if (ehPedidoHumano) {
+    const opcoes = [
+      `${oi ? oi + ", p" : "P"}erfeito! Posso marcar 15 minutos agora mesmo com o Paulo pelo Google Meet. Qual dia essa semana fica bom — terça ou quarta? 📅`,
+      `${oi ? oi + ", c" : "C"}laro! Vou te conectar com o Paulo diretamente. Qual o melhor dia pra uma conversa rápida de 15 min? Terça ou quarta? 😊`,
+      `${oi ? oi + ", v" : "V"}ou agendar agora com o Paulo! Me fala qual dia funciona melhor essa semana 📅`
+    ];
+    sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
+  } else if (etapaQuente) {
     const opcoes = [
       `${oi ? oi + ", a" : "A"}ntes de ir — você chegou até aqui e faz todo sentido pro seu negócio. O que ficou travado? Me conta que eu resolvo agora 🎯`,
       `${oi ? oi + ", q" : "Q"}ue tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — só pra fechar os detalhes. Qual dia essa semana fica bom? 📅`,
@@ -1358,6 +1402,7 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   const prefixo = novaResposta ? novaResposta + "\n\n" : "";
   return prefixo + sufixo;
 }
+
 
 
 function injetarPDF(msgLead, respostaBot) {
@@ -1837,7 +1882,9 @@ async function replyAI(client, txt, phone) {
   }
 
   const etapa = lead.etapa_funil || "abertura";
-  const sys = getSysWithFunil(etapa, lead);
+  // Carregar patches de aprendizado dinâmico do banco
+  const patches = await loadPromptPatches(client);
+  const sys = getSysWithFunil(etapa, lead) + patches;
 
   msgs.push({ role: "user", content: txt });
 
