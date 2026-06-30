@@ -51,6 +51,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     end: { dateTime: end, timeZone: "America/Sao_Paulo" },
     attendees: [
       { email: "paulo.ferrari@ooba.com.br" },
+      { email: "joao.pace@ooba.com.br" },
       { email }
     ],
     conferenceData: {
@@ -100,7 +101,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         <h2 style="color: #fff; margin: 0;">🗓️ Nova Reunião Agendada — OOBA</h2>
       </div>
       <div style="background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #eee;">
-        <p style="font-size: 16px;">Olá, <strong>Paulo</strong>! 👋</p>
+        <p style="font-size: 16px;">Olá, equipe OOBA! 👋</p>
         <p>A Luana agendou uma reunião via WhatsApp. Aqui estão os detalhes:</p>
         <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
           <tr style="background: #fff; border-bottom: 1px solid #eee;">
@@ -175,8 +176,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return true;
   };
 
+  // Enviar para Paulo e João (sem mencionar nomes ao lead)
   await sendEmail(
     "paulo.ferrari@ooba.com.br",
+    `🗓️ Nova Reunião: ${nome || email} — ${data} às ${hora}`,
+    emailPauloHtml
+  );
+  await sendEmail(
+    "joao.pace@ooba.com.br",
     `🗓️ Nova Reunião: ${nome || email} — ${data} às ${hora}`,
     emailPauloHtml
   );

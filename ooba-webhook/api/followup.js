@@ -40,7 +40,7 @@ function montarFollowup(lead, tipo) {
 
 Mandei a apresentação da OOBA ontem — conseguiu dar uma olhada nos valores?
 
-Fico feliz em tirar qualquer dúvida aqui mesmo, ou posso agendar 15 min com o Paulo pra ele montar uma proposta personalizada pra ${negocio}. Qual prefere? 😊`;
+Fico feliz em tirar qualquer dúvida aqui mesmo, ou posso agendar 15 min pelo Google Meet pra montar uma proposta personalizada pra ${negocio}. Qual prefere? 😊`;
   }
 
   if (tipo === "apos_videos") {
@@ -66,7 +66,7 @@ O que achou?`;
 
 A gente conversou sobre divulgar ${negocio} nas nossas telas — ficou alguma dúvida que eu possa tirar?
 
-Posso marcar 15 min com o Paulo essa semana, sem compromisso, pra ele te mostrar as opções. O que acha?`;
+Posso marcar 15 min pelo Google Meet essa semana, sem compromisso, pra te mostrar as opções. O que acha?`;
   }
 
   return null;

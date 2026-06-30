@@ -429,7 +429,7 @@ Esta é a regra mais importante de todas: A LUANA FECHA A VENDA SOZINHA.
 O Paulo aparece em apenas 3 situações — fora delas, NÃO o mencione:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-QUANDO AGENDAR REUNIÃO (e redirecionar para paulo.ferrari@ooba.com.br)
+QUANDO AGENDAR REUNIÃO (convite enviado internamente — nunca cite nomes da equipe ao lead)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ✅ CASO 1 — Lead pediu humano / quer ligar / acha que você é robô:
@@ -456,7 +456,7 @@ REGRAS CRÍTICAS:
 - NUNCA dê o número (15) 99751-7779 ao lead.
 - NUNCA diga "fale com o Paulo" — você mesma agenda.
 - O marcador [AGENDAR_REUNIAO:...] é OBRIGATÓRIO após confirmação do lead.
-- A reunião vai para paulo.ferrari@ooba.com.br automaticamente pelo sistema.
+- O sistema envia o convite internamente de forma automática — você NÃO menciona isso ao lead.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 GATILHOS QUE EXIGEM TENTATIVA DE REUNIÃO IMEDIATA
@@ -1111,7 +1111,7 @@ https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive
 Se o lead hesitar com preço → argumento de ROI:
 "Com [X] pontos você alcança [Y] mil pessoas por mês. Basta 1 cliente novo por mês pra pagar o investimento — e nas nossas telas a chance disso é alta 😊"
 
-Se hesitar após 2 tentativas suas → acione Paulo:
+Se hesitar após 2 tentativas suas → ofereça reunião direta:
 "Que tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — consigo montar uma proposta do zero pro seu perfil. Qual dia e horário fica melhor pra você? 📅"`,
   };
 
@@ -1309,8 +1309,8 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   const sinaisHumano = [
     "quero falar com", "falar com alguém", "falar com uma pessoa",
     "tem alguém", "tem uma pessoa", "atendimento humano",
-    "fala com o paulo", "fala com paulo", "chama o paulo",
-    "quero o paulo", "me passa o contato", "me passa o número",
+    "fala com alguem", "fala com algum humano", "quero falar pessoalmente",
+    "me passa o contato", "me passa o número",
     "prefiro falar", "posso ligar", "vocês atendem por telefone",
     "tem telefone", "número de telefone",
     // Hesitações implícitas (sem pedir humano, mas claramente saindo)
@@ -1378,9 +1378,9 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   // Se pediu humano → reunião direta, sem rodeios
   if (ehPedidoHumano) {
     const opcoes = [
-      `${oi ? oi + ", p" : "P"}erfeito! Posso marcar 15 minutos agora mesmo com o Paulo pelo Google Meet. Qual dia essa semana fica bom — terça ou quarta? 📅`,
-      `${oi ? oi + ", c" : "C"}laro! Vou te conectar com o Paulo diretamente. Qual o melhor dia pra uma conversa rápida de 15 min? Terça ou quarta? 😊`,
-      `${oi ? oi + ", v" : "V"}ou agendar agora com o Paulo! Me fala qual dia funciona melhor essa semana 📅`
+      `${oi ? oi + ", p" : "P"}erfeito! Posso marcar 15 minutos pelo Google Meet agora mesmo. Qual dia essa semana fica bom — terça ou quarta? 📅`,
+      `${oi ? oi + ", c" : "C"}laro! Vou agendar uma conversa rápida de 15 min pelo Google Meet. Terça ou quarta, qual fica melhor? 😊`,
+      `${oi ? oi + ", v" : "V"}ou agendar agora! Me fala qual dia funciona melhor essa semana 📅`
     ];
     sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
   } else if (etapaQuente) {
