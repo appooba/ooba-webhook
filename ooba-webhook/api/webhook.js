@@ -359,7 +359,9 @@ Se o lead pular etapas, VOCÊ reconduz sem ser rude.
 
 REGRA 3 — VERIFIQUE O SEGMENTO ANTES DE QUALQUER RECOMENDAÇÃO:
 Antes de citar QUALQUER tela, identifique o segmento do lead e consulte as REGRAS DE CONFLITO.
-NUNCA mencione telas bloqueadas — nem como exemplo, nem na lista geral.
+NUNCA mencione telas bloqueadas — nem como exemplo, nem na lista geral, nem com "(não disponível)".
+NUNCA explique ao lead que existe uma tela bloqueada — aja como se essas telas simplesmente não existissem para ele.
+Se o lead perguntar sobre uma tela bloqueada pelo nome → diga que essa tela não está disponível no momento e redirecione para as disponíveis sem explicar o motivo.
 Se o lead mencionar o segmento DEPOIS de você já ter citado telas → corrija imediatamente e peça desculpas.
 
 REGRA 4 — CADA MENSAGEM TEM UM OBJETIVO:
@@ -975,6 +977,9 @@ Você já sabe: negócio=${negocio}, cidade=${cidade}
 ⛔ NUNCA pergunte objetivo, meta ou o que quer divulgar — o catálogo vem ANTES de qualquer pergunta estratégica.
 ⛔ NUNCA sugira telas por nome antes do catálogo.
 ⛔ NUNCA sugira quantos pontos antes do lead ver as telas.
+⛔ NUNCA liste telas manualmente — o sistema envia o catálogo automático com vídeos e filtros.
+⛔ NUNCA mencione telas bloqueadas (concorrentes diretos) — nem como exemplo, nem com "(não disponível)".
+⛔ NUNCA explique por que uma tela está bloqueada — o lead não precisa saber da existência delas.
 
 Quando souber a cidade → frase de transição + [MOSTRAR_CATALOGO]:
 "Deixa eu te mostrar as telas disponíveis em [cidade] 👇"
@@ -2220,13 +2225,17 @@ module.exports = async (req, res) => {
             txtC.includes("show") || txtC.includes("legal") || txtC.includes("bacana") ||
             txtC.includes("compreend") || txtC.includes("ótimo") || txtC.includes("otimo") ||
             txtC.includes("entendido") || txtC.includes("massa") || txtC.includes("top");
+
+          const maisOuMenos = txtC.includes("mais ou menos") || txtC.includes("mais-ou-menos") ||
+            txtC.includes("acho que sim") || txtC.includes("talvez") || txtC.includes("acho") ||
+            txtC.includes("ou menos") || txtC.includes("nem tanto") || txtC.includes("um pouco");
           
-          const naoEntendeu = txtC.includes("nao") || txtC.includes("não") || txtC.includes("duvida") ||
-            txtC.includes("dúvida") || txtC.includes("como") || txtC.includes("explica") || txtC.includes("?");
+          const naoEntendeu = (txtC.includes("nao ") || txtC.includes("não ") || txtC.includes("duvida") ||
+            txtC.includes("dúvida") || txtC.includes("explica") || txtC.includes("?")) && !maisOuMenos;
 
           if (confirmou && !naoEntendeu) {
-            console.log(`INTERCEPTADOR CONFIRMAÇÃO [${from}]: lead confirmou entendimento → disparando catálogo`);
-            await sendMsg(from, "Ótimo! Olha as telas disponíveis onde seu anúncio pode aparecer 👇");
+            console.log(`INTERCEPTADOR CONFIRMAÇÃO [${from}]: lead confirmou → disparando catálogo`);
+            await sendMsg(from, "Perfeito! Olha as telas disponíveis onde seu anúncio pode aparecer 👇");
             await new Promise(r => setTimeout(r, 1200));
             const leadFrescoConf = await getLead(client, from);
             await enviarCatalogoTelas(from, leadFrescoConf, 800);
@@ -2234,6 +2243,21 @@ module.exports = async (req, res) => {
             histConf.push({ role: "user", content: txt });
             histConf.push({ role: "assistant", content: "[catálogo enviado após confirmação do lead]" });
             await saveHist(client, from, histConf);
+            await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [from]).catch(() => {});
+            if (!res.headersSent) res.json({ ok: true });
+            return;
+          }
+
+          if (maisOuMenos) {
+            console.log(`INTERCEPTADOR CONFIRMAÇÃO [${from}]: lead disse mais ou menos → reforço rápido + catálogo`);
+            await sendMsg(from, "Sem problema! Em resumo: você paga por *pontos* — cada ponto é um vídeo de 15s do seu negócio rodando nas telas. Quanto mais pontos, mais vezes aparece 😊 Olha as telas disponíveis 👇");
+            await new Promise(r => setTimeout(r, 1200));
+            const leadFrescoMOM = await getLead(client, from);
+            await enviarCatalogoTelas(from, leadFrescoMOM, 800);
+            const histMOM = await getHist(client, from);
+            histMOM.push({ role: "user", content: txt });
+            histMOM.push({ role: "assistant", content: "[reforço de conceito + catálogo enviado]" });
+            await saveHist(client, from, histMOM);
             await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [from]).catch(() => {});
             if (!res.headersSent) res.json({ ok: true });
             return;
