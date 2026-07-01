@@ -2289,7 +2289,7 @@ module.exports = async (req, res) => {
       const etapaObjt = leadObjt?.etapa_funil || "abertura";
       const txtLowerObjt = txt.toLowerCase().trim();
       const objetivosDetect = ["marca", "promoção", "promocao", "promoção", "lançamento", "lancamento", 
-        "divulgar", "divulgação", "aparecer", "visibilidade", "fortalecer", "fixar"];
+        "divulgar", "divulgação", "aparecer", "fortalecer", "fixar"];
       // Aceitar bypass em abertura OU entendimento (o GPT às vezes ainda não atualizou a etapa)
       const respondeuObjetivo = (etapaObjt === "entendimento" || etapaObjt === "abertura") && objetivosDetect.some(o => txtLowerObjt.includes(o));
 
@@ -2303,7 +2303,7 @@ module.exports = async (req, res) => {
         // Frase de transição baseada no objetivo
         const negocioObjt = leadObjt?.negocio || "negócio";
         const cidadeObjt = leadObjt?.cidade;
-        let fraseTransicao = `Perfeito! Olha onde o anúncio de ${negocioObjt} vai aparecer em ${cidadeObjt} 👇`;
+        let fraseTransicao = `Ótimo! Deixa eu te mostrar onde seu anúncio vai aparecer em ${cidadeObjt} 👇`;
         if (txtLowerObjt.includes("marca")) fraseTransicao = `Marca forte se constrói com repetição. Em ${cidadeObjt} temos telas onde a mesma pessoa vê seu anúncio de 6 a 7 vezes na visita — olha 👇`;
         if (txtLowerObjt.includes("promo")) fraseTransicao = `Promoção precisa aparecer pra quem está ali, no momento certo, com tempo pra absorver. Olha onde seu anúncio vai rodar em ${cidadeObjt} 👇`;
         if (txtLowerObjt.includes("lança") || txtLowerObjt.includes("lanca")) fraseTransicao = `Lançamento precisa de barulho local e repetição. Aqui onde vai aparecer em ${cidadeObjt} 👇`;
