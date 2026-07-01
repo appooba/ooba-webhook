@@ -1221,11 +1221,21 @@ async function upsertLead(client, phone, firstMsg, updates = {}) {
     const fields = Object.keys(updates);
     if (fields.length === 0) {
       // Apenas criar se não existir
-      await client.query(`
+      const insertResult = await client.query(`
         INSERT INTO leads (phone, first_message, etapa_funil, updated_at)
         VALUES ($1, $2, 'abertura', NOW())
-        ON CONFLICT (phone) DO UPDATE SET updated_at=NOW()
+        ON CONFLICT (phone) DO NOTHING
+        RETURNING (xmax = 0) AS is_new
       `, [phone, firstMsg]);
+      
+      // ── NOTIFICAÇÃO DE NOVO LEAD via WhatsApp ──
+      // Se foi inserção real (não conflito), notifica o dono
+      const isNewLead = insertResult?.rows?.[0]?.is_new === true;
+      if (isNewLead) {
+        const numeroNotificacao = "5511995650925"; // João/dono
+        const msgNotificacao = `🔔 *Novo lead chegou!*\n\nNúmero: +${phone}\nPrimeira mensagem: "${firstMsg?.slice(0, 80)}"\n\nAcompanhe a conversa no painel 😊`;
+        sendMsg(numeroNotificacao, msgNotificacao).catch(e => console.log("Notif erro:", e.message));
+      }
     } else {
       // Atualizar campos específicos
       const setClauses = fields.map((f, i) => `${f}=$${i + 2}`).join(", ");
