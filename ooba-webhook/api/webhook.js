@@ -2301,6 +2301,51 @@ module.exports = async (req, res) => {
       }
 
       // ══════════════════════════════════════════════════════════════
+      // 🔒 INTERCEPTADOR DE ACEITE DE REUNIÃO — lead aceitou a proposta de reunião
+      // ══════════════════════════════════════════════════════════════
+      {
+        const leadAceite = await getLead(client, from);
+        if (leadAceite?.etapa_funil === "aguardando_reuniao") {
+          const txtA = txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+          const aceitou = txtA.includes("sim") || txtA.includes("ok") || txtA.includes("claro") ||
+            txtA.includes("pode ser") || txtA.includes("quero") || txtA.includes("aceito") ||
+            txtA.includes("vamos") || txtA.includes("tá") || txtA.includes("ta ") ||
+            txtA.includes("blz") || txtA.includes("beleza") || txtA.includes("perfeito") ||
+            txtA.includes("show") || txtA.includes("combinado") || txtA.includes("tudo bem") ||
+            txtA.includes("pode") || txtA.includes("top") || txtA.includes("bora") ||
+            txtA.includes("ótimo") || txtA.includes("otimo") || txtA.includes("massa") ||
+            txtA.includes("legal");
+
+          const recusou = (txtA.includes("nao") || txtA.includes("não")) &&
+            !txtA.includes("nao sei") && !txtA.includes("não sei");
+
+          if (aceitou && !recusou) {
+            console.log(`INTERCEPTADOR ACEITE REUNIÃO [${from}]: lead aceitou → enviando slots`);
+            const slots = await gerarSlotsReuniao();
+            const slotsLinhas = slots.map(s => "📅 *" + s.nome + ", " + s.data + "* às " + s.hora).join("\n");
+            const msgSlots = "Ótimo! Agenda está bem movimentada, mas ainda tenho esses horários disponíveis:\n\n" + slotsLinhas + "\n\nQual desses funciona pra você?";
+            await sendMsg(from, msgSlots);
+
+            const histAceite = await getHist(client, from);
+            histAceite.push({ role: "user", content: txt });
+            histAceite.push({ role: "assistant", content: "[slots_reuniao_ofertado: " + slots.map(s => s.chave).join(", ") + "]" });
+            await saveHist(client, from, histAceite);
+            await client.query("UPDATE leads SET etapa_funil=\'reuniao_proposta\', updated_at=NOW() WHERE phone=$1", [from]).catch(() => {});
+            if (!res.headersSent) res.json({ ok: true });
+            return;
+          }
+
+          if (recusou) {
+            console.log(`INTERCEPTADOR ACEITE REUNIÃO [${from}]: lead recusou reunião → GPT encerra com elegância`);
+            await client.query("UPDATE leads SET etapa_funil=\'followup\', updated_at=NOW() WHERE phone=$1", [from]).catch(() => {});
+            // Deixa o GPT responder com encerramento elegante
+          }
+        }
+      }
+      // ══════════════════════════════════════════════════════════════
+
+      // ══════════════════════════════════════════════════════════════
       // 🔒 INTERCEPTADOR DE ESCOLHA DE TELAS — após catálogo, lead menciona telas
       // → enviar tabela de pontos + preços antes do GPT responder
       // ══════════════════════════════════════════════════════════════
@@ -2423,22 +2468,17 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
               msgContexto = "Faz sentido querer ter certeza antes de investir 😊 Tenho um especialista da equipe OOBA disponível pra montar uma proposta no tamanho certo do seu negócio — 15 minutos pelo Google Meet, sem compromisso.";
             }
 
+            // Apenas proposta — sem mostrar slots ainda (aguarda resposta do lead)
             await sendMsg(from, msgContexto);
-            await new Promise(r => setTimeout(r, 1600));
-
-            // Slots de agenda com escassez
-            const slotsLinhas = slots.map(s => "📅 *" + s.nome + ", " + s.data + "* às " + s.hora).join("\n");
-            const msgSlots = "Agenda está bem movimentada, mas ainda tenho esses horários:\n\n" + slotsLinhas + "\n\nQual desses funciona pra você?";
-            await sendMsg(from, msgSlots);
 
             // Salvar no histórico
             const histHes = await getHist(client, from);
             histHes.push({ role: "user", content: txt });
-            histHes.push({ role: "assistant", content: "[slots_reuniao_ofertado: " + slots.map(s=>s.chave).join(", ") + "]" });
+            histHes.push({ role: "assistant", content: "[reuniao_proposta_enviada: aguardando resposta do lead]" });
             await saveHist(client, from, histHes);
 
-            // Avançar para etapa reunião
-            await client.query("UPDATE leads SET etapa_funil=\'reuniao_proposta\', updated_at=NOW() WHERE phone=$1", [from]).catch(() => {});
+            // Avançar para etapa aguardando_reuniao
+            await client.query("UPDATE leads SET etapa_funil=\'aguardando_reuniao\', updated_at=NOW() WHERE phone=$1", [from]).catch(() => {});
 
                         if (!res.headersSent) res.json({ ok: true });
             return;
