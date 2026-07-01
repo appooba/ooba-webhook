@@ -2368,6 +2368,86 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
       // ══════════════════════════════════════════════════════════════
 
       // ══════════════════════════════════════════════════════════════
+      // 🔒 INTERCEPTADOR DE HESITAÇÃO/SAÍDA — detecta lead escapando
+      // Quando lead diz "não quero", "caro", "não tenho interesse" etc.
+      // → código assume controle: tenta reunião com contexto + slots reais
+      // ══════════════════════════════════════════════════════════════
+      {
+        const leadHes = await getLead(client, from);
+        const etapaHes = leadHes?.etapa_funil || "abertura";
+        const jaOfertouReuniao = await getHist(client, from).then(h =>
+          h.filter(m => m.role === "assistant").slice(-4).some(m =>
+            m.content?.includes("slots_reuniao_ofertado") || m.content?.includes("Agenda está bem movimentada")
+          )
+        );
+
+        // Só aciona se já viu o catálogo (etapa recomendacao ou fechamento)
+        const etapasComerciais = ["recomendacao", "fechamento"];
+        if (!etapasComerciais.includes(etapaHes) || jaOfertouReuniao) {
+          // não interceptar
+        } else {
+          const txtH = txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+          
+          // Sinais de saída/hesitação
+          const saidaForte = txtH.includes("nao quero") || txtH.includes("não quero") ||
+            txtH.includes("nao tenho interesse") || txtH.includes("nao vou") || txtH.includes("não vou") ||
+            txtH.includes("deixa pra la") || txtH.includes("deixa pra lá") || 
+            txtH.includes("pode parar") || txtH.includes("para de me") ||
+            txtH.includes("nao preciso") || txtH.includes("não preciso") ||
+            txtH.includes("nao quero mais") || txtH.includes("desisti");
+
+          const saidaFraca = txtH.includes("muito caro") || txtH.includes("caro demais") ||
+            txtH.includes("nao tenho dinheiro") || txtH.includes("sem dinheiro") ||
+            txtH.includes("fica pra depois") || txtH.includes("vou pensar") ||
+            txtH.includes("nao sei") || txtH.includes("não sei") ||
+            txtH.includes("ainda nao") || txtH.includes("ainda não") ||
+            txtH.includes("atendente") || txtH.includes("humano") || txtH.includes("pessoa") ||
+            txtH.includes("falar com alguem") || txtH.includes("responsavel") ||
+            txtH.includes("voce garante") || txtH.includes("você garante") ||
+            txtH.includes("tem certeza") || txtH.includes("nao funciona") ||
+            txtH.includes("nao vale") || txtH.includes("achei caro");
+
+          const ehHesitacao = saidaForte || saidaFraca;
+
+          if (ehHesitacao) {
+            console.log(`INTERCEPTADOR HESITAÇÃO [${from}]: saidaForte=${saidaForte}, saidaFraca=${saidaFraca} → ofertando reunião`);
+
+            // Gerar slots reais do Calendar
+            const slots = await gerarSlotsReuniao();
+
+            // Mensagem de contexto — diferente para saída forte vs fraca
+            let msgContexto = "";
+            if (saidaForte) {
+              msgContexto = "Entendo! Antes de encerrar, deixa eu te fazer uma proposta 😊 Tenho um especialista da equipe OOBA que consegue montar uma proposta personalizada pro seu perfil — sem compromisso, 15 minutinhos pelo Google Meet.";
+            } else {
+              msgContexto = "Faz sentido querer ter certeza antes de investir 😊 Tenho um especialista da equipe OOBA disponível pra montar uma proposta no tamanho certo do seu negócio — 15 minutos pelo Google Meet, sem compromisso.";
+            }
+
+            await sendMsg(from, msgContexto);
+            await new Promise(r => setTimeout(r, 1600));
+
+            // Slots de agenda com escassez
+            const slotsLinhas = slots.map(s => "📅 *" + s.nome + ", " + s.data + "* às " + s.hora).join("\n");
+            const msgSlots = "Agenda está bem movimentada, mas ainda tenho esses horários:\n\n" + slotsLinhas + "\n\nQual desses funciona pra você?";
+            await sendMsg(from, msgSlots);
+
+            // Salvar no histórico
+            const histHes = await getHist(client, from);
+            histHes.push({ role: "user", content: txt });
+            histHes.push({ role: "assistant", content: "[slots_reuniao_ofertado: " + slots.map(s=>s.chave).join(", ") + "]" });
+            await saveHist(client, from, histHes);
+
+            // Avançar para etapa reunião
+            await client.query("UPDATE leads SET etapa_funil=\'reuniao_proposta\', updated_at=NOW() WHERE phone=$1", [from]).catch(() => {});
+
+                        if (!res.headersSent) res.json({ ok: true });
+            return;
+          }
+        }
+      }
+      // ══════════════════════════════════════════════════════════════
+
+      // ══════════════════════════════════════════════════════════════
       // 🔒 INTERCEPTADOR DE CONFIRMAÇÃO — disparo do catálogo após lead confirmar entendimento
       // ══════════════════════════════════════════════════════════════
       {
