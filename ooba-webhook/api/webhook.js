@@ -1108,15 +1108,29 @@ BÔNUS (lembrar sempre):
 `,
     fechamento: `
 VOCÊ ESTÁ NA ETAPA: FECHAMENTO
-Seja direta. Envie o contrato sem rodeios:
+
+PASSO 1 — Envie o contrato sem rodeios:
 "Manda o contrato pra você dar uma olhada 😊"
 ---MSG---
 https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive_link
 ---MSG---
 "Qualquer dúvida me fala aqui. Assim que confirmar, já colocamos na fila de ativação 🚀"
 
-Se o lead hesitar com preço → argumento de ROI:
+PASSO 2 — Se o lead hesitar UMA VEZ com preço → use argumento de ROI, UMA VEZ SÓ:
 "Com [X] pontos você alcança [Y] mil pessoas por mês. Basta 1 cliente novo por mês pra pagar o investimento — e nas nossas telas a chance disso é alta 😊"
+
+PASSO 3 — Se o lead continuar resistindo, disser "não quero", "muito caro", "não sei", "deixa pra depois" → PARE de vender. Não insista mais no preço. Proponha reunião imediatamente:
+"Entendo! Antes de encerrar, tenho um especialista da equipe OOBA que consegue montar uma proposta personalizada pra você — sem compromisso, 15 minutinhos pelo Google Meet. Topa?"
+
+⛔ PROIBIDO no passo 3:
+- NÃO use mais argumentos de preço
+- NÃO tente convencer com ROI
+- NÃO ofereça desconto
+- NÃO pergunte "por que?" — aceite a resposta e proponha a reunião
+
+PASSO 4 — Se o lead aceitar a reunião → aguarde o sistema enviar os slots automaticamente.
+PASSO 4 — Se o lead recusar a reunião também → encerre com elegância:
+"Sem problemas! Se mudar de ideia, é só me chamar 😊 Qualquer novidade eu te aviso."
 
 Se hesitar após 2 tentativas suas → acione Paulo:
 "Que tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — consigo montar uma proposta do zero pro seu perfil. Qual dia e horário fica melhor pra você? 📅"`,
@@ -2426,10 +2440,16 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
           )
         );
 
-        // Só aciona se já viu o catálogo (etapa recomendacao ou fechamento)
-        const etapasComerciais = ["recomendacao", "fechamento"];
-        if (!etapasComerciais.includes(etapaHes) || jaOfertouReuniao) {
-          // não interceptar
+        // Só aciona como fallback: se GPT já tentou ROI e lead ainda resiste
+        const etapasComerciais = ["fechamento", "reuniao_proposta"];
+        const gptJaTentouROI = await getHist(client, from).then(h =>
+          h.filter(m => m.role === "assistant").some(m =>
+            m.content?.includes("cliente novo") || m.content?.includes("ROI") ||
+            m.content?.includes("pagar o investimento") || m.content?.includes("Basta 1")
+          )
+        );
+        if (!etapasComerciais.includes(etapaHes) || jaOfertouReuniao || !gptJaTentouROI) {
+          // não interceptar — deixa o GPT tentar primeiro
         } else {
           const txtH = txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
           
