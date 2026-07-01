@@ -1567,6 +1567,29 @@ function detectarPerguntaVideo(txt) {
 }
 
 
+// ══════════════════════════════════════════════════════════════
+// Gera 3 slots de reunião em dias úteis (seg-sex), a partir de amanhã
+// ══════════════════════════════════════════════════════════════
+function gerarSlotsReuniao() {
+  const offsetMs = -3 * 60 * 60 * 1000; // UTC-3
+  const agora = new Date(Date.now() + offsetMs);
+  const nomesDia = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+  const horarios = ["09h", "14h", "16h"];
+  const slots = [];
+  let d = new Date(agora);
+  d.setDate(d.getDate() + 1);
+  while (slots.length < 3) {
+    const dow = d.getUTCDay(); // 0=dom, 6=sab
+    if (dow >= 1 && dow <= 5) { // seg a sex
+      const dia = String(d.getUTCDate()).padStart(2,"0");
+      const mes = String(d.getUTCMonth()+1).padStart(2,"0");
+      slots.push({ nome: nomesDia[dow], data: dia+"/"+mes, hora: horarios[slots.length] });
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return slots;
+}
+
 function splitMensagens(text) {
   if (!text) return [""];
 
@@ -2431,12 +2454,33 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
           partes.push(...subPartes);
         }
 
-        for (let i = 0; i < partes.length; i++) {
-          // Limpar qualquer ---MSG--- residual que o GPT tenha incluído no texto
-          const parte = partes[i].replace(/---MSG---/g, '').trim();
-          if (parte) {
-            await sendMsg(from, parte);
-            if (i < partes.length - 1) await new Promise(r => setTimeout(r, 900));
+        // ── INTERCEPTADOR DE AGENDAMENTO: se GPT pediu "qual dia/horário" → substituir por slots reais ──
+        const repJuntada = partes.join(" ").toLowerCase();
+        const gptPediuDisponibilidade = (
+          repJuntada.includes("qual dia") || repJuntada.includes("qual horário") || 
+          repJuntada.includes("qual horario") || repJuntada.includes("que dia") ||
+          repJuntada.includes("quando fica") || repJuntada.includes("quando você") ||
+          repJuntada.includes("quando voce") || repJuntada.includes("melhor pra você") ||
+          repJuntada.includes("melhor pra voce")
+        ) && (
+          repJuntada.includes("meet") || repJuntada.includes("reuni") || 
+          repJuntada.includes("conversa") || repJuntada.includes("minutos")
+        );
+
+        if (gptPediuDisponibilidade) {
+          const slots = gerarSlotsReuniao();
+          const msgSlots = `Agenda está bem movimentada essa semana 😅 Ainda tenho esses horários disponíveis:\n\n` +
+            slots.map(s => `📅 *${s.nome}, ${s.data}* às ${s.hora}`).join("\n") +
+            `\n\nQual desses funciona pra você?`;
+          await sendMsg(from, msgSlots);
+        } else {
+          for (let i = 0; i < partes.length; i++) {
+            // Limpar qualquer ---MSG--- residual que o GPT tenha incluído no texto
+            const parte = partes[i].replace(/---MSG---/g, '').trim();
+            if (parte) {
+              await sendMsg(from, parte);
+              if (i < partes.length - 1) await new Promise(r => setTimeout(r, 900));
+            }
           }
         }
 
