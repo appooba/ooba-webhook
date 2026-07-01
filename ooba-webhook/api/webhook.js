@@ -2208,6 +2208,46 @@ module.exports = async (req, res) => {
       }
 
       // ══════════════════════════════════════════════════════════════
+      // 🔒 INTERCEPTADOR DE CONFIRMAÇÃO — disparo do catálogo após lead confirmar entendimento
+      // ══════════════════════════════════════════════════════════════
+      {
+        const leadConf = await getLead(client, from);
+        if (leadConf?.etapa_funil === "aguardando_catalogo") {
+          const txtC = txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+          const confirmou = txtC.includes("sim") || txtC.includes("entend") || txtC.includes("claro") ||
+            txtC.includes("ok") || txtC.includes("certo") || txtC.includes("tá") || txtC.includes("ta ") ||
+            txtC.includes("blz") || txtC.includes("beleza") || txtC.includes("perfeito") ||
+            txtC.includes("show") || txtC.includes("legal") || txtC.includes("bacana") ||
+            txtC.includes("compreend") || txtC.includes("ótimo") || txtC.includes("otimo") ||
+            txtC.includes("entendido") || txtC.includes("massa") || txtC.includes("top");
+          
+          const naoEntendeu = txtC.includes("nao") || txtC.includes("não") || txtC.includes("duvida") ||
+            txtC.includes("dúvida") || txtC.includes("como") || txtC.includes("explica") || txtC.includes("?");
+
+          if (confirmou && !naoEntendeu) {
+            console.log(`INTERCEPTADOR CONFIRMAÇÃO [${from}]: lead confirmou entendimento → disparando catálogo`);
+            await sendMsg(from, "Ótimo! Olha as telas disponíveis onde seu anúncio pode aparecer 👇");
+            await new Promise(r => setTimeout(r, 1200));
+            const leadFrescoConf = await getLead(client, from);
+            await enviarCatalogoTelas(from, leadFrescoConf, 800);
+            const histConf = await getHist(client, from);
+            histConf.push({ role: "user", content: txt });
+            histConf.push({ role: "assistant", content: "[catálogo enviado após confirmação do lead]" });
+            await saveHist(client, from, histConf);
+            await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [from]).catch(() => {});
+            if (!res.headersSent) res.json({ ok: true });
+            return;
+          }
+
+          if (naoEntendeu) {
+            console.log(`INTERCEPTADOR CONFIRMAÇÃO [${from}]: lead tem dúvida → respondendo com GPT`);
+            // Deixa o GPT responder a dúvida — continua o fluxo normal abaixo
+          }
+        }
+      }
+      // ══════════════════════════════════════════════════════════════
+
+      // ══════════════════════════════════════════════════════════════
       // 🔒 INTERCEPTADOR DE CIDADE — disparo educação via código
       // Detecta cidade na mensagem do lead (qualquer etapa antes de educacao)
       // e envia as 3 msgs fixas + catálogo sem passar pelo GPT.
@@ -2264,19 +2304,21 @@ module.exports = async (req, res) => {
           await sendMsg(from, "Seu vídeo roda de segunda a domingo, das 6h à meia-noite. A pessoa fica em média 1h no local — e vê seu anúncio de *6 a 7 vezes* na mesma visita. É fixação de marca, não só alcance.");
           await new Promise(r => setTimeout(r, 1800));
 
-          // ── Mensagem 3: formato do vídeo ──
-          await sendMsg(from, "O vídeo é .MP4, Full HD, até 15s, sem áudio — sem áudio é estratégia: movimento + cor + mensagem clara convertem mais. Pode ser *institucional* (sua marca) ou *promocional* (oferta específica). Olha onde vai aparecer 👇");
-          await new Promise(r => setTimeout(r, 1800));
+          // ── Mensagem 3: formato do vídeo + pergunta de confirmação ──
+          await sendMsg(from, "O vídeo é .MP4, Full HD, até 15s, sem áudio — sem áudio é estratégia: movimento + cor + mensagem clara convertem mais. Pode ser *institucional* (sua marca) ou *promocional* (oferta específica) 😊\n\nFicou claro como funciona?");
+          await new Promise(r => setTimeout(r, 800));
 
-          // ── Catálogo filtrado por segmento ──
-          const leadFrescoEdu = await getLead(client, from);
-          await enviarCatalogoTelas(from, leadFrescoEdu, 800);
-
-          // ── Salvar no histórico ──
+          // ── Salvar no histórico — etapa aguardando confirmação ──
           const histEdu = await getHist(client, from);
           histEdu.push({ role: "user", content: txt });
-          histEdu.push({ role: "assistant", content: `[educação automática: pontos + formato + catálogo enviado para ${cidadeDetectada}]` });
+          histEdu.push({ role: "assistant", content: "[educação automática: 3 msgs enviadas, aguardando confirmação do lead para mostrar catálogo]" });
           await saveHist(client, from, histEdu);
+
+          // ── Avançar etapa para 'aguardando_catalogo' ──
+          await client.query(
+            "UPDATE leads SET etapa_funil='aguardando_catalogo', updated_at=NOW() WHERE phone=$1",
+            [from]
+          ).catch(() => {});
 
           if (!res.headersSent) res.json({ ok: true });
           return;
@@ -2320,7 +2362,7 @@ module.exports = async (req, res) => {
         const jaTemEduHist = histPosEnvio.some(m => m.role === "assistant" && 
           (m.content?.includes("você não compra espaço em tela") || m.content?.includes("educação automática")));
         
-        if (etapaPosEnvio === "recomendacao" && !jaTemVideos && !jaTemEduHist) {
+        if (etapaPosEnvio === "recomendacao" && !jaTemVideos && !jaTemEduHist && etapaPosEnvio !== "aguardando_catalogo") {
           console.log(`EDUCAÇÃO FORÇADA PÓS-RESPOSTA [${from}]: etapa=recomendacao mas educação não foi enviada → forçando`);
           await new Promise(r => setTimeout(r, 800));
           await sendMsg(from, "Antes de te mostrar as telas, deixa eu explicar rapidinho como funciona 😊\n\nAqui você não compra espaço em tela — você compra *pontos*. Cada ponto é um vídeo de 15 segundos do seu negócio, rodando em rotação nas nossas telas.");
