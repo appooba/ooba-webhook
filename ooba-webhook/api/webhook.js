@@ -131,7 +131,11 @@ function getTelasDisponiveis(negocio, cidade) {
 // ══════════════════════════════════════════════════════════════
 async function enviarCatalogoTelas(from, lead, delay = 800) {
   const telas = getTelasDisponiveis(lead.negocio, lead.cidade);
-  const cidade = lead.cidade || "Porto Feliz";
+  const cidade = lead.cidade || null;
+  if (!cidade) {
+    await sendMsg(from, "Antes de mostrar as telas, me conta: você é de Porto Feliz ou Boituva? 😊");
+    return;
+  }
 
   // PASSO 1 — Explicar como funciona (conceito de ponto)
   await sendMsg(from, `Aqui na OOBA funciona assim: você compra *pontos* — cada ponto é um vídeo de 15 segundos que entra em rotação nas telas. A mesma pessoa fica em média *1 hora* no local e vê seu vídeo de *6 a 7 vezes* durante a visita 🔁\nAnúncios rodam *segunda a segunda, das 6h à meia-noite*. Quanto mais pontos, mais vezes seu anúncio aparece na rotação.`);
@@ -814,7 +818,7 @@ Site: www.ooba.com.br
 function getSysWithFunil(etapa, leadData) {
   const nome = leadData.nome ? leadData.nome : "";
   const negocio = leadData.negocio ? leadData.negocio : "";
-  const cidade = leadData.cidade ? leadData.cidade : "Porto Feliz";
+  const cidade = leadData.cidade || null;
   const telas = leadData.telas_interesse ? leadData.telas_interesse : "";
   const pontos = leadData.pontos_interesse ? leadData.pontos_interesse : "";
 
@@ -838,7 +842,7 @@ function getSysWithFunil(etapa, leadData) {
   }
 
   const ctx = `
-LEAD: ${nome || "(novo)"} | Negócio: ${negocio || "?"} | Cidade: ${cidade} | Telas escolhidas: ${telas || "?"}${detalhePontos}${jaAnunciou}${abordagemAtiva}
+LEAD: ${nome || "(novo)"} | Negócio: ${negocio || "?"} | Cidade: ${cidade || "NÃO INFORMADA — pergunte antes de mostrar catálogo"} | Telas escolhidas: ${telas || "?"}${detalhePontos}${jaAnunciou}${abordagemAtiva}
 ETAPA ATUAL: ${etapa.toUpperCase()}
 
 REGRA DE PREÇO: quando o lead escolher pontos por tela, SOME TUDO e mostre apenas o preço do total.
