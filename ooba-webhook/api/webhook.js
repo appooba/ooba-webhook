@@ -2449,6 +2449,55 @@ module.exports = async (req, res) => {
         return;
       }
 
+      // ── INTERCEPTADOR DE CIDADE: se lead está em entendimento e acabou de informar cidade → educação via código ──
+      {
+        const leadEntend = await getLead(client, from);
+        const etapaEntend = leadEntend?.etapa_funil || "abertura";
+        const txtNormE = txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+        const cidadeNaMsg = txtNormE.includes("porto feliz") || txtNormE.includes("porto") || 
+                            txtNormE.includes("boituva") || 
+                            txtNormE.includes("ambas") || txtNormE.includes("as duas") ||
+                            txtNormE.includes("os dois");
+        const jaEnviouEdu = await getHist(client, from).then(h => 
+          h.some(m => m.role === "assistant" && m.content?.includes("você não compra espaço em tela"))
+        );
+
+        if (etapaEntend === "entendimento" && cidadeNaMsg && !jaEnviouEdu && leadEntend?.negocio) {
+          console.log(`EDUCACAO FORÇADA [${from}]: cidade detectada na etapa entendimento → 3 msgs fixas`);
+          
+          // Salvar cidade no banco
+          let cidadeDetE = "Porto Feliz";
+          if (txtNormE.includes("boituva")) cidadeDetE = "Boituva";
+          else if (txtNormE.includes("ambas") || txtNormE.includes("as duas")) cidadeDetE = "Porto Feliz e Boituva";
+          await client.query("UPDATE leads SET cidade=$1, etapa_funil='educacao', updated_at=NOW() WHERE phone=$2", [cidadeDetE, from]).catch(()=>{});
+
+          // Mensagem 1
+          await sendMsg(from, "Antes de te mostrar as telas, deixa eu explicar rapidinho como funciona 😊 Aqui você não compra espaço em tela — você compra *pontos*. Cada ponto é um vídeo de 15 segundos do seu negócio, rodando em rotação nas nossas telas.");
+          await new Promise(r => setTimeout(r, 1800));
+
+          // Mensagem 2
+          await sendMsg(from, "Seu vídeo roda de segunda a domingo, das 6h à meia-noite. A pessoa fica em média 1h no local — e vê seu anúncio de *6 a 7 vezes* na mesma visita. É fixação de marca, não só alcance.");
+          await new Promise(r => setTimeout(r, 1800));
+
+          // Mensagem 3
+          await sendMsg(from, "O vídeo é .MP4, Full HD, até 15s, sem áudio — sem áudio é estratégia: movimento + cor + mensagem clara convertem mais. Dois tipos: *institucional* (sua marca) ou *promocional* (oferta específica). Olha onde vai aparecer 👇");
+          await new Promise(r => setTimeout(r, 1800));
+
+          // Catálogo automático
+          const leadEduFresco = await getLead(client, from);
+          await enviarCatalogoTelas(from, leadEduFresco, 800);
+
+          // Salvar histórico
+          const histEdu = await getHist(client, from);
+          histEdu.push({ role: "user", content: txt });
+          histEdu.push({ role: "assistant", content: `Explicação de pontos + catálogo de telas enviado para ${cidadeDetE}` });
+          await saveHist(client, from, histEdu);
+
+          if (!res.headersSent) res.json({ ok: true });
+          return;
+        }
+      }
+
       let rep = await replyAI(client, txt, from);
       if (rep) {
         console.log(`OUT [${from}]: ${rep.substring(0, 120)}...`);
