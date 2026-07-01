@@ -969,23 +969,18 @@ VOCÊ ESTÁ NA ETAPA: ENTENDIMENTO
 Você já sabe: negócio=${negocio}, cidade=${cidade}
 
 ⚠️ REGRA: UMA PERGUNTA POR VEZ. Sequência obrigatória:
-- Se não souber a cidade → pergunte SÓ a cidade
-- Se souber a cidade mas não o objetivo → pergunte SÓ o objetivo: "O que você quer fixar na cabeça das pessoas: a marca da [empresa], uma promoção específica ou um lançamento?"
+- Se não souber a cidade → pergunte SÓ a cidade: "Você é de Porto Feliz ou Boituva?"
+- Se souber a cidade → emita [MOSTRAR_CATALOGO] imediatamente com frase de transição
 
-Quando o lead responder o objetivo → mande UMA frase curta de transição e emita o marcador [MOSTRAR_CATALOGO]:
+⛔ NUNCA pergunte objetivo, meta ou o que quer divulgar — o catálogo vem ANTES de qualquer pergunta estratégica.
+⛔ NUNCA sugira telas por nome antes do catálogo.
+⛔ NUNCA sugira quantos pontos antes do lead ver as telas.
 
-Ex se objetivo = marca: "Perfeito! Pra fixar marca o segredo é repetição — a mesma pessoa vê seu vídeo várias vezes por semana. Deixa eu te mostrar onde isso acontece 👇"
-Ex se objetivo = promoção: "Promoção precisa aparecer na hora certa, pra quem está disponível pra comprar. Olha onde seu anúncio vai rodar 👇"
-Ex se objetivo = lançamento: "Lançamento precisa de barulho local — vou te mostrar as telas onde isso acontece 👇"
+Quando souber a cidade → frase de transição + [MOSTRAR_CATALOGO]:
+"Deixa eu te mostrar as telas disponíveis em [cidade] 👇"
+"Olha onde seu anúncio pode aparecer em [cidade] 👇"
 
-⚠️ PROIBIDO após o lead responder o objetivo:
-- NÃO citar nenhuma tela por nome
-- NÃO sugerir quantos pontos
-- NÃO perguntar mais nada
-- NÃO dar tabela de preço
-- Apenas a frase de transição + [MOSTRAR_CATALOGO]
-
-[FUNIL:etapa=recomendacao;negocio=NEGOCIO;cidade=CIDADE;empresa=NOME;objetivo=OBJETIVO]`,
+[FUNIL:etapa=recomendacao;negocio=NEGOCIO;cidade=CIDADE]`,
 
     apresentacao: `
 VOCÊ ESTÁ NA ETAPA: APRESENTAÇÃO
@@ -1005,19 +1000,26 @@ VOCÊ ESTÁ NA ETAPA: RECOMENDAÇÃO
 - TODAS as telas disponíveis com fluxo mensal e horários
 - Os vídeos de cada tela
 
-SUA ÚNICA TAREFA AGORA: fazer a SUGESTÃO ESTRATÉGICA em 1 mensagem — incisiva, com dados, com CTA direto.
+SUA TAREFA AGORA: aguardar a reação do lead e responder dúvidas.
+O lead acabou de ver as telas e os vídeos. Deixe ele processar.
 
-⚠️ PROIBIDO:
+Se o lead perguntar algo sobre as telas → responda com naturalidade.
+Se o lead perguntar sobre preço → apresente a tabela.
+Se o lead pedir sugestão ("qual você indica?", "qual faz mais sentido?") → ENTÃO faça a sugestão estratégica.
+Se o lead demonstrar interesse ("gostei", "quero saber mais") → pergunte sobre o objetivo com leveza.
+
+⚠️ PROIBIDO nessa etapa:
+- NÃO sugira pontos ou telas específicas SEM o lead pedir
+- NÃO pergunte "quantos pontos quer?" — espere o lead se posicionar
 - NÃO explique o que é ponto novamente
 - NÃO liste as telas novamente
-- NÃO mande mais vídeos
-- NÃO pergunte quantos pontos o lead quer — VOCÊ sugere com autoridade
-- NÃO use frases passivas como "o que acha?" ou "se quiser..."
+- NÃO force fechamento — o lead precisa de espaço para absorver
 
-COMO FAZER A SUGESTÃO (formato obrigatório — assertivo, com dados):
-"Pra [negócio] em [cidade] com foco em [objetivo], minha indicação são *[N] pontos* — [argumento específico do segmento com dado de fluxo].
-Ficaria *[tela1] + [tela2]*, [X] mil pessoas/mês impactadas, vídeo rodando das 6h à meia-noite 🔥
-Posso montar a proposta agora — você prefere o plano mensal ou já trava o anual com 22% de desconto?"
+Quando o lead PEDIR sugestão → faça com dados e autoridade:
+"Pra [negócio] em [cidade], minha indicação são *[N] pontos* — [argumento com dado de fluxo].
+Ficaria *[tela1] + [tela2]*, [X] mil pessoas/mês, vídeo das 6h à meia-noite 🔥"
+
+Quando o lead perguntar preço → apresente os planos mensal e anual com os valores corretos.
 
 TABELA DE SUGESTÃO POR OBJETIVO:
 • Só marca           → 2–3 pontos nas telas de maior fluxo do perfil
@@ -2313,6 +2315,28 @@ module.exports = async (req, res) => {
         const etapaPosEnvio = leadPosEnvio?.etapa_funil || "abertura";
         const histPosEnvio = await getHist(client, from);
         const jaTemVideos = histPosEnvio.some(m => m.role === "assistant" && m.content?.includes("youtube.com/shorts"));
+
+        // Se etapa avançou para recomendacao mas educação nunca foi enviada → forçar educação + catálogo
+        const jaTemEduHist = histPosEnvio.some(m => m.role === "assistant" && 
+          (m.content?.includes("você não compra espaço em tela") || m.content?.includes("educação automática")));
+        
+        if (etapaPosEnvio === "recomendacao" && !jaTemVideos && !jaTemEduHist) {
+          console.log(`EDUCAÇÃO FORÇADA PÓS-RESPOSTA [${from}]: etapa=recomendacao mas educação não foi enviada → forçando`);
+          await new Promise(r => setTimeout(r, 800));
+          await sendMsg(from, "Antes de te mostrar as telas, deixa eu explicar rapidinho como funciona 😊\n\nAqui você não compra espaço em tela — você compra *pontos*. Cada ponto é um vídeo de 15 segundos do seu negócio, rodando em rotação nas nossas telas.");
+          await new Promise(r => setTimeout(r, 1800));
+          await sendMsg(from, "Seu vídeo roda de segunda a domingo, das 6h à meia-noite. A pessoa fica em média 1h no local — e vê seu anúncio de *6 a 7 vezes* na mesma visita. É fixação de marca, não só alcance.");
+          await new Promise(r => setTimeout(r, 1800));
+          await sendMsg(from, "O vídeo é .MP4, Full HD, até 15s, sem áudio — sem áudio é estratégia: movimento + cor + mensagem clara convertem mais. Pode ser *institucional* (sua marca) ou *promocional* (oferta específica). Olha onde vai aparecer 👇");
+          await new Promise(r => setTimeout(r, 1800));
+          const leadFrescoForc = await getLead(client, from);
+          await enviarCatalogoTelas(from, leadFrescoForc || { negocio: "", cidade: "Porto Feliz" }, 800);
+          const histForc = await getHist(client, from);
+          histForc.push({ role: "assistant", content: "[educação + catálogo forçados após resposta do GPT]" });
+          await saveHist(client, from, histForc);
+          if (!res.headersSent) res.json({ ok: true });
+          return;
+        }
 
         const deveLancarCatalogo = lead._dispararCatalogo || 
           (etapaPosEnvio === "recomendacao" && !jaTemVideos);
