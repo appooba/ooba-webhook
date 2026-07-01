@@ -2213,6 +2213,73 @@ module.exports = async (req, res) => {
       }
 
       // ══════════════════════════════════════════════════════════════
+      // 🔒 INTERCEPTADOR DE ESCOLHA DE TELAS — após catálogo, lead menciona telas
+      // → enviar tabela de pontos + preços antes do GPT responder
+      // ══════════════════════════════════════════════════════════════
+      {
+        const leadEscolha = await getLead(client, from);
+        const etapaEscolha = leadEscolha?.etapa_funil || "abertura";
+        const jaTemTabela = await getHist(client, from).then(h =>
+          h.some(m => m.role === "assistant" && 
+            (m.content?.includes("R$400") || m.content?.includes("tabela de pontos enviada") ||
+             m.content?.includes("1 ponto") && m.content?.includes("10 pontos")))
+        );
+        const jaTemVideos = await getHist(client, from).then(h =>
+          h.some(m => m.role === "assistant" && 
+            (m.content?.includes("youtube.com/shorts") || m.content?.includes("catálogo enviado")))
+        );
+
+        // Detectar se lead mencionou telas, interesse ou qualquer escolha
+        const txtE = txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+        const mencionouTela = txtE.includes("sueli") || txtE.includes("bonfa") || txtE.includes("bonfá") ||
+          txtE.includes("araras") || txtE.includes("rocks") || txtE.includes("moncoes") || txtE.includes("monções") ||
+          txtE.includes("r2") || txtE.includes("academia") || txtE.includes("pizzaria") ||
+          txtE.includes("todas") || txtE.includes("todos") || txtE.includes("gostei") ||
+          txtE.includes("quero") || txtE.includes("interesse") || txtE.includes("essas");
+
+        if (etapaEscolha === "recomendacao" && jaTemVideos && !jaTemTabela && mencionouTela) {
+          console.log(`INTERCEPTADOR TABELA [${from}]: lead escolheu telas → enviando explicação de pontos + tabela`);
+
+          // Msg 1: explicar pontos de 1 a 10
+          await sendMsg(from, "Ótimo! Agora deixa eu explicar como funciona a contratação 😊\n\nVocê contrata de *1 a 10 pontos* — cada ponto é um vídeo de 15s rodando nas telas que você escolher. Quanto mais pontos, mais vezes seu anúncio aparece na rotação.");
+          await new Promise(r => setTimeout(r, 1800));
+
+          // Msg 2: tabela de preços mensal + anual
+          await sendMsg(from, `*Tabela de pontos — plano mensal e anual:*
+
+1 ponto → R$400/mês | R$200/mês anual
+2 pontos → R$550/mês | R$450/mês anual
+3 pontos → R$650/mês | R$550/mês anual
+4 pontos → R$750/mês | R$650/mês anual
+5 pontos → R$850/mês | R$750/mês anual
+6 pontos → R$950/mês | R$850/mês anual
+7 pontos → R$1.050/mês | R$950/mês anual
+8 pontos → R$1.150/mês | R$1.050/mês anual
+9 pontos → R$1.250/mês | R$1.150/mês anual
+10 pontos → R$1.350/mês | R$1.250/mês anual
+
+*Plano anual = 22% de desconto* 🎁
+A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alternando)`);
+          await new Promise(r => setTimeout(r, 1800));
+
+          // Msg 3: pergunta simples
+          await sendMsg(from, "Quantos pontos você quer contratar? 😊");
+
+          // Salvar no histórico
+          const histEscolha = await getHist(client, from);
+          histEscolha.push({ role: "user", content: txt });
+          histEscolha.push({ role: "assistant", content: "[tabela de pontos enviada: 1 a 10 pontos, mensal e anual]" });
+          await saveHist(client, from, histEscolha);
+
+          await client.query("UPDATE leads SET etapa_funil='fechamento', updated_at=NOW() WHERE phone=$1", [from]).catch(() => {});
+
+          if (!res.headersSent) res.json({ ok: true });
+          return;
+        }
+      }
+      // ══════════════════════════════════════════════════════════════
+
+      // ══════════════════════════════════════════════════════════════
       // 🔒 INTERCEPTADOR DE CONFIRMAÇÃO — disparo do catálogo após lead confirmar entendimento
       // ══════════════════════════════════════════════════════════════
       {
