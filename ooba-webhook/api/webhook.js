@@ -169,7 +169,8 @@ async function enviarCatalogoTelas(from, lead, delay = 800) {
   // MENSAGEM FINAL PERSUASIVA — após mostrar tudo, CTA direto sem depender do lead
   await new Promise(r => setTimeout(r, delay));
   const negocioFinal = lead?.negocio || "seu negócio";
-  const cidadeFinal = lead?.cidade || "Porto Feliz";
+  const cidadeFinal = lead?.cidade || null;
+  if (!cidadeFinal) return; // sem cidade → não envia catálogo
   const totalFinal = telas.reduce((acc, t) => acc + parseInt((t.fluxo||"0").replace(/[^0-9]/g,"")), 0);
 
   // MSG FINAL — argumento de cobertura + total de giro + CTA (sem repetir cada tela)
@@ -2294,9 +2295,14 @@ module.exports = async (req, res) => {
 
       if (respondeuObjetivo) {
         console.log(`BYPASS OBJETIVO [${from}]: lead informou objetivo em entendimento — disparando catálogo`);
+        // ⛔ TRAVA: só dispara catálogo se tiver negócio E cidade coletados
+        if (!leadObjt?.negocio || !leadObjt?.cidade) {
+          console.log(`BYPASS BLOQUEADO [${from}]: negócio=${leadObjt?.negocio} cidade=${leadObjt?.cidade} — redirecionando para coleta`);
+          // Não faz nada — deixa o GPT normal tratar e pedir o que falta
+        } else {
         // Frase de transição baseada no objetivo
         const negocioObjt = leadObjt?.negocio || "negócio";
-        const cidadeObjt = leadObjt?.cidade || "Porto Feliz";
+        const cidadeObjt = leadObjt?.cidade;
         let fraseTransicao = `Perfeito! Olha onde o anúncio de ${negocioObjt} vai aparecer em ${cidadeObjt} 👇`;
         if (txtLowerObjt.includes("marca")) fraseTransicao = `Marca forte se constrói com repetição. Em ${cidadeObjt} temos telas onde a mesma pessoa vê seu anúncio de 6 a 7 vezes na visita — olha 👇`;
         if (txtLowerObjt.includes("promo")) fraseTransicao = `Promoção precisa aparecer pra quem está ali, no momento certo, com tempo pra absorver. Olha onde seu anúncio vai rodar em ${cidadeObjt} 👇`;
@@ -2318,6 +2324,7 @@ module.exports = async (req, res) => {
         await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [from]).catch(()=>{});
         if (!res.headersSent) res.json({ ok: true });
         return;
+        } // fim do else (negócio+cidade ok)
       }
 
       // ── BYPASS DE VÍDEO: perguntou sobre tipos de vídeo → resposta fixa + catálogo ──
@@ -2326,8 +2333,10 @@ module.exports = async (req, res) => {
         const msgVideo = "Dois tipos: *institucional* (sua marca, logo, o que vocês fazem) ou *promocional* (oferta, produto, chamada de ação). São até 15 segundos, .mp4, sem áudio — e isso é estratégico: sem som, cores e movimento têm que impactar em segundos 😊\n\nAgora deixa eu te mostrar onde seu vídeo vai aparecer 👇";
         await sendMsg(from, msgVideo);
         await new Promise(r => setTimeout(r, 1000));
-        // Disparar catálogo completo de telas
-        await enviarCatalogoTelas(from, leadVideo || { negocio: "", cidade: "Porto Feliz" }, 800);
+        // ⛔ TRAVA: só dispara catálogo se tiver cidade coletada
+        if (leadVideo?.cidade) {
+          await enviarCatalogoTelas(from, leadVideo, 800);
+        }
         // Salvar no histórico
         const histVideo = await getHist(client, from);
         histVideo.push({ role: "user", content: txt });
@@ -2737,7 +2746,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
           await sendMsg(from, "O vídeo é .MP4, Full HD, até 15s, sem áudio — sem áudio é estratégia: movimento + cor + mensagem clara convertem mais. Pode ser *institucional* (sua marca) ou *promocional* (oferta específica). Olha onde vai aparecer 👇");
           await new Promise(r => setTimeout(r, 1800));
           const leadFrescoForc = await getLead(client, from);
-          await enviarCatalogoTelas(from, leadFrescoForc || { negocio: "", cidade: "Porto Feliz" }, 800);
+          if (leadFrescoForc?.cidade) { await enviarCatalogoTelas(from, leadFrescoForc, 800); }
           const histForc = await getHist(client, from);
           histForc.push({ role: "assistant", content: "[educação + catálogo forçados após resposta do GPT]" });
           await saveHist(client, from, histForc);
@@ -2753,7 +2762,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
           await new Promise(r => setTimeout(r, 1200));
           // Sempre usar dados frescos do banco — nunca do lead em memória
           const leadFresco = await getLead(client, from);
-          await enviarCatalogoTelas(from, leadFresco || { negocio: "", cidade: "Porto Feliz" }, 800);
+          if (leadFresco?.cidade) { await enviarCatalogoTelas(from, leadFresco, 800); }
           // Marcar no histórico
           const histAtual2 = await getHist(client, from);
           histAtual2.push({ role: "assistant", content: "[catálogo automático: conceito de pontos + todas as telas + vídeos enviados]" });
