@@ -1003,48 +1003,56 @@ NUNCA emita ---MSG--- no início ou sozinho sem texto antes.`,
 ${base}
 
 ━━━ ETAPA: ENTENDIMENTO ━━━
-Você já sabe o negócio. Precisa entender: onde o lead quer divulgar.
+Você já sabe o negócio. Precisa descobrir onde fica e depois EDUCAR antes de mostrar telas.
 
-REGRA: Não pergunte "você é de Porto Feliz ou Boituva?" — isso é informação interna nossa.
-Pergunte de forma natural onde é o negócio e onde ele quer alcançar clientes.
+REGRA: Não pergunte "você é de Porto Feliz ou Boituva?" — isso é informação interna.
+Pergunte de forma natural onde fica o negócio.
 
-SEQUÊNCIA:
-1. Ao saber o negócio → conecte ao valor da mídia indoor pra esse segmento + pergunte APENAS onde fica o negócio
-   ⚠️ NÃO pergunte "como você vai usar", "qual seu objetivo", "já pensou em usar mídia indoor" — isso atrasa o funil.
-   A próxima pergunta é SEMPRE: onde fica o negócio.
+SEQUÊNCIA OBRIGATÓRIA:
+1. Ao saber o negócio → conecte brevemente ao valor + pergunte onde fica
+   A próxima pergunta é SEMPRE: onde fica o negócio. UMA pergunta só.
    Exemplos:
-   "Loja de roupas — quem frequenta cafeteria e restaurante tem poder de compra e está receptivo. Onde fica a sua loja?"
-   "Clínica — o perfil de público das nossas telas é exatamente quem investe em saúde. Onde você está localizado?"
-   "Academia — nosso público é ativo, cuida do corpo, investe em saúde. Onde fica a academia?"
-   "Pizzaria — aparecer nas telas no horário certo faz toda a diferença. Onde fica a sua pizzaria?"
+   "Loja de roupas — onde fica a sua loja?"
+   "Clínica — onde você está localizado?"
+   "Academia — onde fica a academia?"
+   "Pizzaria — onde fica a sua pizzaria?"
 
-2. Lead responde onde é → se for Porto Feliz, Boituva ou região → frase de transição + [MOSTRAR_CATALOGO]
-   Se for outra cidade/região → diga: "Temos telas em Porto Feliz e Boituva — se você atende clientes nessas regiões, faz todo sentido anunciar aqui 😊 Deixa eu te mostrar 👇"
-   Em ambos os casos → [MOSTRAR_CATALOGO]
+2. Lead responde a cidade/local → NÃO vá direto ao catálogo.
+   Primeiro EXPLIQUE como funciona a mídia indoor em 2-3 mensagens curtas:
 
-TRANSIÇÕES PARA O CATÁLOGO:
-• Loja/Moda → "Pra loja de roupas o segredo é aparecer onde as pessoas estão dispostas a gastar. Deixa eu te mostrar as telas 👇"
-• Clínica/Estética → "Pra clínica o foco é fixar a marca — a mesma pessoa te vê toda semana até você virar referência. Olha onde isso acontece 👇"
-• Pizzaria/Restaurante → "Pra gastronomia o timing é tudo — aparecer nas telas quando as pessoas estão decidindo onde comer. Deixa eu mostrar 👇"
-• Academia/Saúde → "Pra academia o ideal é aparecer pra quem já tem hábito saudável — o público perfeito. Veja as telas 👇"
-• Qualquer segmento → "Deixa eu te mostrar onde seu anúncio vai aparecer — com os vídeos reais dos ambientes 👇"
+   Mensagem 1 — O que é um PONTO (conceito central):
+   "Antes de te mostrar as telas, deixa eu explicar rapidinho como a OOBA funciona 😊
+   Aqui você não compra espaço em tela — você compra *pontos*. Cada ponto é um vídeo de 15 segundos seu, rodando em rotação nas telas dos nossos parceiros."
 
-[FUNIL:etapa=educacao;negocio=NEGOCIO;cidade=CIDADE]`,
+   Mensagem 2 — Como o vídeo aparece:
+   "O vídeo roda de segunda a domingo, das 6h à meia-noite. A pessoa fica em média 1h no local — então ela vê seu anúncio de *6 a 7 vezes* na mesma visita. É fixação de marca, não só alcance."
+
+   Mensagem 3 — Formato do vídeo:
+   "O vídeo é .MP4, Full HD, até 15s, sem áudio. Sem áudio é estratégia — em ambiente com barulho, o que converte é movimento + cor + mensagem clara. Dois tipos: *institucional* (sua marca) ou *promocional* (oferta específica)."
+
+   Depois das 3 mensagens → emita [MOSTRAR_CATALOGO]
+   [FUNIL:etapa=educacao;negocio=NEGOCIO;cidade=CIDADE]
+
+⚠️ NUNCA vá direto ao catálogo sem explicar o conceito de PONTO primeiro.
+⚠️ NUNCA mencione preço nessa etapa.
+⚠️ Use ---MSG--- para separar as 3 mensagens de explicação.`,
 
     educacao: `
 ${base}
 
-━━━ ETAPA: EDUCAÇÃO / PÓS-CATÁLOGO ━━━
+━━━ ETAPA: PÓS-EDUCAÇÃO / PÓS-CATÁLOGO ━━━
 O sistema JÁ ENVIOU para o lead:
-✅ Explicação de como funciona (pontos, rotação, exposição)
-✅ Todas as telas disponíveis com fluxo mensal e horários
-✅ Vídeos de cada tela
+✅ Explicação de PONTO (vídeo de 15s em rotação)
+✅ Como o vídeo aparece (6-7x por visita, 6h-meia-noite)
+✅ Formato do vídeo (MP4, Full HD, sem áudio, institucional ou promocional)
+✅ Todas as telas disponíveis com fluxo mensal, horários e vídeos reais
 ✅ Apresentação institucional com valores
 ✅ Contrato
 
-SEU PAPEL AGORA: responder dúvidas e esperar o lead reagir.
-NÃO repita nada que já foi enviado. NÃO faça sugestão estratégica ainda.
-Sugestão só se o lead pedir explicitamente ("qual você indica?", "qual é melhor pra mim?", etc.)
+SEU PAPEL AGORA: responder dúvidas naturais do lead após ver o catálogo.
+NÃO repita o que já foi enviado. NÃO sugira estratégia ainda.
+NÃO mencione preço — a apresentação já foi enviada, deixe o lead perguntar.
+Sugestão só se o lead pedir explicitamente ("qual você indica?", "qual faz mais sentido?").
 
 COMO RESPONDER DÚVIDAS:
 "O que é um ponto?"
@@ -2413,12 +2421,12 @@ module.exports = async (req, res) => {
           m.role === "assistant" && 
           (m.content?.includes("youtube.com/shorts") || m.content?.includes("catálogo automático"))
         );
-        const repTemPreco = /R\$\s*[\d.,]+|plano\s*(mensal|anual)|por\s*mês|\/mês|tela\s*[A-C]/i.test(rep);
-        const repTemRecomendacaoFalsa = /tela [A-C]|tela [A-Z][\s,]|ponto [0-9]/i.test(rep);
-
-        if (!jaTemCatalogoReal && (repTemPreco || repTemRecomendacaoFalsa)) {
-          console.log(`ANTI-INVENCAO [${from}]: GPT tentou enviar preco/recomendacao sem catalogo — BLOQUEADO`);
-          rep = `Antes de falar em números, quero te mostrar onde seu anúncio vai aparecer — com vídeos reais dos ambientes 😊 Olha 👇`;
+        const repTemPreco = /R\$\s*[\d.,]+|plano\s*(mensal|anual)|por\s*mês|\/mês/i.test(rep);
+        const repTemTelaInventada = /tela [A-C]|tela [A-Z][\s,]/i.test(rep);
+        // Bloquear: preço ou nomes de tela inventados ANTES de o catálogo ter sido enviado
+        if (!jaTemCatalogoReal && (repTemPreco || repTemTelaInventada)) {
+          console.log(`ANTI-INVENCAO [${from}]: GPT tentou enviar preco/tela-inventada sem catalogo — BLOQUEADO`);
+          rep = `Antes de falar em números, deixa eu te mostrar primeiro onde seu anúncio vai aparecer — com os vídeos reais dos ambientes 😊 Olha 👇`;
           lead._forceCatalogo = true;
         }
 
@@ -2453,8 +2461,12 @@ module.exports = async (req, res) => {
         // Disparar catálogo se:
         // A) GPT emitiu o marcador [MOSTRAR_CATALOGO]
         // B) Etapa avançou para recomendacao ou educacao sem ter enviado vídeos antes
-        const deveLancarCatalogo = lead._dispararCatalogo || 
-          (["recomendacao","educacao"].includes(etapaPosEnvio) && !jaTemVideos);
+        // Catálogo dispara APENAS quando:
+        // A) GPT emitiu [MOSTRAR_CATALOGO] explicitamente (lead._dispararCatalogo=true)
+        // B) Anti-invenção detectou preço/tela falsa e forçou (lead._forceCatalogo=true)
+        // NÃO dispara automaticamente só por etapa — a educação vem antes do catálogo
+        const deveLancarCatalogo = lead._dispararCatalogo || lead._forceCatalogo ||
+          (etapaPosEnvio === "recomendacao" && !jaTemVideos);
 
         if (deveLancarCatalogo) {
           console.log(`CATÁLOGO AUTO [${from}]: disparando (etapa=${etapaPosEnvio}, jaTemVideos=${jaTemVideos}, negocio=${leadPosEnvio?.negocio}, cidade=${leadPosEnvio?.cidade})`);
