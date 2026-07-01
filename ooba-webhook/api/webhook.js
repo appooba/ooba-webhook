@@ -2207,59 +2207,77 @@ module.exports = async (req, res) => {
 
       // ══════════════════════════════════════════════════════════════
       // 🔒 INTERCEPTADOR DE CIDADE — disparo educação via código
-      // Quando lead está na etapa 'entendimento' e informa a cidade,
-      // o código envia as 3 msgs de educação + catálogo sem passar pelo GPT.
+      // Detecta cidade na mensagem do lead (qualquer etapa antes de educacao)
+      // e envia as 3 msgs fixas + catálogo sem passar pelo GPT.
       // ══════════════════════════════════════════════════════════════
       {
         const leadEntend = await getLead(client, from);
         const etapaEntend = leadEntend?.etapa_funil || "abertura";
-        const negocioAtual = leadEntend?.negocio || "";
         const jaTemEdu = await getHist(client, from).then(h =>
-          h.some(m => m.role === "assistant" && m.content?.includes("você não compra espaço em tela"))
+          h.some(m => m.role === "assistant" && 
+            (m.content?.includes("você não compra espaço em tela") || 
+             m.content?.includes("educação automática") ||
+             m.content?.includes("catálogo automático enviado")))
         );
 
-        if (etapaEntend === "entendimento" && negocioAtual && !jaTemEdu) {
-          // Detectar cidade na mensagem
-          const txtN = txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-          const temPF = txtN.includes("porto feliz") || txtN.includes("porto") || txtN.includes("pf");
-          const temBT = txtN.includes("boituva") || txtN.includes("bt");
-          const temAmbas = txtN.includes("ambas") || txtN.includes("as duas") || txtN.includes("os dois") || (temPF && temBT);
+        // Detectar cidade na mensagem
+        const txtN = txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+        const temPF = txtN.includes("porto feliz") || (txtN.includes("porto") && !txtN.includes("porto seguro"));
+        const temBT = txtN.includes("boituva");
+        const temAmbas = txtN.includes("ambas") || txtN.includes("as duas") || (temPF && temBT);
+        const cidadeDetectada = temAmbas ? "Porto Feliz e Boituva" : temBT ? "Boituva" : temPF ? "Porto Feliz" : null;
 
-          if (temPF || temBT || temAmbas) {
-            const cidadeSalvar = temAmbas ? "Porto Feliz e Boituva" : temBT ? "Boituva" : "Porto Feliz";
-            console.log(`INTERCEPTADOR CIDADE [${from}]: cidade=${cidadeSalvar}, negocio=${negocioAtual} → educação via código`);
-
-            // Salvar cidade e avançar etapa
-            await client.query(
-              "UPDATE leads SET cidade=$1, etapa_funil='educacao', updated_at=NOW() WHERE phone=$2",
-              [cidadeSalvar, from]
-            ).catch(() => {});
-
-            // ── Mensagem 1: o que é um PONTO ──
-            await sendMsg(from, "Antes de te mostrar as telas, deixa eu explicar rapidinho como funciona 😊\n\nAqui você não compra espaço em tela — você compra *pontos*. Cada ponto é um vídeo de 15 segundos do seu negócio, rodando em rotação nas nossas telas.");
-            await new Promise(r => setTimeout(r, 1800));
-
-            // ── Mensagem 2: frequência de exibição ──
-            await sendMsg(from, "Seu vídeo roda de segunda a domingo, das 6h à meia-noite. A pessoa fica em média 1h no local — e vê seu anúncio de *6 a 7 vezes* na mesma visita. É fixação de marca, não só alcance.");
-            await new Promise(r => setTimeout(r, 1800));
-
-            // ── Mensagem 3: formato do vídeo ──
-            await sendMsg(from, "O vídeo é .MP4, Full HD, até 15s, sem áudio — sem áudio é estratégia: movimento + cor + mensagem clara convertem mais. Pode ser *institucional* (sua marca) ou *promocional* (oferta específica). Olha onde vai aparecer 👇");
-            await new Promise(r => setTimeout(r, 1800));
-
-            // ── Catálogo filtrado por segmento ──
-            const leadFrescoEdu = await getLead(client, from);
-            await enviarCatalogoTelas(from, leadFrescoEdu, 800);
-
-            // ── Salvar no histórico ──
-            const histEdu = await getHist(client, from);
-            histEdu.push({ role: "user", content: txt });
-            histEdu.push({ role: "assistant", content: `[educação automática: pontos + formato + catálogo enviado para ${cidadeSalvar}]` });
-            await saveHist(client, from, histEdu);
-
-            if (!res.headersSent) res.json({ ok: true });
-            return;
+        // Interceptar se: cidade detectada + antes da educação
+        const etapasAntesEdu = ["abertura", "entendimento", "educacao"];
+        if (cidadeDetectada && !jaTemEdu && etapasAntesEdu.includes(etapaEntend)) {
+          
+          // Tentar extrair negócio do histórico se não estiver no banco
+          let negocioFinal = leadEntend?.negocio;
+          if (!negocioFinal) {
+            const histBusca = await getHist(client, from);
+            // Procurar no histórico a última mensagem do user que não seja cidade
+            const palavrasNegocio = ["pizzaria","academia","loja","clinica","clínica","petshop","restaurante","salao","salão","barbearia","escola","curso","mercado","farmacia","farmácia","imobiliaria","imobiliária","odonto","dentista","estética","estetica","hotel","pousada","cafeteria","padaria","supermercado","auto","mecanica","mecânica","consultorio","consultório"];
+            for (const m of [...histBusca].reverse()) {
+              if (m.role === "user") {
+                const mN = m.content.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+                const encontrou = palavrasNegocio.find(p => mN.includes(p));
+                if (encontrou) { negocioFinal = encontrou; break; }
+              }
+            }
           }
+
+          console.log(`INTERCEPTADOR CIDADE [${from}]: cidade=${cidadeDetectada}, negocio=${negocioFinal}, etapa=${etapaEntend} → educação via código`);
+
+          // Salvar cidade, negócio e avançar etapa
+          await client.query(
+            "UPDATE leads SET cidade=$1, negocio=COALESCE(NULLIF(negocio,''),$2), etapa_funil='educacao', updated_at=NOW() WHERE phone=$3",
+            [cidadeDetectada, negocioFinal || "", from]
+          ).catch(() => {});
+
+          // ── Mensagem 1: o que é um PONTO ──
+          await sendMsg(from, "Antes de te mostrar as telas, deixa eu explicar rapidinho como funciona 😊\n\nAqui você não compra espaço em tela — você compra *pontos*. Cada ponto é um vídeo de 15 segundos do seu negócio, rodando em rotação nas nossas telas.");
+          await new Promise(r => setTimeout(r, 1800));
+
+          // ── Mensagem 2: frequência de exibição ──
+          await sendMsg(from, "Seu vídeo roda de segunda a domingo, das 6h à meia-noite. A pessoa fica em média 1h no local — e vê seu anúncio de *6 a 7 vezes* na mesma visita. É fixação de marca, não só alcance.");
+          await new Promise(r => setTimeout(r, 1800));
+
+          // ── Mensagem 3: formato do vídeo ──
+          await sendMsg(from, "O vídeo é .MP4, Full HD, até 15s, sem áudio — sem áudio é estratégia: movimento + cor + mensagem clara convertem mais. Pode ser *institucional* (sua marca) ou *promocional* (oferta específica). Olha onde vai aparecer 👇");
+          await new Promise(r => setTimeout(r, 1800));
+
+          // ── Catálogo filtrado por segmento ──
+          const leadFrescoEdu = await getLead(client, from);
+          await enviarCatalogoTelas(from, leadFrescoEdu, 800);
+
+          // ── Salvar no histórico ──
+          const histEdu = await getHist(client, from);
+          histEdu.push({ role: "user", content: txt });
+          histEdu.push({ role: "assistant", content: `[educação automática: pontos + formato + catálogo enviado para ${cidadeDetectada}]` });
+          await saveHist(client, from, histEdu);
+
+          if (!res.headersSent) res.json({ ok: true });
+          return;
         }
       }
       // ══════════════════════════════════════════════════════════════
