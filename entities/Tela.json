@@ -1,0 +1,46 @@
+{
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome do local onde a tela est\u00e1 instalada"
+    },
+    "cidade": {
+      "type": "string"
+    },
+    "segmento": {
+      "type": "string",
+      "description": "Segmento de neg\u00f3cio para bloqueio de concorr\u00eancia (ex: pizzaria, academia, doceria)"
+    },
+    "giro_mensal": {
+      "type": "integer",
+      "description": "Fluxo mensal de pessoas expostas"
+    },
+    "horario_funcionamento": {
+      "type": "string"
+    },
+    "link_video": {
+      "type": "string",
+      "description": "Link YouTube Shorts do v\u00eddeo institucional/promocional"
+    },
+    "tipo_tela": {
+      "type": "string",
+      "enum": [
+        "deitada",
+        "em_pe"
+      ],
+      "description": "Tela deitada (p\u00fablico premium) ou em p\u00e9 (com\u00e9rcio geral)"
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "nome",
+    "cidade",
+    "giro_mensal",
+    "horario_funcionamento"
+  ],
+  "name": "Tela"
+}
