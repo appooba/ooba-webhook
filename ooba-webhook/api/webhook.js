@@ -1568,25 +1568,90 @@ function detectarPerguntaVideo(txt) {
 
 
 // ══════════════════════════════════════════════════════════════
-// Gera 3 slots de reunião em dias úteis (seg-sex), a partir de amanhã
+// Gera 3 slots de reunião em dias úteis (seg-sex), consultando
+// o Google Calendar real para evitar horários já ocupados
 // ══════════════════════════════════════════════════════════════
-function gerarSlotsReuniao() {
+async function gerarSlotsReuniao() {
   const offsetMs = -3 * 60 * 60 * 1000; // UTC-3
   const agora = new Date(Date.now() + offsetMs);
   const nomesDia = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
-  const horarios = ["09h", "14h", "16h"];
+  const candidatos = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
+
+  // Buscar token do Google Calendar via Base44 API (token sempre fresco)
+  let gcToken = null;
+  try {
+    const base44ApiKey = process.env.BASE44_API_KEY;
+    const tokenRes = await fetch("https://api.base44.com/api/apps/69f645345c37a4db77e0e07d/connectors/googlecalendar/token", {
+      headers: { "x-api-key": base44ApiKey }
+    });
+    if (tokenRes.ok) {
+      const tokenData = await tokenRes.json();
+      gcToken = tokenData.access_token || tokenData.token || tokenData.accessToken;
+      console.log(`CALENDAR: token obtido via Base44 API ${gcToken ? "✅" : "❌"}`);
+    } else {
+      console.log(`CALENDAR: falha ao buscar token Base44 → ${tokenRes.status}`);
+    }
+  } catch(e) {
+    console.log(`CALENDAR: erro ao buscar token → ${e.message}`);
+  }
+
+  // Buscar eventos ocupados nos próximos 10 dias
+  const horariosOcupados = new Set();
+  if (gcToken) {
+    try {
+      const timeMin = new Date(Date.now()).toISOString();
+      const timeMax = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString();
+      const gcUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime`;
+      const gcRes = await fetch(gcUrl, { headers: { Authorization: `Bearer ${gcToken}` } });
+      if (gcRes.ok) {
+        const gcData = await gcRes.json();
+        for (const ev of (gcData.items || [])) {
+          const start = ev.start?.dateTime;
+          if (start) {
+            // Converter para UTC-3 e guardar como "YYYY-MM-DD HH:MM"
+            const d = new Date(start);
+            const local = new Date(d.getTime() + offsetMs);
+            const key = local.getUTCFullYear() + "-" +
+              String(local.getUTCMonth()+1).padStart(2,"0") + "-" +
+              String(local.getUTCDate()).padStart(2,"0") + " " +
+              String(local.getUTCHours()).padStart(2,"0") + ":" +
+              String(local.getUTCMinutes()).padStart(2,"0");
+            horariosOcupados.add(key);
+            console.log(`CALENDAR: ocupado → ${key}`);
+          }
+        }
+      }
+    } catch(e) {
+      console.log(`CALENDAR: erro ao buscar eventos → ${e.message}`);
+    }
+  }
+
   const slots = [];
   let d = new Date(agora);
   d.setDate(d.getDate() + 1);
-  while (slots.length < 3) {
-    const dow = d.getUTCDay(); // 0=dom, 6=sab
-    if (dow >= 1 && dow <= 5) { // seg a sex
-      const dia = String(d.getUTCDate()).padStart(2,"0");
-      const mes = String(d.getUTCMonth()+1).padStart(2,"0");
-      slots.push({ nome: nomesDia[dow], data: dia+"/"+mes, hora: horarios[slots.length] });
+
+  // Tentar até 14 dias pra frente para achar 3 slots livres
+  for (let tentativa = 0; tentativa < 14 && slots.length < 3; tentativa++) {
+    const dow = d.getUTCDay();
+    if (dow >= 1 && dow <= 5) { // seg a sex apenas
+      const diaN = String(d.getUTCDate()).padStart(2,"0");
+      const mesN = String(d.getUTCMonth()+1).padStart(2,"0");
+      const anoN = d.getUTCFullYear();
+      const dataStr = `${anoN}-${mesN}-${diaN}`;
+
+      for (const hora of candidatos) {
+        if (slots.length >= 3) break;
+        const chave = `${dataStr} ${hora}`;
+        if (!horariosOcupados.has(chave)) {
+          const horaExib = hora.replace(":00", "h");
+          slots.push({ nome: nomesDia[dow], data: `${diaN}/${mesN}`, hora: horaExib, chave });
+          break; // 1 slot por dia
+        }
+      }
     }
     d.setDate(d.getDate() + 1);
   }
+
   return slots;
 }
 
@@ -2468,7 +2533,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
         );
 
         if (gptPediuDisponibilidade) {
-          const slots = gerarSlotsReuniao();
+          const slots = await gerarSlotsReuniao();
           const msgSlots = `Agenda está bem movimentada essa semana 😅 Ainda tenho esses horários disponíveis:\n\n` +
             slots.map(s => `📅 *${s.nome}, ${s.data}* às ${s.hora}`).join("\n") +
             `\n\nQual desses funciona pra você?`;
