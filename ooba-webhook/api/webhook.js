@@ -216,7 +216,7 @@ function limparParaAudio(texto) {
 // 9. fechado        → Contrato assinado ✅
 // 10. perdido       → Lead desistiu ❌
 
-const LINK_APRESENTACAO_INSTITUCIONAL = "https://base44.app/api/apps/69f645345c37a4db77e0e07d/files/mp/public/69f645345c37a4db77e0e07d/5b2eabf2a_5aad73535_ApresentaoOOBAMidiaIndoor.pdf";
+const LINK_APRESENTACAO_INSTITUCIONAL = "https://media.base44.com/files/public/69f645345c37a4db77e0e07d/5b2eabf2a_5aad73535_ApresentaoOOBAMidiaIndoor.pdf";
 
 // ══════════════════════════════════════════════════════════════
 // HUMANIZAÇÃO — delay realista antes de enviar resposta
@@ -931,7 +931,9 @@ NÃO se reapresente (não diga "Oi, sou a Luana"). NÃO pergunte "qual mídia vo
 O lead já viu quem você é e o que a OOBA faz. Seja natural e curte, como se já estivesse no meio da conversa.
 
 Primeira resposta para prospecção (use o nome do lead se souber):
-"Oi ${nome}! Vi que você abriu a apresentação 😊 Me conta — qual é o seu negócio? Quero ver se nossas telas fazem sentido pra você."
+"Tudo bem ${nome}! Antes de qualquer coisa, vou te mandar a apresentação da nossa empresa pra você conhecer nosso trabalho 👇"
+
+IMPORTANTE: Após enviar essa frase, o SISTEMA vai enviar automaticamente o PDF da apresentação como documento. NÃO repita o link em texto. NÃO mande a apresentação de novo depois. Depois que o lead receber o PDF, pergunte: "Me conta — qual é o seu negócio? Quero ver se nossas telas fazem sentido pra você 😊"
 
 Se o lead já mencionou o negócio/empresa no banco (negocio/empresa preenchido), NÃO pergunte de novo — use isso:
 "Vi que você é da área de ${negocio || leadData.empresa || ''}! Esse perfil se dá muito bem com mídia indoor 😊 Você é de Porto Feliz ou Boituva?"
@@ -2333,6 +2335,25 @@ async function replyAI(client, txt, phone) {
 // ═══════════════════════════════════════════════════════
 // WEBHOOK PRINCIPAL
 // ═══════════════════════════════════════════════════════
+// Enviar PDF como documento anexo (não link) — só dentro da janela de 24h
+async function sendDocument(to, link, caption, filename) {
+  const resp = await fetch(`https://graph.facebook.com/v21.0/${PID}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${WAT}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: to,
+      type: "document",
+      document: { link: link, caption: caption || "", filename: filename || "documento.pdf" }
+    })
+  });
+  const d = await resp.json();
+  if (d?.error) console.error("WA doc error:", JSON.stringify(d.error));
+  else console.log("WA doc sent:", d?.messages?.[0]?.id);
+  return d;
+}
+
 async function sendMsg(to, body) {
   const res = await fetch(`https://graph.facebook.com/v21.0/${PID}/messages`, {
     method: "POST",
@@ -2768,6 +2789,27 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
         }
       }
       // ══════════════════════════════════════════════════════════════
+
+      // ══════════════════════════════════════════════════════════════
+      // 🔒 PROSPECÇÃO: Enviar PDF como documento na 1ª resposta do lead
+      // ══════════════════════════════════════════════════════════════
+      if (leadPosEnvio?.origem === 'prospeccao' && leadPosEnvio?.etapa_funil === 'abertura') {
+        const histAposResp = await getHist(client, from);
+        const jaRecebeuPdf = histAposResp.some(m => m.role === 'assistant' && m.content?.includes('[PDF apresentação enviado como documento]'));
+        if (!jaRecebeuPdf) {
+          console.log(`PROSPECÇÃO 1ª RESPOSTA [${from}]: enviando PDF como documento`);
+          await new Promise(r => setTimeout(r, 1500));
+          await sendDocument(from,
+            LINK_APRESENTACAO_INSTITUCIONAL,
+            "Apresentação OOBA Mídia Indoor 📎",
+            "Apresentacao-OOBA-Midia-Indoor.pdf"
+          );
+          const histPdf = await getHist(client, from);
+          histPdf.push({ role: "assistant", content: "[PDF apresentação enviado como documento]" });
+          await saveHist(client, from, histPdf);
+          await updateLead(client, from, { etapa_funil: 'entendimento', status: 'respondendo' });
+        }
+      }
 
       // ══════════════════════════════════════════════════════════════
       // 🔒 INTERCEPTADOR DE CIDADE — disparo educação via código
