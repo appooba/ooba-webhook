@@ -8,10 +8,45 @@
     {
       "src": "/api/followup",
       "dest": "/api/followup.js"
+    },
+    {
+      "src": "/api/aprender",
+      "dest": "/api/aprender.js"
+    },
+    {
+      "src": "/api/debug",
+      "dest": "/api/debug.js"
+    },
+    {
+      "src": "/api/process",
+      "dest": "/api/process.js"
+    },
+    {
+      "src": "/api/importar",
+      "dest": "/api/importar.js"
+    },
+    {
+      "src": "/api/reativar",
+      "dest": "/api/reativar.js"
+    },
+    {
+      "src": "/api/registrar_prospeccao",
+      "dest": "/api/registrar_prospeccao.js"
+    },
+    {
+      "src": "/api/followup_funil",
+      "dest": "/api/followup_funil.js"
+    },
+    {
+      "src": "/api/tts_block",
+      "dest": "/api/tts_block.js"
     }
   ],
   "functions": {
     "api/webhook.js": {
+      "maxDuration": 60
+    },
+    "api/aprender.js": {
       "maxDuration": 60
     }
   }
