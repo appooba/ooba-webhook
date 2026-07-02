@@ -731,7 +731,7 @@ MATERIAIS INSTITUCIONAIS
 {{LINK_APRESENTACAO_VALORES}}"
 
 - Apresentação + Valores: {{LINK_APRESENTACAO_VALORES}}
-- Contrato: {{LINK_CONTRATO}}
+- Contrato: PDF enviado automaticamente via marcador 🔹CONTRATO_PDF🔹
 
 ═══════════════════════════════════
 COMO RESPONDER OBJEÇÃO DE PREÇO
@@ -842,7 +842,7 @@ Ex: 2 pontos Sueli + 2 pontos Bonfá = 4 pontos total → mensal R$750/mês | an
   const BASE = `Você é Luana, consultora de vendas da OOBA Mídia Indoor. Atende pelo WhatsApp.
 
 REGRA GLOBAL — CONTRATO A QUALQUER MOMENTO:
-Se o lead pedir pra ver o contrato ("manda o contrato", "quero ver o contrato", "tem um modelo?", "como funciona o cancelamento/multa/pagamento?") EM QUALQUER ETAPA da conversa (não só no fechamento), envie o link do contrato imediatamente — não espere chegar na etapa de fechamento pra isso. Use o resumo do contrato (mais abaixo) pra responder dúvidas sobre cláusulas.
+Se o lead pedir pra ver o contrato ("manda o contrato", "quero ver o contrato", "tem um modelo?", "como funciona o cancelamento/multa/pagamento?") EM QUALQUER ETAPA da conversa (não só no fechamento), diga que vai mandar e inclua o marcador 🔹CONTRATO_PDF🔹 na sua mensagem. O sistema envia o PDF automaticamente como anexo — NUNCA mande o link do contrato em texto. Use o resumo do contrato (mais abaixo) pra responder dúvidas sobre cláusulas.
 
 QUEM VOCÊ É:
 Vendedora experiente, direta e apaixonada pelo que faz. Não é robô. Nunca diga que é IA.
@@ -905,7 +905,7 @@ LINKS DOS VÍDEOS (URL limpa — NUNCA use [texto](url)):
 - Sueli Bolos Boituva: vídeo em produção
 
 APRESENTAÇÃO: {{LINK_APRESENTACAO_VALORES}}
-CONTRATO: {{LINK_CONTRATO}}
+CONTRATO: enviado automaticamente como PDF anexo (marcador 🔹CONTRATO_PDF🔹)
 
 CONFLITOS DE NICHO (nunca ofereça tela de concorrente direto do lead):
 - Pizzaria/hamburgueria → bloqueado: Rocks, Monções
@@ -1126,10 +1126,8 @@ BÔNUS (lembrar sempre):
 VOCÊ ESTÁ NA ETAPA: FECHAMENTO
 
 PASSO 1 — Envie o contrato sem rodeios:
-"Manda o contrato pra você dar uma olhada 😊"
----MSG---
-{{LINK_CONTRATO}}
----MSG---
+"Manda o contrato pra você dar uma olhada 😊 🔹CONTRATO_PDF🔹"
+O sistema vai enviar o PDF automaticamente. NÃO inclua o link do contrato em texto — apenas o marcador 🔹CONTRATO_PDF🔹.
 "Qualquer dúvida me fala aqui. Assim que confirmar, já colocamos na fila de ativação 🚀"
 
 PASSO 2 — Se o lead hesitar UMA VEZ com preço → use argumento de ROI, UMA VEZ SÓ:
@@ -1181,7 +1179,7 @@ Se hesitar após 2 tentativas suas → acione Paulo:
 
   // Resumo do contrato SEMPRE disponível — Luana usa pra responder dúvidas sem inventar valores
   if (config.contrato_resumo) {
-    prompt += `\n\n═══════════════════════════════════\n${config.contrato_resumo}\n═══════════════════════════════════\nSe o lead pedir pra ver o contrato ("manda o contrato", "quero ver o contrato", "como funciona o cancelamento", etc.), envie o link (${linkContrato}) e/ou responda com base no resumo acima. NUNCA invente cláusulas que não estão nesse resumo.`;
+    prompt += `\n\n═══════════════════════════════════\n${config.contrato_resumo}\n═══════════════════════════════════\nSe o lead pedir pra ver o contrato ("manda o contrato", "quero ver o contrato", "como funciona o cancelamento", etc.), inclua o marcador 🔹CONTRATO_PDF🔹 na sua resposta — o sistema envia o PDF automaticamente como anexo. NUNCA mande o link em texto. Use este resumo pra responder dúvidas sobre cláusulas. NUNCA invente cláusulas que não estão nesse resumo.`;
   }
 
   return prompt;
@@ -2339,7 +2337,7 @@ async function replyAI(client, txt, phone) {
     }
 
     // ── Marcar no banco sempre que o contrato for enviado (qualquer etapa) ──
-    if (repLower.includes("contrato-modelo")) {
+    if (repLower.includes("contrato_pdf") || repLower.includes("🔹contrato_pdf🔹") || repLower.includes("contrato-modelo")) {
       await client.query("UPDATE leads SET contrato_enviado=true, updated_at=NOW() WHERE phone=$1", [phone]).catch(e => console.error("contrato_enviado:", e.message));
       console.log(`CONTRATO ENVIADO [${phone}]: marcado no banco`);
     }
@@ -2943,7 +2941,29 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
         } else {
           for (let i = 0; i < partes.length; i++) {
             // Limpar qualquer ---MSG--- residual que o GPT tenha incluído no texto
-            const parte = partes[i].replace(/---MSG---/g, '').trim();
+            let parte = partes[i].replace(/---MSG---/g, '').trim();
+
+            // ── INTERCEPTADOR DE CONTRATO PDF: se o GPT incluiu o marcador, enviar PDF como anexo ──
+            if (parte.includes("🔹CONTRATO_PDF🔹")) {
+              // Remover o marcador do texto e limpar espaços sobrando
+              parte = parte.replace(/🔹CONTRATO_PDF🔹/g, '').replace(/\s{2,}/g, ' ').trim();
+              if (parte) {
+                await sendMsg(from, parte);
+                await new Promise(r => setTimeout(r, 1200));
+              }
+              // Enviar o PDF do contrato como documento anexo
+              const linkContratoPdf = await getConfig(client, "link_contrato") || "https://media.base44.com/files/public/69f645345c37a4db77e0e07d/4f3263011_Contrato-MODELO.pdf";
+              await sendDocument(from, linkContratoPdf, "Contrato de veiculação OOBA 📄", "Contrato-OOBA-Modelo.pdf");
+              console.log(`CONTRATO PDF ENVIADO [${from}]: documento anexado`);
+              // Marcar no banco
+              await client.query("UPDATE leads SET contrato_enviado=true, updated_at=NOW() WHERE phone=$1", [from]).catch(e => console.error("contrato_enviado:", e.message));
+              // Registrar no histórico
+              const histContrato = await getHist(client, from);
+              histContrato.push({ role: "assistant", content: "[Contrato PDF enviado como documento anexo]" });
+              await saveHist(client, from, histContrato);
+              continue; // pula o sendMsg normal abaixo
+            }
+
             if (parte) {
               await sendMsg(from, parte);
               if (i < partes.length - 1) await new Promise(r => setTimeout(r, 900));
