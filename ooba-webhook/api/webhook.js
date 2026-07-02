@@ -94,6 +94,7 @@ const PID = "1189704930882063";
 const OAI_KEY = process.env.OPENAI_API_KEY || "";
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const B44_FUNC_URL = "https://vendedor-ooba-77e0e07d.base44.app/functions/agendarReuniao";
+const B44_SLOTS_URL = "https://vendedor-ooba-77e0e07d.base44.app/functions/getSlots";
 const B44_API_KEY = process.env.BASE44_API_KEY || "";
 
 // ═══════════════════════════════════════════════════════
@@ -1127,10 +1128,22 @@ PASSO 4 — Se o lead recusar a reunião também → encerre com elegância:
 "Sem problemas! Se mudar de ideia, é só me chamar 😊 Qualquer novidade eu te aviso."
 
 Se hesitar após 2 tentativas suas → acione Paulo:
+{{SLOTS_CALENDAR}}
 "Que tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — consigo montar uma proposta do zero pro seu perfil. Qual dia e horário fica melhor pra você? 📅"`,
   };
 
   const instrucaoEtapa = funil[etapa] || funil.abertura;
+
+  // ── Injetar slots reais do Calendar quando a etapa envolver reunião ──
+  if (etapa === 'reuniao' || etapa === 'proposta' || etapa === 'fechamento') {
+    try {
+      const { texto: slotsTexto } = await buscarSlotsDisponiveis();
+      if (slotsTexto) {
+        prompt = prompt.replace("{{SLOTS_CALENDAR}}", slotsTexto);
+      }
+    } catch(e) { console.error("Slots injection:", e.message); }
+  }
+  prompt = prompt.replace("{{SLOTS_CALENDAR}}", "");
 
   // ── Injetar configuração do banco (preços, bônus, etc.) ──
   const config = await getAllConfig();
@@ -1892,6 +1905,84 @@ function extrairHorario(txt) {
   return hora ? `${hora.padStart(2,"0")}:${min.padStart(2,"00")}` : null;
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// BUSCAR SLOTS DISPONÍVEIS NO GOOGLE CALENDAR
+// Retorna os próximos 3 dias úteis com horários livres
+// Pula automaticamente sábado e domingo
+// ══════════════════════════════════════════════════════════════
+async function buscarSlotsDisponiveis() {
+  try {
+    const r = await fetch(B44_SLOTS_URL, {
+      headers: { "Authorization": "Bearer " + B44_API_KEY }
+    });
+    const data = await r.json();
+    if (data.success && data.slots && data.slots.length > 0) {
+      // Formatar os slots como texto para injetar no prompt
+      let texto = "\n📋 HORÁRIOS REAIS DISPONÍVEIS (Google Calendar verificado — pula fins de semana):\n";
+      for (const dia of data.slots) {
+        const livres = dia.slots.filter(s => s.disponivel).map(s => s.hora);
+        if (livres.length > 0) {
+          texto += `  ${dia.dia_semana} ${dia.data}: ${livres.join(", ")}\n`;
+        }
+      }
+      texto += "\nPROIBIDO oferecer horário fora dessa lista. PROIBIDO oferecer sábado ou domingo.";
+      return { texto, slots: data.slots };
+    }
+    return { texto: "\n⚠️ Não há slots disponíveis nos próximos dias.", slots: [] };
+  } catch(e) {
+    console.error("Erro buscarSlots:", e.message);
+    return { texto: "", slots: [] };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// VALIDAR SE O HORÁRIO ESCOLHIDO É VÁLIDO (não é fim de semana)
+// ══════════════════════════════════════════════════════════════
+function validarHorarioAgendamento(data, hora) {
+  // Aceitar formatos: DD/MM/YYYY, DD/MM, "amanhã", "amanha", dias da semana
+  const diasSemana = {
+    "segunda": 1, "seg": 1, "terça": 2, "terca": 2, "ter": 2,
+    "quarta": 3, "qua": 3, "quinta": 4, "qui": 4, "sexta": 5, "sex": 5,
+    "sábado": 6, "sabado": 6, "sab": 6, "domingo": 0, "dom": 0
+  };
+  
+  const dataLower = (data || "").toLowerCase().trim();
+  
+  // Verificar dia da semana explicitamente
+  for (const [palavra, dia] of Object.entries(diasSemana)) {
+    if (dataLower.includes(palavra)) {
+      if (dia === 0 || dia === 6) {
+        return { valido: false, motivo: "Não trabalhamos aos sábados e domingos. Por favor, escolha um dia entre segunda e sexta." };
+      }
+    }
+  }
+  
+  // Verificar data no formato DD/MM
+  const matchDMY = dataLower.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+  if (matchDMY) {
+    const day = parseInt(matchDMY[1]);
+    const month = parseInt(matchDMY[2]) - 1;
+    const year = matchDMY[3] ? (parseInt(matchDMY[3]) < 100 ? 2000 + parseInt(matchDMY[3]) : parseInt(matchDMY[3])) : new Date().getFullYear();
+    const dateObj = new Date(year, month, day);
+    const dayOfWeek = dateObj.getDay();
+    if (dayOfWeek === 6 || dayOfWeek === 0) {
+      return { valido: false, motivo: "Não trabalhamos aos sábados e domingos. Por favor, escolha um dia entre segunda e sexta." };
+    }
+  }
+  
+  // Verificar horário (deve estar entre 9h e 18h)
+  const matchHora = (hora || "").match(/(\d{1,2})[:h]/i);
+  if (matchHora) {
+    const h = parseInt(matchHora[1]);
+    if (h < 9 || h >= 18) {
+      return { valido: false, motivo: "Nosso horário de atendimento é de segunda a sexta, das 9h às 18h." };
+    }
+  }
+  
+  return { valido: true };
+}
+
 async function processarAgendamento(client, rep, phone) {
   // ── DETECÇÃO AUTOMÁTICA ──
   // Se o GPT não emitiu o marcador mas o lead já deu e-mail + horário → dispara sozinho
@@ -1940,6 +2031,16 @@ async function processarAgendamento(client, rep, phone) {
     if (k && v) params[k.trim()] = v.trim();
   });
   params.telefone = params.telefone || phone;
+
+  // ── VALIDAR: não permitir sábado/domingo nem fora do horário comercial ──
+  const validacao = validarHorarioAgendamento(params.data, params.hora);
+  if (!validacao.valido) {
+    console.log("AGENDAMENTO BLOQUEADO:", validacao.motivo);
+    // Remover o marcador e retornar mensagem de correção
+    rep = rep.replace(/\[AGENDAR_REUNIAO:[^\]]+\]/g, "");
+    rep += `\n\n⚠️ ${validacao.motivo}`;
+    return rep;
+  }
 
   console.log("Agendando reunião:", JSON.stringify(params));
 
