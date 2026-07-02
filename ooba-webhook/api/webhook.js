@@ -2901,6 +2901,16 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
         const histPosEnvio = await getHist(client, from);
         const jaTemVideos = histPosEnvio.some(m => m.role === "assistant" && m.content?.includes("youtube.com/shorts"));
 
+        // 🛑 GUARD: Se o lead mostrou rejeição/despedida, NUNCA forçar catálogo ou educação
+        const ultimasMsgsUser = histPosEnvio.filter(m => m.role === "user").slice(-2).map(m => (m.content||"").toLowerCase());
+        const sinaisRejeicao = ["xau","tchau","nao quero","não quero","n quero","adeus","ate logo","até logo","para de mandar","para com isso","pare de mandar","stop","cancela","desistir","desistindo","nao quero mais","não quero mais","sem interesse","nao interessa","não interessa","bugado","seu robo","virus","vírus","duvidoso","golpe","spam"];
+        const houveRejeicao = ultimasMsgsUser.some(txt => sinaisRejeicao.some(s => txt.includes(s)));
+        if (houveRejeicao) {
+          console.log(`REJEIÇÃO DETECTADA [${from}]: pulando catálogo/educação forçada`);
+          if (!res.headersSent) res.json({ ok: true });
+          return;
+        }
+
         // Se etapa avançou para recomendacao mas educação nunca foi enviada → forçar educação + catálogo
         const jaTemEduHist = histPosEnvio.some(m => m.role === "assistant" && 
           (m.content?.includes("você não compra espaço em tela") || m.content?.includes("educação automática")));
@@ -2923,8 +2933,8 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
           return;
         }
 
-        const deveLancarCatalogo = leadPosEnvio?._dispararCatalogo || 
-          (etapaPosEnvio === "recomendacao" && !jaTemVideos);
+        const deveLancarCatalogo = (leadPosEnvio?._dispararCatalogo || 
+          (etapaPosEnvio === "recomendacao" && !jaTemVideos)) && !houveRejeicao;
 
         if (deveLancarCatalogo) {
           console.log(`CATÁLOGO AUTO [${from}]: disparando (etapa=${etapaPosEnvio}, jaTemVideos=${jaTemVideos}, negocio=${leadPosEnvio?.negocio}, cidade=${leadPosEnvio?.cidade})`);
