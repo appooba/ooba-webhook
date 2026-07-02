@@ -40,6 +40,14 @@
     {
       "src": "/api/tts_block",
       "dest": "/api/tts_block.js"
+    },
+    {
+      "src": "/api/prospectar",
+      "dest": "/api/prospectar.js"
+    },
+    {
+      "src": "/api/gerente_pipeline",
+      "dest": "/api/gerente_pipeline.js"
     }
   ],
   "functions": {
