@@ -1136,7 +1136,13 @@ PASSO 1B — Se o lead disser "obrigado", "valeu", "valeu demais", "obrigada" de
 PASSO 2 — Se o lead hesitar UMA VEZ com preço → use argumento de ROI, UMA VEZ SÓ:
 "Com [X] pontos você alcança [Y] mil pessoas por mês. Basta 1 cliente novo por mês pra pagar o investimento — e nas nossas telas a chance disso é alta 😊"
 
-PASSO 3 — Se o lead continuar resistindo, disser "não quero", "muito caro", "não sei", "deixa pra depois" → PARE de vender. Não insista mais no preço. Proponha reunião imediatamente:
+PASSO 3 — A reunião é o ÚLTIMO RECURSO, não a primeira saída. Só proponha reunião se:
+- O lead disser "não quero", "muito caro", "não sei", "deixa pra depois", "vou pensar", "depois eu falo com você"
+- O lead tentar encerrar a conversa explicitamente
+- O lead não responder após 2 tentativas de fechamento
+NUNCA proponha reunião se o lead ainda estiver engajado, fazendo perguntas, ou mostrando interesse em fechar. Se o lead diz "obrigado" depois de ver o contrato, ele NÃO está recusando — está em momento de decisão. PUXE O FECHAMENTO, não ofereça reunião.
+
+Quando fizer sentido propor reunião:
 "Entendo! Antes de encerrar, tenho um especialista da equipe OOBA que consegue montar uma proposta personalizada pra você — sem compromisso, 15 minutinhos pelo Google Meet. Topa?"
 
 ⛔ PROIBIDO no passo 3:
@@ -2924,7 +2930,9 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
 
         // ── INTERCEPTADOR DE AGENDAMENTO: se GPT pediu "qual dia/horário" → substituir por slots reais ──
         const repJuntada = partes.join(" ").toLowerCase();
-        const gptPediuDisponibilidade = (
+        // Só disparar slots se a etapa atual for fechamento E o GPT claramente propôs reunião
+        const etapaAtualCheck = lead?.etapa_funil || "abertura";
+        const gptPediuDisponibilidade = etapaAtualCheck === "fechamento" && (
           repJuntada.includes("qual dia") || repJuntada.includes("qual horário") || 
           repJuntada.includes("qual horario") || repJuntada.includes("que dia") ||
           repJuntada.includes("quando fica") || repJuntada.includes("quando você") ||
@@ -2932,7 +2940,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
           repJuntada.includes("melhor pra voce")
         ) && (
           repJuntada.includes("meet") || repJuntada.includes("reuni") || 
-          repJuntada.includes("conversa") || repJuntada.includes("minutos")
+          repJuntada.includes("15 min")
         );
 
         if (gptPediuDisponibilidade) {
