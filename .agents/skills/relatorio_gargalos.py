@@ -2,6 +2,7 @@
 """
 Skill: Relatório de Gargalos do Funil — Luana Vendas
 Analisa onde os leads estão parando em cada etapa do funil de vendas.
+Compara com metas definidas e benchmarks de mercado.
 """
 import os, json, psycopg2, datetime
 
@@ -34,21 +35,31 @@ cur.execute("""
 """)
 dist = cur.fetchall()
 
-print("📊 RELATÓRIO DE GARGALOS DO FUNIL — OOBA")
-print(f"Data: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}")
-print("=" * 55)
-
 total_leads = sum(r[1] for r in dist)
+
+# Determinar fase atual baseada no total de leads
+if total_leads <= 20:
+    fase_atual = "Fase 1 (0-20 leads)"
+elif total_leads <= 50:
+    fase_atual = "Fase 2 (20-50 leads)"
+else:
+    fase_atual = "Fase 3 (50+ leads)"
+
+print("📊 RELATÓRIO DE GARGALOS DO FUNIL — OOBA MÍDIA INDOOR")
+print(f"Data: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}")
+print(f"Fase atual: {fase_atual}")
+print("=" * 60)
+
 print(f"\nTotal de leads: {total_leads}\n")
 print("DISTRIBUIÇÃO POR ETAPA:")
-print("-" * 40)
+print("-" * 45)
 
 etapas_ordem = ['abertura', 'entendimento', 'educacao', 'recomendacao', 'materiais', 'proposta', 'fechamento', 'reuniao', 'fechado']
 etapas_nomes = {
     'abertura': '1. Abertura',
     'entendimento': '2. Entendimento',
     'educacao': '3. Educação',
-    'recomendacao': '4. Catálogo/Recomendação',
+    'recomendacao': '4. Catálogo/Recomend.',
     'materiais': '5. Materiais',
     'proposta': '6. Proposta/Valores',
     'fechamento': '7. Fechamento',
@@ -62,7 +73,7 @@ for etapa in etapas_ordem:
     pct = (count / total_leads * 100) if total_leads > 0 else 0
     bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
     nome = etapas_nomes.get(etapa, etapa)
-    print(f"  {nome:30s} {bar} {count:3d} ({pct:.0f}%)")
+    print(f"  {nome:25s} {bar} {count:3d} ({pct:.0f}%)")
 
 # 2. Transições registradas
 cur.execute("""
@@ -83,23 +94,31 @@ transicoes = cur.fetchall()
 
 if transicoes:
     print(f"\n\nTRANSIÇÕES REGISTRADAS (últimos 30 dias):")
-    print("-" * 55)
+    print("-" * 60)
     for t in transicoes:
         de = t[0] or "inicio"
         para = t[1]
         count = t[2]
         tempo = t[3]
-        tempo_str = f"{int(tempo/60)}min" if tempo and tempo > 60 else f"{int(tempo)}s" if tempo else "?"
+        tempo_str = f"{int(tempo/3600)}h" if tempo and tempo > 3600 else f"{int(tempo/60)}min" if tempo and tempo > 60 else f"{int(tempo)}s" if tempo else "?"
         print(f"  {de:20s} → {para:20s}  {count:3d}x  tempo méd: {tempo_str}")
 
-# 3. Calcular taxa de conversão entre etapas
-print(f"\n\nTAXA DE AVANÇO POR ETAPA:")
-print("-" * 55)
+# 3. Buscar metas da fase atual
+cur.execute("""
+    SELECT etapa, meta_percentual, benchmark_mercado, observacao
+    FROM funil_metas WHERE ativa = true AND fase = %s
+    ORDER BY etapa
+""", [fase_atual])
+metas = {r[0]: {"meta": float(r[1]), "benchmark": float(r[2]), "obs": r[3]} for r in cur.fetchall()}
 
+# 4. Taxa de avanço por etapa + comparação com metas
+print(f"\n\nTAXA DE AVANÇO POR ETAPA — META vs. REAL vs. MERCADO:")
+print("-" * 70)
+print(f"  {'Etapa':25s} {'Real':>8s} {'Meta':>8s} {'Mercado':>8s}  Status")
+print("-" * 70)
+
+gargalos = []
 for i, etapa in enumerate(etapas_ordem[:-1]):
-    na_etapa = dist_dict.get(etapa, 0)
-    proxima = etapas_ordem[i+1] if i+1 < len(etapas_ordem) else None
-    
     # Contar quantos avançaram dessa etapa
     cur.execute("""
         SELECT COUNT(DISTINCT phone) FROM funil_transicoes 
@@ -107,7 +126,7 @@ for i, etapa in enumerate(etapas_ordem[:-1]):
     """, [etapa])
     avancaram = cur.fetchone()[0] or 0
     
-    # Contar quantos chegaram nessa etapa (tem registro ou estão nela agora)
+    # Contar quantos chegaram nessa etapa
     cur.execute("""
         SELECT COUNT(DISTINCT phone) FROM (
             SELECT phone FROM leads WHERE etapa_funil = %s OR etapa_anterior = %s
@@ -118,11 +137,24 @@ for i, etapa in enumerate(etapas_ordem[:-1]):
     chegaram = cur.fetchone()[0] or 0
     
     taxa = (avancaram / chegaram * 100) if chegaram > 0 else 0
-    gargalo = " ⚠️ GARGALO" if taxa < 30 and chegaram > 0 else ""
     nome = etapas_nomes.get(etapa, etapa)
-    print(f"  {nome:30s}  {avancaram}/{chegaram} avançaram ({taxa:.0f}%){gargalo}")
+    
+    meta = metas.get(etapa, {}).get("meta", 0)
+    benchmark = metas.get(etapa, {}).get("benchmark", 0)
+    
+    if chegaram == 0:
+        status = "⚪ sem dados"
+    elif taxa >= meta:
+        status = "✅ na meta"
+    elif taxa >= meta * 0.5:
+        status = "🟡 abaixo da meta"
+    else:
+        status = "🔴 crítico"
+        gargalos.append((etapa, taxa, chegaram, avancaram, meta))
+    
+    print(f"  {nome:25s} {taxa:>7.0f}% {meta:>7.0f}% {benchmark:>7.0f}%  {status}")
 
-# 4. Leads estagnados (sem progressão há mais de 2 dias)
+# 5. Leads estagnados (sem progressão há mais de 2 dias)
 cur.execute("""
     SELECT phone, nome, etapa_funil, updated_at,
            EXTRACT(EPOCH FROM (NOW() - updated_at))/86400 as dias_parado
@@ -135,50 +167,69 @@ estagnados = cur.fetchall()
 
 if estagnados:
     print(f"\n\n⚠️ LEADS ESTAGNADOS (2+ dias sem progressão):")
-    print("-" * 55)
+    print("-" * 60)
     for e in estagnados:
         dias = int(e[4]) if e[4] else 0
         print(f"  {e[1] or '?':20s} | {e[2]:20s} | {dias}d parado")
 
-# 5. Patches ativos
+# 6. Patches ativos
 cur.execute("SELECT count(*) FROM prompt_patches WHERE ativo = true")
 patches = cur.fetchone()[0]
 print(f"\n\n🧠 PATCHES DE APRENDIZADO ATIVOS: {patches}")
 
-# 6. Recomendações automáticas
+# 7. Recomendações automáticas
 print(f"\n\n💡 RECOMENDAÇÕES:")
-print("-" * 55)
-
-# Identificar maior gargalo
-gargalos = []
-for i, etapa in enumerate(etapas_ordem[:-1]):
-    cur.execute("""
-        SELECT COUNT(DISTINCT phone) FROM funil_transicoes WHERE etapa_anterior = %s
-    """, [etapa])
-    avancaram = cur.fetchone()[0] or 0
-    cur.execute("""
-        SELECT COUNT(DISTINCT phone) FROM (
-            SELECT phone FROM leads WHERE etapa_funil = %s OR etapa_anterior = %s
-            UNION
-            SELECT phone FROM funil_transicoes WHERE etapa_anterior = %s OR etapa_nova = %s
-        ) t
-    """, [etapa, etapa, etapa, etapa])
-    chegaram = cur.fetchone()[0] or 0
-    taxa = (avancaram / chegaram * 100) if chegaram > 0 else 100
-    if taxa < 50:
-        gargalos.append((etapa, taxa, chegaram, avancaram))
+print("-" * 60)
 
 if gargalos:
     for g in sorted(gargalos, key=lambda x: x[1]):
         nome = etapas_nomes.get(g[0], g[0])
-        print(f"  • {nome}: apenas {g[1]:.0f}% avançam ({g[3]}/{g[2]})")
-        print(f"    → Investigar objeções nesta etapa e gerar patch específico")
+        meta_val = g[4]
+        print(f"  • {nome}: {g[1]:.0f}% real vs {meta_val:.0f}% meta ({g[3]}/{g[2]} avançaram)")
+        obs = metas.get(g[0], {}).get("obs", "")
+        if obs:
+            print(f"    → {obs}")
 else:
-    print("  • Sem gargalos críticos detectados (poucos dados ainda)")
-    print(f"  • Continue conversando com leads pra acumular dados")
+    if total_leads < 20:
+        print(f"  • Fase 1 — acumular dados. Meta: 15% na Abertura com 20 leads")
+        print(f"  • Leads atuais: {total_leads}/20")
+    else:
+        print("  • Sem gargalos críticos detectados")
 
-print(f"\n{'='*55}")
-print(f"Próxima análise automática em 6h")
+# 8. Progresso geral
+print(f"\n\n📈 PROGRESSO GERAL:")
+print("-" * 60)
+
+# Calcular conversão total observada
+fechados = dist_dict.get('fechado', 0)
+conversao_total = (fechados / total_leads * 100) if total_leads > 0 else 0
+print(f"  Conversão total (lead → fechado): {conversao_total:.1f}%")
+print(f"  Benchmark mercado (B2B inbound): 2.5%")
+print(f"  Benchmark mercado (prospecção fria): 0.5-1.5%")
+
+# Projeção
+if total_leads > 0 and total_leads <= 20:
+    print(f"\n  PROJEÇÃO FASE 1:")
+    print(f"  Com 20 leads e meta de 0.18% conversão: ~0 vendas esperadas")
+    print(f"  Com 20 leads e benchmark (2.5%): ~0.5 vendas")
+    print(f"  ⚠️ Prospecção fria em volume baixo NÃO deve gerar vendas ainda")
+    print(f"  Foco deve ser: melhorar taxa de resposta (Abertura → Entendimento)")
+elif total_leads > 20:
+    print(f"\n  PROJEÇÃO ATUAL:")
+    print(f"  Com {total_leads} leads e meta de {fase_atual}: ver resultado")
+    print(f"  Para 1 venda: precisar de ~190 leads (Fase 2) ou ~93 (Fase 3)")
+
+print(f"\n  PRÓXIMA META:")
+if total_leads < 20:
+    print(f"  → Atingir 20 leads e conseguir 15% de resposta na Abertura (3 leads)")
+elif total_leads < 50:
+    print(f"  → Atingir 50 leads e melhorar Abertura para 20% (10 leads)")
+else:
+    print(f"  → Atingir benchmark de mercado (25% na Abertura)")
+
+print(f"\n{'='*60}")
+print(f"Próxima análise automática: a cada 6h")
+print(f"Auditoria completa: segundas-feiras 08h")
 
 cur.close()
 conn.close()
