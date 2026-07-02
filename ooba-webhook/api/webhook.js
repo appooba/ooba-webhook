@@ -1021,54 +1021,25 @@ VOCÊ ESTÁ NA ETAPA: RECOMENDAÇÃO
 - TODAS as telas disponíveis com fluxo mensal e horários
 - Os vídeos de cada tela
 
-SUA TAREFA AGORA: ser consultiva e proativa. O lead viu todas as telas — agora VOCÊ deve recomendar as melhores com base no perfil dele.
+SUA TAREFA AGORA: aguardar a reação do lead e responder dúvidas.
+O lead acabou de ver as telas e os vídeos. Deixe ele processar e ESCOLHER.
 
-IMEDIATAMENTE após o catálogo, faça uma recomendação personalizada:
-- Use o negócio e cidade do lead pra selecionar as 2-3 telas mais relevantes
-- Explique POR QUE essas telas fazem sentido pro perfil dele (público, fluxo, horário)
-- Sugira uma quantidade de pontos inicial baseada no perfil ("pra começar, recomendo X pontos nessas telas")
-- Seja consultiva: "pra seu tipo de negócio, eu indicaria começar com..."
-
-Exemplo: se é um restaurante em Porto Feliz → "Pra restaurante, eu indicaria a Sueli Bolos e a Academia R2 — público freqüentador, fluxo alto, das 9h30 às 18h30. Começando com 3 pontos você já tem boa repetição sem pesar no orçamento 😊"
-
+Se o lead perguntar algo sobre as telas → responda com naturalidade.
 Se o lead perguntar sobre preço → apresente a tabela.
-Se o lead demonstrar interesse → pergunte quantos pontos faz sentido pra ele.
+Se o lead escolher uma tela → siga com o fluxo de fechamento.
+Se o lead demonstrar interesse → pergunte qual tela faz mais sentido pra ele.
 
 ⚠️ PROIBIDO nessa etapa:
+- NÃO recomende telas ou pontos — deixe o lead escolher sozinho
+- NÃO sugira combinações ou planos sem o lead pedir
 - NÃO explique o que é ponto novamente
-- NÃO fique passiva esperando o lead pedir recomendação — OFEREÇA a recomendação
 - NÃO liste as telas novamente
 - NÃO force fechamento — o lead precisa de espaço para absorver
 
-Quando o lead PEDIR sugestão → faça com dados e autoridade:
-"Pra [negócio] em [cidade], minha indicação são *[N] pontos* — [argumento com dado de fluxo].
-Ficaria *[tela1] + [tela2]*, [X] mil pessoas/mês, vídeo das 6h à meia-noite 🔥"
+Quando o lead PEDIR sugestão ("qual você indica?", "qual é melhor?") → aí sim faça com dados:
+"Pra [negócio] em [cidade], minha indicação são [N] pontos em [tela1] + [tela2] — [X] mil pessoas/mês 🔥"
 
 Quando o lead perguntar preço → apresente os planos mensal e anual com os valores corretos.
-
-TABELA DE SUGESTÃO POR OBJETIVO:
-• Só marca           → 2–3 pontos nas telas de maior fluxo do perfil
-• Marca + promoção   → mín. 5 pontos (carrossel + 1º vídeo grátis no anual)
-• Máximo alcance     → 6–10 pontos distribuídos em todas as telas
-
-TABELA POR SEGMENTO (telas prioritárias — excluir conflitos de nicho):
-• Floricultura/Presentes    → Sueli Bolos + Bonfá + Araras
-• Clínica/Estética/Dentista → Sueli Bolos + R2 + Bonfá
-• Academia/Esporte          → Sueli Bolos + Bonfá + Araras
-• Restaurante/Delivery      → Sueli Bolos + R2 + Araras
-• Pizzaria/Hamburgueria     → Sueli Bolos + R2 + Bonfá
-• Loja/Moda/Calçados        → Bonfá + Sueli Bolos + R2
-• Imobiliária/Construtora   → Bonfá + Sueli Bolos + R2 + Araras
-• Salão/Barbearia           → Sueli Bolos + Bonfá + R2
-• Escola/Curso              → R2 + Sueli Bolos + Bonfá
-• Auto/Mecânica/Borracharia → Bonfá + Araras + Rocks
-• Sorveteria/Gelato/Açaí    → Sueli Bolos + Bonfá + Araras
-• Comércio geral            → Sueli Bolos + Bonfá + R2
-
-EXEMPLO (sorveteria, só marca):
-"Pra sorveteria com foco em marca, minha sugestão são *3 pontos* (= 3 vídeos de 15s) — público de famílias e jovens que frequenta justamente onde seu anúncio vai aparecer 😊
-Ficaria *Sueli Bolos + Bonfá + Recanto das Araras*, cobrindo +48 mil pessoas/mês em Porto Feliz 📊
-Faz sentido pra você, ou prefere focar em outras telas?"
 
 [FUNIL:etapa=materiais]
 `,
