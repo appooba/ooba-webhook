@@ -1897,6 +1897,28 @@ function separarLinksEmMensagens(text) {
 // ═══════════════════════════════════════════════════════
 // PROCESSAR MARCADORES DE FUNIL
 // ═══════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+// REGISTRAR TRANSIÇÃO DE FUNIL (analytics de gargalos)
+// ═══════════════════════════════════════════════════════
+async function atualizarEtapaFunil(client, phone, novaEtapa, mensagemLead = null, respostaResumida = null) {
+  const lead = await getLead(client, phone);
+  const etapaAnterior = lead?.etapa_funil || "abertura";
+  if (etapaAnterior === novaEtapa) return; // sem mudança
+  
+  await client.query(
+    "UPDATE leads SET etapa_funil=$1, etapa_anterior=$2, updated_at=NOW() WHERE phone=$3",
+    [novaEtapa, etapaAnterior, phone]
+  ).catch(e => console.error("atualizarEtapaFunil:", e.message));
+  
+  await client.query(
+    "INSERT INTO funil_transicoes (phone, etapa_anterior, etapa_nova, mensagem_lead, momento_resposta) VALUES ($1, $2, $3, $4, $5)",
+    [phone, etapaAnterior, novaEtapa, mensagemLead, respostaResumida]
+  ).catch(e => console.error("log transicao:", e.message));
+  
+  console.log(`FUNIL TRANSICAO [${phone}]: ${etapaAnterior} → ${novaEtapa}`);
+}
+
 async function processarFunil(client, rep, phone) {
   const match = rep.match(/\[FUNIL:([^\]]+)\]/g);
   if (!match) return rep;
@@ -1922,11 +1944,20 @@ async function processarFunil(client, rep, phone) {
     if (params.status) updates.status = params.status;
 
     if (Object.keys(updates).length > 0) {
-      const setClauses = Object.keys(updates).map((f, i) => `${f}=$${i + 2}`).join(", ");
-      await client.query(
-        `UPDATE leads SET ${setClauses}, updated_at=NOW() WHERE phone=$1`,
-        [phone, ...Object.values(updates)]
-      ).catch(e => console.error("processarFunil update:", e.message));
+      // Se a etapa mudou, registrar transição
+      if (updates.etapa_funil) {
+        await atualizarEtapaFunil(client, phone, updates.etapa_funil, txt, rep.substring(0, 200));
+      }
+      // Atualizar outros campos (exceto etapa_funil que já foi atualizado acima)
+      const outrosUpdates = { ...updates };
+      delete outrosUpdates.etapa_funil;
+      if (Object.keys(outrosUpdates).length > 0) {
+        const setClauses = Object.keys(outrosUpdates).map((f, i) => `${f}=$${i + 2}`).join(", ");
+        await client.query(
+          `UPDATE leads SET ${setClauses}, updated_at=NOW() WHERE phone=$1`,
+          [phone, ...Object.values(outrosUpdates)]
+        ).catch(e => console.error("processarFunil update:", e.message));
+      }
       console.log(`FUNIL [${phone}]: ${JSON.stringify(updates)}`);
     }
   }
@@ -2005,7 +2036,7 @@ async function processarAgendamento(client, rep, phone) {
   console.log("Agendando reunião:", JSON.stringify(params));
 
   // Salvar dados da reunião no lead
-  if (params.data) await client.query("UPDATE leads SET reuniao_data=$1, reuniao_hora=$2, etapa_funil='reuniao', updated_at=NOW() WHERE phone=$3",
+  if (params.data) await atualizarEtapaFunil(client, phone, "reuniao", txt, "agendamento"); await client.query("UPDATE leads SET reuniao_data=$1, reuniao_hora=$2, updated_at=NOW() WHERE phone=$3",
     [params.data, params.hora || "", phone]).catch(e => console.error("saveReuniao:", e.message));
 
   // Chamar função de agendamento
@@ -2226,42 +2257,41 @@ async function replyAI(client, txt, phone) {
       const cidadeDetect = todasMsgs.includes("porto feliz") ? "Porto Feliz"
                          : todasMsgs.includes("boituva") ? "Boituva" : null;
       if (negocioDetect || cidadeDetect) {
-        const upd = { etapa_funil: "entendimento" };
-        if (cidadeDetect) upd.cidade = cidadeDetect;
-        const setClauses = Object.keys(upd).map((f, i) => `${f}=$${i+2}`).join(", ");
-        await client.query(`UPDATE leads SET ${setClauses}, updated_at=NOW() WHERE phone=$1`,
-          [phone, ...Object.values(upd)]).catch(()=>{});
+        await atualizarEtapaFunil(client, phone, "entendimento", txt, rep.substring(0, 200));
+        if (cidadeDetect) {
+          await client.query("UPDATE leads SET cidade=$1, updated_at=NOW() WHERE phone=$2", [cidadeDetect, phone]).catch(()=>{});
+        }
         console.log(`FUNIL AUTO [${phone}]: abertura → entendimento`);
       }
     } else if (etapaAtual === "entendimento") {
       // Avançar automaticamente — não depende do GPT
       // Se o GPT respondeu sobre telas/pontos/ooba → já estava indo para recomendacao
       if (repLower.includes("tela") || repLower.includes("ponto") || repLower.includes("deixa eu mostrar") || repLower.includes("vou te mostrar") || repLower.includes("ooba") || repLower.includes("funciona")) {
-        await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+        await atualizarEtapaFunil(client, phone, "recomendacao", txt, rep.substring(0, 200));
         console.log(`FUNIL AUTO [${phone}]: entendimento → recomendacao (catalogo sera disparado)`);
       }
     } else if (etapaAtual === "apresentacao") {
       // Avançar se enviou links de vídeo
       if (repLower.includes("youtube.com/shorts") || repLower.includes("ver vídeo") || repLower.includes("ver video")) {
-        await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+        await atualizarEtapaFunil(client, phone, "recomendacao", txt, rep.substring(0, 200));
         console.log(`FUNIL AUTO [${phone}]: apresentacao → recomendacao`);
       }
     } else if (etapaAtual === "recomendacao") {
       // Avançar se enviou materiais institucionais
       if (repLower.includes("drive.google.com") || repLower.includes("apresentação") || repLower.includes("contrato")) {
-        await client.query("UPDATE leads SET etapa_funil='materiais', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+        await atualizarEtapaFunil(client, phone, "materiais", txt, rep.substring(0, 200));
         console.log(`FUNIL AUTO [${phone}]: recomendacao → materiais`);
       }
     } else if (etapaAtual === "materiais") {
       // Avançar se mencionou preço/valor
       if (repLower.includes("r$") || repLower.includes("plano") || repLower.includes("mensal") || repLower.includes("anual")) {
-        await client.query("UPDATE leads SET etapa_funil='proposta', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+        await atualizarEtapaFunil(client, phone, "proposta", txt, rep.substring(0, 200));
         console.log(`FUNIL AUTO [${phone}]: materiais → proposta`);
       }
     } else if (etapaAtual === "proposta" || etapaAtual === "fechamento") {
       // Detectar interesse em reunião
       if (txtLower.includes("seria legal") || txtLower.includes("pode ser") || txtLower.includes("quero a reunião") || txtLower.includes("marcar")) {
-        await client.query("UPDATE leads SET etapa_funil='fechamento', updated_at=NOW() WHERE phone=$1", [phone]).catch(()=>{});
+        await atualizarEtapaFunil(client, phone, "fechamento", txt, rep.substring(0, 200));
         console.log(`FUNIL AUTO [${phone}]: → fechamento`);
       }
     }
