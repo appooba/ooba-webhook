@@ -2923,7 +2923,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
           return;
         }
 
-        const deveLancarCatalogo = lead._dispararCatalogo || 
+        const deveLancarCatalogo = leadPosEnvio?._dispararCatalogo || 
           (etapaPosEnvio === "recomendacao" && !jaTemVideos);
 
         if (deveLancarCatalogo) {
