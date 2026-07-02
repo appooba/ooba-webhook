@@ -441,6 +441,29 @@ ${LINK_APRESENTACAO_INSTITUCIONAL}"
 
 Depois dessas mensagens, siga normalmente perguntando o negócio. NUNCA confunda esta apresentação (institucional, sem preço) com a apresentação de valores enviada lá na etapa de materiais/proposta — são documentos diferentes e servem momentos diferentes do funil.
 
+═══════════════════════════════════
+COLETA SUTIL DE DADOS DO LEAD — REGISTRAR NO BANCO
+═══════════════════════════════════
+Durante a conversa, colete e registre (via marcadores [FUNIL]) estes dados de forma SUTIL — perguntas naturais que já fazem parte do fluxo:
+
+1. NOME DA EMPRESA — Quando o lead falar do negócio, registre:
+   [FUNIL:empresa=NOME_DA_EMPRESA]
+   Se o lead diz "tenho uma loja chamada Bella Moda" → [FUNIL:empresa=Bella Moda]
+
+2. JÁ ANUNCIOU COM A OOBA — Descubra sutilmente se já é cliente:
+   [FUNIL:ja_anunciou=sim] ou [FUNIL:ja_anunciou=nao]
+   Ao perguntar sobre marketing atual, se mencionar "telas", "OOBA", "indoor" → sim.
+
+3. STATUS DO LEAD — Atualize conforme a evolução:
+   [FUNIL:status=novo] → primeiro contato (padrão)
+   [FUNIL:status=respondendo] → lead respondeu e está em conversa
+   [FUNIL:status=ja_anuncia] → já é cliente/anuncia com a OOBA
+   [FUNIL:status=reuniao_agendada] → reunião marcada
+   [FUNIL:status=fechado] → contrato fechado
+   [FUNIL:status=perdido] → lead desistiu
+
+   Atualize assim que detectar a mudança. Os marcadores [FUNIL] são invisíveis (removidos antes de enviar). Use-os sempre que detectar info nova.
+
 
 ═══════════════════════════════════
 REGRA ABSOLUTA — REUNIÃO ANTES DE QUALQUER ENCERRAMENTO
@@ -840,6 +863,12 @@ function getSysWithFunil(etapa, leadData) {
   const jaAnunciou = leadData.ja_anunciou
     ? `\n🔁 JÁ FOI CLIENTE: anunciou ${leadData.telas_anunciadas || 'nas telas OOBA'}${leadData.periodo_anuncio ? ' em ' + leadData.periodo_anuncio : ''}.`
     : "";
+  const empresaInfo = leadData.empresa
+    ? `\n🏢 EMPRESA: ${leadData.empresa}`
+    : "";
+  const origemInfo = leadData.origem
+    ? `\n📍 ORIGEM: ${leadData.origem}`
+    : "";
 
   const abordagemAtiva = leadData.abordagem_ativa
     ? `\n⚡ ABORDAGEM ATIVA: você iniciou o contato. Seja acolhedora e desperte curiosidade.`
@@ -857,7 +886,7 @@ function getSysWithFunil(etapa, leadData) {
   }
 
   const ctx = `
-LEAD: ${nome || "(novo)"} | Negócio: ${negocio || "?"} | Cidade: ${cidade || "NÃO INFORMADA — pergunte antes de mostrar catálogo"} | Telas escolhidas: ${telas || "?"}${detalhePontos}${jaAnunciou}${abordagemAtiva}
+LEAD: ${nome || "(novo)"} | Negócio: ${negocio || "?"} | Cidade: ${cidade || "NÃO INFORMADA — pergunte antes de mostrar catálogo"} | Telas escolhidas: ${telas || "?"}${detalhePontos}${jaAnunciou}${empresaInfo}${origemInfo}${abordagemAtiva}
 ETAPA ATUAL: ${etapa.toUpperCase()}
 
 REGRA DE PREÇO: quando o lead escolher pontos por tela, SOME TUDO e mostre apenas o preço do total.
@@ -1202,6 +1231,10 @@ async function initDB(client) {
   // Garantir coluna pontos_por_tela em banco existente
   await client.query(`
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS pontos_por_tela TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS empresa VARCHAR(255);
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS ja_anunciou VARCHAR(50);
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS origem VARCHAR(50) DEFAULT 'inbound';
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS prospeccao_data TIMESTAMP;
   `).catch(() => {});
 }
 
@@ -1840,6 +1873,9 @@ async function processarFunil(client, rep, phone) {
     if (params.telas_interesse) updates.telas_interesse = params.telas_interesse;
     if (params.pontos_interesse) updates.pontos_interesse = parseInt(params.pontos_interesse) || null;
     if (params.plano_interesse) updates.plano_interesse = params.plano_interesse;
+    if (params.empresa) updates.empresa = params.empresa;
+    if (params.ja_anunciou) updates.ja_anunciou = params.ja_anunciou;
+    if (params.status) updates.status = params.status;
 
     if (Object.keys(updates).length > 0) {
       const setClauses = Object.keys(updates).map((f, i) => `${f}=$${i + 2}`).join(", ");
@@ -1971,7 +2007,7 @@ async function replyAI(client, txt, phone) {
   let lead = await getLead(client, phone);
   if (!lead) {
     await upsertLead(client, phone, txt);
-    lead = { etapa_funil: "abertura", nome: null, negocio: null, cidade: null, telas_interesse: null, pontos_interesse: null };
+    lead = { etapa_funil: "abertura", nome: null, negocio: null, cidade: null, telas_interesse: null, pontos_interesse: null, status: "novo" };
   }
 
   const etapa = lead.etapa_funil || "abertura";
