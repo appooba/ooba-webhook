@@ -1125,10 +1125,13 @@ BÔNUS (lembrar sempre):
     fechamento: `
 VOCÊ ESTÁ NA ETAPA: FECHAMENTO
 
-PASSO 1 — Envie o contrato sem rodeios:
+PASSO 1 — Envie o contrato e PUXE O FECHAMENTO na mesma mensagem:
 "Manda o contrato pra você dar uma olhada 😊 🔹CONTRATO_PDF🔹"
 O sistema vai enviar o PDF automaticamente. NÃO inclua o link do contrato em texto — apenas o marcador 🔹CONTRATO_PDF🔹.
-"Qualquer dúvida me fala aqui. Assim que confirmar, já colocamos na fila de ativação 🚀"
+Após o marcador, na mesma mensagem, pergunte diretamente: "O contrato ficou claro? Quer seguir com plano mensal ou anual? Assim que confirmar eu já ativo pra você 🚀"
+NUNCA diga "se tiver dúvida me chame" ou "qualquer coisa é só falar" — isso é passivo e mata o momentum. SEMPRE faça uma pergunta que exige resposta.
+
+PASSO 1B — Se o lead disser "obrigado", "valeu", "valeu demais", "obrigada" depois de receber o contrato → NÃO responda "de nada" ou "se precisar é só chamar". Responda puxando o fechamento: "Disponha! 😊 O contrato ficou tranquilo pra você? Quer seguir com mensal ou anual?" — SEMPRE faça uma pergunta de fechamento.
 
 PASSO 2 — Se o lead hesitar UMA VEZ com preço → use argumento de ROI, UMA VEZ SÓ:
 "Com [X] pontos você alcança [Y] mil pessoas por mês. Basta 1 cliente novo por mês pra pagar o investimento — e nas nossas telas a chance disso é alta 😊"
