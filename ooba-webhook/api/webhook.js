@@ -879,7 +879,7 @@ Site: www.ooba.com.br
 // ═══════════════════════════════════════════════════════
 // INSTRUÇÕES DE FUNIL POR ETAPA
 // ═══════════════════════════════════════════════════════
-function getSysWithFunil(etapa, leadData) {
+function getSysWithFunil(etapa, leadData, patches = []) {
   const nome = leadData.nome ? leadData.nome : "";
   const negocio = leadData.negocio ? leadData.negocio : "";
   const cidade = leadData.cidade || null;
@@ -1011,7 +1011,9 @@ QUANDO AGENDAR REUNIÃO PELO MEET — nestes casos:
 → Siga o fluxo: dia/hora → e-mail → confirmar → marcador [AGENDAR_REUNIAO:...]
 → NUNCA dê o número do Paulo. NUNCA diga para entrar em contato com outra pessoa.
 
-${ctx}`;
+${ctx}
+
+${patches.length > 0 ? '\n\n═══════════════════════════════════\nAPRENDIZADO DE VENDAS — Melhorias aplicadas\n═══════════════════════════════════\n' + patches.map((p, i) => `${i+1}. ${p.conteudo}`).join('\n\n') + '\n\n⚠️ Aplique ESTAS melhorias nas suas respostas. São aprendizados reais de conversas anteriores.' : ''}`;
 
   const funil = {
     abertura: `
@@ -2053,7 +2055,17 @@ async function replyAI(client, txt, phone) {
   }
 
   const etapa = lead.etapa_funil || "abertura";
-  const sys = getSysWithFunil(etapa, lead);
+
+  // Buscar patches de aprendizado ativos do banco
+  let patches = [];
+  try {
+    const patchResult = await client.query(
+      "SELECT conteudo, problema, patch_type FROM prompt_patches WHERE ativo = true ORDER BY created_at DESC LIMIT 10"
+    );
+    patches = patchResult.rows;
+  } catch(e) { console.error("Erro ao buscar patches:", e.message); }
+
+  const sys = getSysWithFunil(etapa, lead, patches);
 
   msgs.push({ role: "user", content: txt });
 
