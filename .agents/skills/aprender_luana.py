@@ -1,162 +1,228 @@
 #!/usr/bin/env python3
 """
-Skill: Aprendizado Automático da Luana
-Analisa conversas recentes, identifica padrões, gera patches de melhoria
-e salva no banco Neon Postgres. Os patches são lidos pelo webhook em tempo real.
+Skill: Aprendizado Automático — Luana Vendas
+Analisa conversas, identifica padrões, gera patches de melhoria.
+Também analisa gargalos do funil e propõe correções estruturais.
 """
-import os, json, re, psycopg2, urllib.request, datetime
+import os, json, psycopg2, datetime, urllib.request
 
 DB_URL = os.environ.get("DATABASE_URL", "")
-OAI_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
 
-if not DB_URL or not OAI_KEY:
+if not DB_URL or not OPENAI_KEY:
     print("❌ DATABASE_URL ou OPENAI_API_KEY não configurados")
     exit(1)
 
 conn = psycopg2.connect(DB_URL, sslmode="require")
 cur = conn.cursor()
 
-# 1. Buscar conversas dos últimos 7 dias
+# 1. Buscar conversas recentes (últimas 24h ou desde última análise)
 cur.execute("""
-    SELECT c.phone, c.messages, l.nome, l.empresa, l.etapa_funil, l.status, l.negocio, l.cidade, l.origem
+    SELECT c.phone, c.messages, l.nome, l.etapa_funil, l.status, l.origem,
+           l.empresa, l.updated_at
     FROM conversations c
     LEFT JOIN leads l ON c.phone = l.phone
-    WHERE c.updated_at > NOW() - INTERVAL '7 days'
+    WHERE c.updated_at > NOW() - INTERVAL '6 hours'
+       OR (l.etapa_funil IS NOT NULL AND l.updated_at > NOW() - INTERVAL '6 hours')
     ORDER BY c.updated_at DESC
+    LIMIT 20
 """)
-rows = cur.fetchall()
+conversas = cur.fetchall()
 
-if not rows:
-    print("ℹ️ Sem conversas recentes para analisar")
+if not conversas:
+    print("📊 Nenhuma conversa nova desde a última análise.")
     cur.close()
     conn.close()
     exit(0)
 
-# 2. Patches existentes
-cur.execute("SELECT problema FROM prompt_patches WHERE ativo = true")
-existing = [r[0] for r in cur.fetchall() if r[0]]
+print(f"📊 {len(conversas)} conversas analisadas")
 
-# 3. Montar texto das conversas
-conversas = ""
-for row in rows:
-    phone, msgs_str, nome, empresa, etapa, status, negocio, cidade, origem = row
+# 2. Buscar patches existentes pra não duplicar
+cur.execute("SELECT patch_text FROM prompt_patches WHERE ativo = true")
+patches_existentes = [r[0] for r in cur.fetchall()]
+print(f"🧠 {len(patches_existentes)} patches já ativos")
+
+# 3. Buscar dados de gargalos do funil
+cur.execute("""
+    SELECT etapa_anterior, etapa_nova, COUNT(*) as total
+    FROM funil_transicoes
+    WHERE created_at > NOW() - INTERVAL '7 days'
+    GROUP BY etapa_anterior, etapa_nova
+    ORDER BY COUNT(*) DESC
+""")
+transicoes = cur.fetchall()
+
+cur.execute("""
+    SELECT etapa_funil, COUNT(*) as total
+    FROM leads
+    GROUP BY etapa_funil
+""")
+distribuicao = cur.fetchall()
+
+# 4. Preparar contexto para o GPT analisar
+contexto_conversas = []
+for c in conversas:
+    phone, messages, nome, etapa, status, origem, empresa, updated = c
     try:
-        msgs = json.loads(msgs_str)
+        msgs = json.loads(messages) if isinstance(messages, str) else messages
+        if isinstance(msgs, list):
+            resumo = []
+            for m in msgs[-20:]:  # últimas 20 mensagens
+                role = m.get("role", "?")
+                content = m.get("content", "")[:200]
+                resumo.append(f"[{role}] {content}")
+            contexto_conversas.append({
+                "phone": phone,
+                "nome": nome,
+                "etapa": etapa,
+                "status": status,
+                "origem": origem,
+                "empresa": empresa,
+                "mensagens": resumo[-10:]
+            })
     except:
         continue
-    nome = nome or "(sem nome)"
-    etapa = etapa or "?"
-    status = status or "?"
-    origem = origem or "inbound"
-    conversas += f"\n== CONVERSA: {nome} ({phone}) ==\n"
-    conversas += f"Etapa: {etapa} | Status: {status} | Origem: {origem}\n"
-    conversas += f"Negócio: {negocio or '?'} | Cidade: {cidade or '?'}\n\n"
-    for m in msgs:
-        role = "LUANA" if m.get("role") == "assistant" else "LEAD"
-        conversas += f"[{role}] {m.get('content','')[:500]}\n"
-    conversas += "\n---\n"
 
-patches_existentes = "\nPatches já existentes (NÃO duplique):\n" + "\n".join(f"- {p}" for p in existing) + "\n" if existing else "\nSem patches existentes ainda.\n"
+if not contexto_conversas:
+    print("📊 Conversas sem conteúdo suficiente para análise.")
+    cur.close()
+    conn.close()
+    exit(0)
 
-prompt = f"""Você é um analista de vendas especializado em mídia indoor. Analise as conversas abaixo entre a Luana (consultora de vendas OOBA) e leads no WhatsApp.
+# 5. Enviar para GPT analisar e gerar patches
+prompt_sistema = """Você é um analista de vendas especializado em WhatsApp. Analise conversas entre a Luana (consultora da OOBA Mídia Indoor) e leads.
+
+Sua tarefa:
+1. Identificar erros de condução (onde a Luana perdeu o lead, foi genérica, não sondou objeção, desistiu cedo)
+2. Identificar acertos (o que funcionou bem e deve ser mantido)
+3. Identificar padrões de objeção dos leads
+4. Gerar PATCHES de melhoria — instruções curtas e específicas que serão injetadas no prompt da Luana
+
+Também analise os GARGALOS do funil:
+- Se muitos leads travam numa etapa, proponha uma correção estrutural
+- Se a etapa de Abertura tem baixa conversão, sugira melhorias no script de abertura
+
+REGRAS DOS PATCHES:
+- Cada patch deve ser UMA instrução clara e acionável (máx 2 linhas)
+- Não contradiga as regras existentes (nunca fale preço cedo, sempre seja consultiva)
+- Foque em comportamento, não em estrutura de código
+- Máximo 3 patches por rodada (priorize os mais impactantes)
+
+Responda APENAS em JSON:
+{
+  "patches": [
+    {
+      "patch_text": "instrução clara",
+      "motivo": "por que este patch é necessário",
+      "conversa_origem": "telefone do lead que gerou o insight"
+    }
+  ],
+  "gargalo_principal": "etapa com maior problema",
+  "sugestao_estrutural": "sugestão de melhoria estrutural do funil"
+}
+"""
+
+prompt_usuario = f"""
+PATCHES JÁ ATIVOS (não duplicar):
+{chr(10).join(f"- {p}" for p in patches_existentes[:10])}
+
+DISTRIBUIÇÃO ATUAL DO FUNIL:
+{chr(10).join(f"- {d[0]}: {d[1]} leads" for d in distribuicao)}
+
+TRANSIÇÕES (últimos 7 dias):
+{chr(10).join(f"- {t[0]} → {t[1]}: {t[2]}x" for t in transicoes) if transicoes else "Nenhuma transição registrada"}
 
 CONVERSAS RECENTES:
-{conversas}
+"""
 
-{patches_existentes}
+for c in contexto_conversas[:5]:
+    prompt_usuario += f"\n--- Lead: {c['nome'] or c['phone']} | Etapa: {c['etapa']} | Status: {c['status']} | Origem: {c['origem']} ---\n"
+    for m in c['mensagens']:
+        prompt_usuario += f"{m}\n"
 
-Analise cada conversa e identifique:
-
-1. ERROS da Luana — onde ela errou, perdeu o lead, foi genérica, não aproveitou um gancho, repetiu informação, desistiu cedo demais, ou soou robótica.
-
-2. ACERTOS da Luana — argumentos que funcionaram bem, respostas que geraram engajamento, momentos onde o lead avançou no funil.
-
-3. PADRÕES — objeções comuns dos leads, perguntas frequentes, momentos onde conversas travam.
-
-4. RESPOSTAS IDEAIS — como a Luana deveria ter respondido em momentos-chave.
-
-Gere de 1 a 5 PATCHES de melhoria no formato JSON abaixo. Cada patch deve ser específico, acionável e diretamente aplicável ao script de vendas.
-
-Formato de cada patch:
-{{
-  "problema": "descrição curta do problema identificado (1 linha)",
-  "sugestao": "o que a Luana deveria fazer diferente (1-2 linhas)",
-  "conteudo": "instrução específica pra adicionar ao prompt da Luana (2-4 linhas, em segunda pessoa 'você')",
-  "patch_type": "objection_handling | argument | flow_fix | tone | discovery",
-  "fonte": "nome do lead onde o problema foi identificado"
-}}
-
-Regras:
-- Seja específico, não genérico ("seja mais natural" não ajuda)
-- Foque em coisas que vão melhorar a taxa de conversão
-- Priorize ERROS sobre acertos
-- Se não houver problemas novos para corrigir, retorne um array vazio []
-- Não duplique problemas que já estão nos patches existentes
-
-Retorne APENAS um array JSON válido, sem texto adicional."""
-
-# 4. GPT
+# Chamar GPT
 data = json.dumps({
     "model": "gpt-4o-mini",
-    "messages": [{"role": "user", "content": prompt}],
-    "temperature": 0.7,
-    "max_tokens": 2000
+    "messages": [
+        {"role": "system", "content": prompt_sistema},
+        {"role": "user", "content": prompt_usuario}
+    ],
+    "temperature": 0.3,
+    "max_tokens": 1000
 }).encode()
 
 req = urllib.request.Request(
     "https://api.openai.com/v1/chat/completions",
     data=data,
-    headers={"Authorization": f"Bearer {OAI_KEY}", "Content-Type": "application/json"},
-    method="POST"
+    headers={
+        "Authorization": f"Bearer {OPENAI_KEY}",
+        "Content-Type": "application/json"
+    }
 )
 
-with urllib.request.urlopen(req) as resp:
-    gpt_data = json.loads(resp.read())
+try:
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        result = json.loads(resp.read())
+        resposta = result["choices"][0]["message"]["content"]
+        
+        # Tentar parsear JSON
+        try:
+            analise = json.loads(resposta)
+        except:
+            # Se não veio JSON válido, tentar extrair
+            import re
+            match = re.search(r'\{.*\}', resposta, re.DOTALL)
+            if match:
+                analise = json.loads(match.group())
+            else:
+                print(f"⚠️ Resposta não-JSON do GPT: {resposta[:200]}")
+                analise = {"patches": []}
+        
+        patches_novos = analise.get("patches", [])
+        gargalo = analise.get("gargalo_principal", "não identificado")
+        sugestao = analise.get("sugestao_estrutural", "")
+        
+        novos_salvos = 0
+        for p in patches_novos:
+            patch_text = p.get("patch_text", "").strip()
+            motivo = p.get("motivo", "").strip()
+            
+            # Verificar se já existe (busca fuzzy simples)
+            ja_existe = any(patch_text[:30] in existing for existing in patches_existentes)
+            if ja_existe or not patch_text:
+                continue
+            
+            # Salvar no banco
+            cur.execute(
+                "INSERT INTO prompt_patches (patch_text, motivo, ativo, created_at) VALUES ($1, $2, true, NOW())",
+                [patch_text, motivo]
+            )
+            novos_salvos += 1
+            print(f"  ✅ {patch_text[:80]}")
+            patches_existentes.append(patch_text)
+        
+        # Log da análise estrutural
+        if gargalo:
+            cur.execute(
+                "INSERT INTO prompt_patches (patch_text, motivo, ativo, created_at, tipo) VALUES ($1, $2, false, NOW(), 'analise_estrutural')",
+                [f"GARGALO: {gargalo}", sugestao]
+            )
+        
+        conn.commit()
+        
+        print(f"\n🆕 Novos patches: {novos_salvos}")
+        print(f"♻️ Duplicados evitados: {len(patches_novos) - novos_salvos}")
+        print(f"📊 Gargalo principal: {gargalo}")
+        if sugestao:
+            print(f"💡 Sugestão estrutural: {sugestao[:100]}")
+        
+except Exception as e:
+    print(f"❌ Erro ao chamar GPT: {e}")
 
-raw_output = gpt_data["choices"][0]["message"]["content"]
-
-# 5. Parsear patches
-json_match = re.search(r'\[[\s\S]*\]', raw_output)
-patches = json.loads(json_match.group(0) if json_match else raw_output)
-
-print(f"📊 {len(rows)} conversas analisadas, {len(patches)} patches gerados")
-
-# 6. Salvar no banco
-today = datetime.date.today().isoformat()
-saved = 0
-
-for patch in patches:
-    if not patch.get("problema") or not patch.get("conteudo"):
-        continue
-    
-    cur.execute("SELECT id FROM prompt_patches WHERE ativo=true AND problema ILIKE %s LIMIT 1",
-                (f"%{patch['problema'][:50]}%",))
-    if cur.fetchone():
-        continue
-    
-    cur.execute("""
-        INSERT INTO prompt_patches (semana, patch_type, trigger, conteudo, ativo, eficacia_score, fonte, problema, sugestao, aplicado, created_at)
-        VALUES (%s, %s, %s, %s, true, 0, %s, %s, %s, true, NOW())
-    """, [
-        today,
-        patch.get("patch_type", "general"),
-        "auto",
-        patch["conteudo"],
-        patch.get("fonte", "auto"),
-        patch["problema"],
-        patch.get("sugestao", ""),
-    ])
-    saved += 1
-    print(f"  ✅ {patch['problema']}")
-    print(f"     → {patch['conteudo'][:120]}...")
-
-conn.commit()
-
-# 7. Status final
-cur.execute("SELECT count(*) FROM prompt_patches WHERE ativo=true")
-total = cur.fetchone()[0]
-print(f"\n📈 Total de patches ativos: {total}")
-print(f"🆕 Novos patches: {saved}")
+# Estatísticas finais
+cur.execute("SELECT count(*) FROM prompt_patches WHERE ativo = true")
+total_ativos = cur.fetchone()[0]
+print(f"\n📈 Total de patches ativos: {total_ativos}")
 
 cur.close()
 conn.close()
