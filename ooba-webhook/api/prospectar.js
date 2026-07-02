@@ -46,16 +46,11 @@ module.exports = async (req, res) => {
           to: phone,
           type: "template",
           template: {
-            name: "ooba_apresentacao_botao",
+            name: "ooba_abertura_humana_v2",
             language: { code: "pt_BR" },
             components: [{
               type: "body",
               parameters: [{ type: "text", text: nome || "amigo(a)" }]
-            }, {
-              type: "button",
-              sub_type: "url",
-              index: "0",
-              parameters: [{ type: "text", text: "5b2eabf2a_5aad73535_ApresentaoOOBAMidiaIndoor" }]
             }]
           }
         })
