@@ -129,7 +129,7 @@ function getTelasDisponiveis(negocio, cidade) {
 // Ordem: conceito de pontos → gancho total → cada tela (texto + URL sozinha) → resumo + CTA
 // Aprovado em: 13/06/2026
 // ══════════════════════════════════════════════════════════════
-async function enviarCatalogoTelas(from, lead, delay = 800) {
+async function enviarCatalogoTelas(from, lead, delay = 1500) {
   const telas = getTelasDisponiveis(lead.negocio, lead.cidade);
   const cidade = lead.cidade || null;
   if (!cidade) {
@@ -329,9 +329,35 @@ function limparParaAudio(texto) {
 
 const LINK_APRESENTACAO_INSTITUCIONAL = "https://base44.app/api/apps/69f645345c37a4db77e0e07d/files/mp/public/69f645345c37a4db77e0e07d/5b2eabf2a_5aad73535_ApresentaoOOBAMidiaIndoor.pdf";
 
+// ══════════════════════════════════════════════════════════════
+// HUMANIZAÇÃO — delay realista antes de enviar resposta
+// Simula tempo de leitura + digitação como uma pessoa real
+// ══════════════════════════════════════════════════════════════
+function humanDelay(text) {
+  if (!text) return 1500;
+  const palavras = text.split(/\s+/).length;
+  // Base: 1.5s de "leitura" + ~300ms por palavra digitada (média de 200 chars/min)
+  const base = 1200 + Math.random() * 800; // 1.2-2s de leitura/pensando
+  const digitando = palavras * (250 + Math.random() * 150); // 250-400ms por palavra
+  const max = 8000; // teto de 8s pra não ficar lento demais
+  return Math.min(base + digitando, max);
+}
+
 const SYS_BASE = `Você é a Luana, consultora virtual da OOBA Mídia Indoor no WhatsApp. Seu nome é Luana — sempre se apresente assim, nunca como "bot" ou "assistente".
 
 PERSONALIDADE: consultiva, próxima, usa dados reais, mensagens curtas (máx 2-3 linhas por vez), estilo WhatsApp. Use emojis com naturalidade — máximo 3 por mensagem.
+
+HUMANIZAÇÃO (CRÍTICO — você é uma pessoa real, não uma IA):
+- Use abreviações naturais do WhatsApp: "vc", "pra", "tb", "tbm", "qnd", "blz", "mts", "mds"
+- NÃO seja sempre perfeita. Às vezes comece com "ah" ou "olha" antes de responder algo
+- Varie o tom — às vezes mais entusiasmada, às vezes mais direta
+- NUNCA use os mesmos mesmos emojis nas mesmas posições. Varie.
+- Se o lead manda áudio, você pode responder "agora não posso ouvir, me manda em texto?" (comum pra pessoas reais)
+- Se o lead pergunta algo complexo, diga "deixa eu pensar aqui..." antes de responder
+- NÃO use linguagem formal demais. Você é uma consultora jovem, não um advogado.
+- Às vezes demore mais pra responder (já há delay no sistema, mas o jeito de falar também deve parecer pensado, não automático)
+- Se o lead diz algo engraçado, reaja: "kkkk verdade" ou "mds que isso 😂"
+- NUNCA estruture respostas como lista com bullets/formal. Fale como uma pessoa normal no WhatsApp.
 
 FILOSOFIA DA OOBA — use essa frase nos momentos certos:
 "Se você não é visto, você não é lembrado."
@@ -2022,7 +2048,7 @@ async function replyAI(client, txt, phone) {
       model: "gpt-4o-mini",
       messages: [{ role: "system", content: sys }, ...msgs],
       max_tokens: 1200,
-      temperature: 0.55
+      temperature: 0.72
     })
   });
 
@@ -2041,6 +2067,11 @@ async function replyAI(client, txt, phone) {
     // Processar marcadores (funil e agendamento)
     rep = await processarFunil(client, rep, phone);
     rep = await processarAgendamento(client, rep, phone);
+
+    // ── DELAY HUMANIZADO — esperar antes de enviar (simula digitação) ──
+    const delayEnvio = humanDelay(rep);
+    console.log(`HUMAN DELAY [${phone}]: ${delayEnvio}ms (${rep.split(/\s+/).length} palavras)`);
+    await new Promise(r => setTimeout(r, delayEnvio));
 
     // ── MARCADOR [MOSTRAR_CATALOGO] ──
     // Quando o GPT emite esse marcador (ex: após explicar tipos de vídeo),
@@ -2327,7 +2358,7 @@ module.exports = async (req, res) => {
       if (respostasPreco) {
         for (let i = 0; i < respostasPreco.length; i++) {
           await sendMsg(from, respostasPreco[i]);
-          if (i < respostasPreco.length - 1) await new Promise(r => setTimeout(r, 900));
+          if (i < respostasPreco.length - 1) await new Promise(r => setTimeout(r, 1500));
         }
         await salvarMsgHistorico(client, from, txt, respostasPreco.join("\n\n---MSG---\n\n"));
         return;
@@ -2617,7 +2648,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
             await sendMsg(from, "Perfeito! Olha as telas disponíveis onde seu anúncio pode aparecer 👇");
             await new Promise(r => setTimeout(r, 1200));
             const leadFrescoConf = await getLead(client, from);
-            await enviarCatalogoTelas(from, leadFrescoConf, 800);
+            await enviarCatalogoTelas(from, leadFrescoConf, 1500);
             const histConf = await getHist(client, from);
             histConf.push({ role: "user", content: txt });
             histConf.push({ role: "assistant", content: "[catálogo enviado após confirmação do lead]" });
