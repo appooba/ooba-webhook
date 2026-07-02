@@ -2793,7 +2793,8 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
       // ══════════════════════════════════════════════════════════════
       // 🔒 PROSPECÇÃO: Enviar PDF como documento na 1ª resposta do lead
       // ══════════════════════════════════════════════════════════════
-      if (leadPosEnvio?.origem === 'prospeccao' && leadPosEnvio?.etapa_funil === 'abertura') {
+      const leadProspPdf = await getLead(client, from);
+      if (leadProspPdf?.origem === 'prospeccao' && leadProspPdf?.etapa_funil === 'abertura') {
         const histAposResp = await getHist(client, from);
         const jaRecebeuPdf = histAposResp.some(m => m.role === 'assistant' && m.content?.includes('[PDF apresentação enviado como documento]'));
         if (!jaRecebeuPdf) {
