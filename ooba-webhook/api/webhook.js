@@ -452,7 +452,7 @@ Quando o lead disser qualquer uma dessas frases → NÃO encerre. Proponha reuni
 → "Me conta o que pesou mais — retorno, preço ou as telas? Posso te mostrar de outro ângulo agora 🎯"
 
 "até mais" / "tchau"
-→ "Antes de fechar — deixa eu te mandar a apresentação com todos os valores pra você olhar com calma: https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link — o que achou? Tem alguma tela que te interessou mais? 😊"
+→ "Antes de fechar — deixa eu te mandar a apresentação com todos os valores pra você olhar com calma: {{LINK_APRESENTACAO_VALORES}} — o que achou? Tem alguma tela que te interessou mais? 😊"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 AGENDAMENTO EM ABERTO — REGRA CRÍTICA
@@ -712,10 +712,10 @@ MATERIAIS INSTITUCIONAIS
 
 ✅ CERTO:
 "Segue a apresentação com todos os valores 👇
-https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link"
+{{LINK_APRESENTACAO_VALORES}}"
 
-- Apresentação + Valores: https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link
-- Contrato: https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive_link
+- Apresentação + Valores: {{LINK_APRESENTACAO_VALORES}}
+- Contrato: {{LINK_CONTRATO}}
 
 ═══════════════════════════════════
 COMO RESPONDER OBJEÇÃO DE PREÇO
@@ -825,6 +825,9 @@ Ex: 2 pontos Sueli + 2 pontos Bonfá = 4 pontos total → mensal R$750/mês | an
 
   const BASE = `Você é Luana, consultora de vendas da OOBA Mídia Indoor. Atende pelo WhatsApp.
 
+REGRA GLOBAL — CONTRATO A QUALQUER MOMENTO:
+Se o lead pedir pra ver o contrato ("manda o contrato", "quero ver o contrato", "tem um modelo?", "como funciona o cancelamento/multa/pagamento?") EM QUALQUER ETAPA da conversa (não só no fechamento), envie o link do contrato imediatamente — não espere chegar na etapa de fechamento pra isso. Use o resumo do contrato (mais abaixo) pra responder dúvidas sobre cláusulas.
+
 QUEM VOCÊ É:
 Vendedora experiente, direta e apaixonada pelo que faz. Não é robô. Nunca diga que é IA.
 Conhece cada tela, cada número, cada argumento de cor. Usa dados pra criar DESEJO, não pra listar informação.
@@ -885,8 +888,8 @@ LINKS DOS VÍDEOS (URL limpa — NUNCA use [texto](url)):
 - Restaurante Bonfá: vídeo em produção
 - Sueli Bolos Boituva: vídeo em produção
 
-APRESENTAÇÃO: https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link
-CONTRATO: https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive_link
+APRESENTAÇÃO: {{LINK_APRESENTACAO_VALORES}}
+CONTRATO: {{LINK_CONTRATO}}
 
 CONFLITOS DE NICHO (nunca ofereça tela de concorrente direto do lead):
 - Pizzaria/hamburgueria → bloqueado: Rocks, Monções
@@ -931,7 +934,7 @@ Primeira resposta para prospecção (use o nome do lead se souber):
 "Oi ${nome}! Vi que você abriu a apresentação 😊 Me conta — qual é o seu negócio? Quero ver se nossas telas fazem sentido pra você."
 
 Se o lead já mencionou o negócio/empresa no banco (negocio/empresa preenchido), NÃO pergunte de novo — use isso:
-"Vi que você é da área de ${negocio || empresa}! Esse perfil se dá muito bem com mídia indoor 😊 Você é de Porto Feliz ou Boituva?"
+"Vi que você é da área de ${negocio || leadData.empresa || ''}! Esse perfil se dá muito bem com mídia indoor 😊 Você é de Porto Feliz ou Boituva?"
 
 Pule direto pra descobrir cidade e entender o perfil do lead pra recomendar as telas certas.
 ` : `
@@ -1055,7 +1058,7 @@ O lead já viu os vídeos e demonstrou interesse. Hora de enviar a apresentaçã
 NÃO peça permissão — já envie:
 "Preparei a apresentação completa com todos os planos 👇"
 ---MSG---
-https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link
+{{LINK_APRESENTACAO_VALORES}}
 ---MSG---
 "Dá uma olhada e me fala — você prefere o mensal sem fidelidade ou já aproveita o desconto de 22% no anual?"
 
@@ -1107,7 +1110,7 @@ VOCÊ ESTÁ NA ETAPA: FECHAMENTO
 PASSO 1 — Envie o contrato sem rodeios:
 "Manda o contrato pra você dar uma olhada 😊"
 ---MSG---
-https://drive.google.com/file/d/1uSxGKzAKJEUOicG-IFBZjSZpyUfl6Il5/view?usp=drive_link
+{{LINK_CONTRATO}}
 ---MSG---
 "Qualquer dúvida me fala aqui. Assim que confirmar, já colocamos na fila de ativação 🚀"
 
@@ -1134,6 +1137,10 @@ Se hesitar após 2 tentativas suas → acione Paulo:
 
   const instrucaoEtapa = funil[etapa] || funil.abertura;
 
+  // ── Injetar configuração do banco (preços, bônus, links, contrato, etc.) ──
+  const config = await getAllConfig();
+  let prompt = BASE + instrucaoEtapa;
+
   // ── Injetar slots reais do Calendar quando a etapa envolver reunião ──
   if (etapa === 'reuniao' || etapa === 'proposta' || etapa === 'fechamento') {
     try {
@@ -1145,12 +1152,20 @@ Se hesitar após 2 tentativas suas → acione Paulo:
   }
   prompt = prompt.replace("{{SLOTS_CALENDAR}}", "");
 
-  // ── Injetar configuração do banco (preços, bônus, etc.) ──
-  const config = await getAllConfig();
-  let prompt = BASE + instrucaoEtapa;
   if (config.tabela_precos) prompt = prompt.replace('{{TABELA_PRECOS}}', config.tabela_precos);
   if (config.tabela_precos) prompt = prompt.replace('{{TABELA_PRECOS_COMPACTA}}', config.tabela_precos.replace(/\|/g, ' ').replace(/\s+/g, ' ').trim());
   if (config.bonus_anual) prompt = prompt.replace('{{BONUS_ANUAL}}', config.bonus_anual);
+  // Substituir TODAS as ocorrências dos links (podem aparecer múltiplas vezes no prompt)
+  const linkContrato = config.link_contrato || "";
+  const linkApresValores = config.link_apresentacao_valores || "";
+  prompt = prompt.split('{{LINK_CONTRATO}}').join(linkContrato);
+  prompt = prompt.split('{{LINK_APRESENTACAO_VALORES}}').join(linkApresValores);
+
+  // Resumo do contrato SEMPRE disponível — Luana usa pra responder dúvidas sem inventar valores
+  if (config.contrato_resumo) {
+    prompt += `\n\n═══════════════════════════════════\n${config.contrato_resumo}\n═══════════════════════════════════\nSe o lead pedir pra ver o contrato ("manda o contrato", "quero ver o contrato", "como funciona o cancelamento", etc.), envie o link (${linkContrato}) e/ou responda com base no resumo acima. NUNCA invente cláusulas que não estão nesse resumo.`;
+  }
+
   return prompt;
 }
 
@@ -1429,7 +1444,7 @@ function injetarPDF(msgLead, respostaBot) {
   }
 
   // Injetar o link da apresentação com valores
-  const linkApresentacao = "https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link";
+  const linkApresentacao = "{{LINK_APRESENTACAO_VALORES}}";
 
   return respostaBot.trimEnd() + `
 
@@ -2287,7 +2302,7 @@ async function replyAI(client, txt, phone) {
       }
     } else if (etapaAtual === "recomendacao") {
       // Avançar se enviou materiais institucionais
-      if (repLower.includes("drive.google.com") || repLower.includes("apresentação") || repLower.includes("contrato")) {
+      if (repLower.includes("media.base44.com") || repLower.includes("drive.google.com") || repLower.includes("apresentação") || repLower.includes("contrato")) {
         await atualizarEtapaFunil(client, phone, "materiais", txt, rep.substring(0, 200));
         console.log(`FUNIL AUTO [${phone}]: recomendacao → materiais`);
       }
@@ -2303,6 +2318,12 @@ async function replyAI(client, txt, phone) {
         await atualizarEtapaFunil(client, phone, "fechamento", txt, rep.substring(0, 200));
         console.log(`FUNIL AUTO [${phone}]: → fechamento`);
       }
+    }
+
+    // ── Marcar no banco sempre que o contrato for enviado (qualquer etapa) ──
+    if (repLower.includes("contrato-modelo")) {
+      await client.query("UPDATE leads SET contrato_enviado=true, updated_at=NOW() WHERE phone=$1", [phone]).catch(e => console.error("contrato_enviado:", e.message));
+      console.log(`CONTRATO ENVIADO [${phone}]: marcado no banco`);
     }
   }
 
