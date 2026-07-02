@@ -1,18 +1,14 @@
-export default async function handler(req, res) {
+const { Client } = require("pg");
+
+module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   
   const { secret, leads } = req.body;
   if (secret !== "ooba2026") return res.status(403).json({ error: "Unauthorized" });
   if (!leads || !Array.isArray(leads)) return res.status(400).json({ error: "leads array required" });
   
-  const { Pool } = await import("pg");
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { require: true } });
-  
-  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-  const PHONE_NUMBER_ID = "1189704930882063";
-  const TEMPLATE_NAME = "ooba_apresentacao_botao";
-  const TEMPLATE_LANG = "pt_BR";
-  
+  const WAT = process.env.WHATSAPP_TOKEN || "";
+  const PID = "1189704930882063";
   const results = [];
   
   for (const lead of leads) {
@@ -20,25 +16,29 @@ export default async function handler(req, res) {
     const nome = lead.nome || "";
     
     try {
-      const client = await pool.connect();
-      const existing = await client.query("SELECT phone FROM leads WHERE phone = $1", [phone]);
+      const client = new Client({ 
+        connectionString: process.env.DATABASE_URL, 
+        ssl: { rejectUnauthorized: false } 
+      });
+      await client.connect();
       
+      const existing = await client.query("SELECT phone FROM leads WHERE phone = $1", [phone]);
       if (existing.rows.length > 0) {
         results.push({ phone, nome, status: "ja_existe" });
-        client.release();
+        await client.end();
         continue;
       }
       
       await client.query(
         "INSERT INTO leads (phone, nome, first_message, etapa_funil, status, origem, prospeccao_data, updated_at) VALUES ($1, $2, $3, 'abertura', 'novo', 'prospeccao', NOW(), NOW())",
-        [phone, nome, "Prospecção automática: " + nome]
+        [phone, nome, "Prospeccao automatica: " + nome]
       );
-      client.release();
+      await client.end();
       
-      const response = await fetch("https://graph.facebook.com/v21.0/" + PHONE_NUMBER_ID + "/messages", {
+      const response = await fetch("https://graph.facebook.com/v21.0/" + PID + "/messages", {
         method: "POST",
         headers: {
-          "Authorization": "Bearer " + WHATSAPP_TOKEN,
+          "Authorization": "Bearer " + WAT,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -46,8 +46,8 @@ export default async function handler(req, res) {
           to: phone,
           type: "template",
           template: {
-            name: TEMPLATE_NAME,
-            language: { code: TEMPLATE_LANG },
+            name: "ooba_apresentacao_botao",
+            language: { code: "pt_BR" },
             components: [{
               type: "body",
               parameters: [{ type: "text", text: nome || "amigo(a)" }]
@@ -62,7 +62,6 @@ export default async function handler(req, res) {
       });
       
       const data = await response.json();
-      
       if (data.messages && data.messages[0]) {
         results.push({ phone, nome, status: "enviado", message_id: data.messages[0].id });
       } else {
@@ -80,4 +79,4 @@ export default async function handler(req, res) {
   const duplicados = results.filter(r => r.status === "ja_existe").length;
   
   res.status(200).json({ total: leads.length, enviados, erros, duplicados, results });
-}
+};
