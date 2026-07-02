@@ -2161,18 +2161,12 @@ async function replyAI(client, txt, phone) {
     // o código dispara o catálogo completo de telas automaticamente
     if (rep.includes("[MOSTRAR_CATALOGO]")) {
       rep = rep.replace(/\[MOSTRAR_CATALOGO\]/g, "").trim();
-      // ⛔ TRAVA DE SEGURANÇA: só dispara catálogo se tiver negócio E cidade
-      if (lead.negocio && lead.cidade) {
+      // ⛔ TRAVA DE SEGURANÇA: só dispara catálogo se tiver cidade (negocio é opcional)
+      if (lead.cidade) {
         lead._dispararCatalogo = true;
       } else {
-        // Sem negócio ou cidade → forçar coleta antes de mostrar catálogo
-        const faltaNeg = !lead.negocio;
-        const faltaCid = !lead.cidade;
-        if (faltaNeg) {
-          rep = "Antes de te mostrar as telas disponíveis, me conta: qual é o seu negócio? 😊";
-        } else {
-          rep = `Ótimo! E você é de Porto Feliz ou Boituva, ${lead.negocio}?`;
-        }
+        // Sem cidade → forçar coleta antes de mostrar catálogo
+        rep = "Antes de te mostrar as telas, me conta: você é de Porto Feliz ou Boituva? 😊";
       }
     }
 
