@@ -16,7 +16,7 @@ async function getTelasDisponiveis(negocio, cidade) {
 // Ordem: conceito de pontos → gancho total → cada tela (texto + URL sozinha) → resumo + CTA
 // Aprovado em: 13/06/2026
 // ══════════════════════════════════════════════════════════════
-async function enviarCatalogoTelas(from, lead, delay = 1500) {
+async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
   const telas = await getTelasDisponiveis(lead.negocio, lead.cidade);
   const cidade = lead.cidade || null;
   if (!cidade) {
@@ -24,9 +24,20 @@ async function enviarCatalogoTelas(from, lead, delay = 1500) {
     return;
   }
 
-  // PASSO 1 — Explicar como funciona (conceito de ponto)
-  await sendMsg(from, `Aqui na OOBA funciona assim: você compra *pontos* — cada ponto é um vídeo de 15 segundos que entra em rotação nas telas. A mesma pessoa fica em média *1 hora* no local e vê seu vídeo de *6 a 7 vezes* durante a visita 🔁\nAnúncios rodam *segunda a segunda, das 6h à meia-noite*. Quanto mais pontos, mais vezes seu anúncio aparece na rotação.`);
-  await new Promise(r => setTimeout(r, delay));
+  // PASSO 1 — Explicar como funciona (conceito de ponto) — SÓ se ainda não foi explicado antes
+  let jaExplicouPontos = false;
+  if (client) {
+    try {
+      const histCat = await getHist(client, from);
+      jaExplicouPontos = histCat.some(m => m.role === "assistant" &&
+        (m.content?.includes("compra *pontos*") || m.content?.includes("compra pontos") ||
+         m.content?.includes("Ficou claro como funciona")));
+    } catch(e) {}
+  }
+  if (!jaExplicouPontos) {
+    await sendMsg(from, `Aqui na OOBA funciona assim: você compra *pontos* — cada ponto é um vídeo de 15 segundos que entra em rotação nas telas. A mesma pessoa fica em média *1 hora* no local e vê seu vídeo de *6 a 7 vezes* durante a visita 🔁\nAnúncios rodam *segunda a segunda, das 6h à meia-noite*. Quanto mais pontos, mais vezes seu anúncio aparece na rotação.`);
+    await new Promise(r => setTimeout(r, delay));
+  }
 
   // PASSO 2 — Gancho de transição com total de giro (direto, sem tabela separada)
   const totalFluxo = telas.reduce((acc, t) => {
@@ -2502,7 +2513,7 @@ module.exports = async (req, res) => {
         await new Promise(r => setTimeout(r, 1000));
 
         // Disparar catálogo completo
-        await enviarCatalogoTelas(from, leadObjt, 800);
+        await enviarCatalogoTelas(from, leadObjt, 800, client);
 
         // Salvar no histórico
         const histObjt = await getHist(client, from);
@@ -2525,7 +2536,7 @@ module.exports = async (req, res) => {
         await new Promise(r => setTimeout(r, 1000));
         // ⛔ TRAVA: só dispara catálogo se tiver cidade coletada
         if (leadVideo?.cidade) {
-          await enviarCatalogoTelas(from, leadVideo, 800);
+          await enviarCatalogoTelas(from, leadVideo, 800, client);
         }
         // Salvar no histórico
         const histVideo = await getHist(client, from);
@@ -2757,7 +2768,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
             await sendMsg(from, "Perfeito! Olha as telas disponíveis onde seu anúncio pode aparecer 👇");
             await new Promise(r => setTimeout(r, 1200));
             const leadFrescoConf = await getLead(client, from);
-            await enviarCatalogoTelas(from, leadFrescoConf, 1500);
+            await enviarCatalogoTelas(from, leadFrescoConf, 1500, client);
             const histConf = await getHist(client, from);
             histConf.push({ role: "user", content: txt });
             histConf.push({ role: "assistant", content: "[catálogo enviado após confirmação do lead]" });
@@ -2772,7 +2783,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
             await sendMsg(from, "Sem problema! Em resumo: você paga por *pontos* — cada ponto é um vídeo de 15s do seu negócio rodando nas telas. Quanto mais pontos, mais vezes aparece 😊 Olha as telas disponíveis 👇");
             await new Promise(r => setTimeout(r, 1200));
             const leadFrescoMOM = await getLead(client, from);
-            await enviarCatalogoTelas(from, leadFrescoMOM, 800);
+            await enviarCatalogoTelas(from, leadFrescoMOM, 800, client);
             const histMOM = await getHist(client, from);
             histMOM.push({ role: "user", content: txt });
             histMOM.push({ role: "assistant", content: "[reforço de conceito + catálogo enviado]" });
@@ -2968,7 +2979,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
           await sendMsg(from, "O vídeo é .MP4, Full HD, até 15s, sem áudio — sem áudio é estratégia: movimento + cor + mensagem clara convertem mais. Pode ser *institucional* (sua marca) ou *promocional* (oferta específica). Olha onde vai aparecer 👇");
           await new Promise(r => setTimeout(r, 1800));
           const leadFrescoForc = await getLead(client, from);
-          if (leadFrescoForc?.cidade) { await enviarCatalogoTelas(from, leadFrescoForc, 800); }
+          if (leadFrescoForc?.cidade) { await enviarCatalogoTelas(from, leadFrescoForc, 800, client); }
           const histForc = await getHist(client, from);
           histForc.push({ role: "assistant", content: "[educação + catálogo forçados após resposta do GPT]" });
           await saveHist(client, from, histForc);
@@ -2984,7 +2995,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
           await new Promise(r => setTimeout(r, 1200));
           // Sempre usar dados frescos do banco — nunca do lead em memória
           const leadFresco = await getLead(client, from);
-          if (leadFresco?.cidade) { await enviarCatalogoTelas(from, leadFresco, 800); }
+          if (leadFresco?.cidade) { await enviarCatalogoTelas(from, leadFresco, 800, client); }
           // Marcar no histórico
           const histAtual2 = await getHist(client, from);
           histAtual2.push({ role: "assistant", content: "[catálogo automático: conceito de pontos + todas as telas + vídeos enviados]" });
