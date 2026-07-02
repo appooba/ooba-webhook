@@ -4,123 +4,10 @@
 // Qualquer alteração aqui afeta o catálogo inteiro enviado ao lead
 // Aprovado em: 13/06/2026
 // ══════════════════════════════════════════════════════════════
-function getTelasDisponiveis(negocio, cidade) {
-  const neg = (negocio || "").toLowerCase();
-  const cid = (cidade || "Porto Feliz").toLowerCase();
-
-  // ══════════════════════════════════════════════════════════════
-  // 🔒 REGRA DE OURO: NUNCA mostrar tela concorrente ao segmento do lead
-  // Protege os parceiros que cedem o espaço para as telas OOBA
-  // ══════════════════════════════════════════════════════════════
-  const matrizConflitos = [
-    {
-      palavras: ["pizzaria", "pizza", "pizzas", "pizzaiolo"],
-      bloqueadas: ["Pizzaria Rocks", "Pizzaria Monções"]
-    },
-    {
-      palavras: ["hamburgueria", "hamburguer", "hamburger", "burger", "lanche", "lanchonete", "hot dog", "cachorro quente"],
-      bloqueadas: ["Pizzaria Rocks", "Pizzaria Monções"]
-    },
-    {
-      palavras: ["churrascaria", "churrasco", "espetinho", "espeto", "steakhouse"],
-      bloqueadas: ["Restaurante Bonfá", "Recanto das Araras"]
-    },
-    {
-      palavras: ["restaurante", "self service", "selfservice", "marmita", "marmitaria", "comida", "prato feito", "almoço", "almoco", "refeicao", "refeição"],
-      bloqueadas: ["Restaurante Bonfá", "Recanto das Araras"]
-    },
-    {
-      palavras: ["academia", "crossfit", "musculação", "musculacao", "pilates", "personal trainer", "fitness", "gym"],
-      bloqueadas: ["Academia R2"]
-    },
-    {
-      palavras: ["doceria", "confeitaria", "bolo", "bolos", "cake", "brigadeiro", "doce", "doces", "sobremesa", "cupcake", "padaria", "pão", "panificadora"],
-      bloqueadas: ["Sueli Bolos Porto Feliz", "Sueli Bolos Boituva"]
-    },
-    {
-      palavras: ["bar", "boteco", "pub", "cervejaria", "choperia"],
-      bloqueadas: ["Pizzaria Rocks", "Pizzaria Monções", "Restaurante Bonfá"]
-    }
-  ];
-
-  // Detectar conflitos — checa cada palavra do negócio contra a matriz
-  const telasBlockadas = new Set();
-  for (const regra of matrizConflitos) {
-    for (const palavra of regra.palavras) {
-      if (neg.includes(palavra)) {
-        regra.bloqueadas.forEach(t => telasBlockadas.add(t));
-        console.log(`CONFLITO DETECTADO [${neg}]: palavra="${palavra}" → bloqueando ${regra.bloqueadas.join(", ")}`);
-        break;
-      }
-    }
-  }
-
-  // Todas as telas com dados completos
-  const todasTelas = [
-    {
-      nome: "Sueli Bolos Porto Feliz",
-      fluxo: "18.300 pessoas/mês",
-      horario: "Seg–Dom 09h30–18h30",
-      video: "https://youtube.com/shorts/ognsjZEtt1w",
-      cidade: "porto feliz"
-    },
-    {
-      nome: "Restaurante Bonfá",
-      fluxo: "20.000+ pessoas/mês",
-      horario: "Seg–Sex 11h–15h | Sáb–Dom 11h–18h",
-      video: null,
-      descricao: "🎬 Vídeo do Bonfá sendo finalizado — maior giro da rede, +20 mil pessoas/mês!",
-      cidade: "porto feliz"
-    },
-    {
-      nome: "Academia R2",
-      fluxo: "13.240 pessoas/mês",
-      horario: "Seg–Dom 09h30–18h30",
-      video: "https://youtube.com/shorts/_87HW8ghUi4",
-      cidade: "porto feliz"
-    },
-    {
-      nome: "Pizzaria Rocks",
-      fluxo: "10.900 pessoas/mês",
-      horario: "Ter–Dom 18h–00h",
-      video: "https://youtube.com/shorts/2NFvKYSdkHw",
-      cidade: "porto feliz"
-    },
-    {
-      nome: "Pizzaria Monções",
-      fluxo: "10.500 pessoas/mês",
-      horario: "Ter–Dom 18h–00h",
-      video: "https://youtube.com/shorts/gKDJC8mUyM0",
-      cidade: "porto feliz"
-    },
-    {
-      nome: "Recanto das Araras",
-      fluxo: "9.800 pessoas/mês",
-      horario: "Seg–Dom 09h30–16h",
-      video: "https://youtube.com/shorts/2-W4sHoYHMQ",
-      cidade: "porto feliz"
-    },
-    {
-      nome: "Sueli Bolos Boituva",
-      fluxo: "15.100 pessoas/mês",
-      horario: "Seg–Sab 09h30–18h30",
-      video: null,
-      descricao: "🎬 Vídeo da Sueli Boituva sendo finalizado — 15.100 pessoas/mês!",
-      cidade: "boituva"
-    }
-  ];
-
-  // Filtrar por cidade e remover conflitos
-  let telas = todasTelas.filter(t => {
-    if (cid.includes("boituva") && cid.includes("porto feliz")) return true; // ambas cidades
-    if (cid.includes("boituva")) return t.cidade === "boituva";
-    return t.cidade === "porto feliz"; // padrão Porto Feliz
-  });
-
-  // Remover telas bloqueadas por conflito de segmento
-  telas = telas.filter(t => !telasBlockadas.has(t.nome));
-
-  return telas;
+async function getTelasDisponiveis(negocio, cidade) {
+  // Versão data-driven: lê telas e conflitos do banco (Neon Postgres)
+  // Mudou tela? INSERT no banco. Nova regra de conflito? INSERT. Zero deploy.
+  return await getTelasFiltradas(negocio, cidade);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -130,7 +17,7 @@ function getTelasDisponiveis(negocio, cidade) {
 // Aprovado em: 13/06/2026
 // ══════════════════════════════════════════════════════════════
 async function enviarCatalogoTelas(from, lead, delay = 1500) {
-  const telas = getTelasDisponiveis(lead.negocio, lead.cidade);
+  const telas = await getTelasDisponiveis(lead.negocio, lead.cidade);
   const cidade = lead.cidade || null;
   if (!cidade) {
     await sendMsg(from, "Antes de mostrar as telas, me conta: você é de Porto Feliz ou Boituva? 😊");
@@ -185,6 +72,7 @@ Qual dessas telas faz mais sentido pro seu público?`;
 
   console.log(`CATÁLOGO TELAS enviado para ${from} — ${telas.length} telas`);
 }const { Client } = require("pg");
+const { getTelasFiltradas, getAllConfig, getConfig } = require("./db_config");
 
 // ── Body parser manual para Vercel Serverless ──
 async function parseBody(req) {
@@ -893,7 +781,7 @@ Site: www.ooba.com.br
 // ═══════════════════════════════════════════════════════
 // INSTRUÇÕES DE FUNIL POR ETAPA
 // ═══════════════════════════════════════════════════════
-function getSysWithFunil(etapa, leadData, patches = []) {
+async function getSysWithFunil(etapa, leadData, patches = []) {
   const nome = leadData.nome ? leadData.nome : "";
   const negocio = leadData.negocio ? leadData.negocio : "";
   const cidade = leadData.cidade || null;
@@ -983,7 +871,7 @@ TELAS (Boituva):
 TOTAL DA REDE: +97 mil pessoas/mês
 
 PREÇOS (só mostrar quando lead perguntar ou estiver pronto para fechar):
-Mensal: 1pt R$400 | 2pt R$550 | 3pt R$650 | 4pt R$750 | 5pt R$850 | 6pt R$950 | 7pt R$1.050 | 8pt R$1.150 | 9pt R$1.250 | 10pt R$1.350
+{{TABELA_PRECOS_COMPACTA}}
 Anual (22% desc): 1pt R$200 | 2pt R$450 | 3pt R$550 | 4pt R$650 | 5pt R$750 | 6pt R$850 | 7pt R$950 | 8pt R$1.050 | 9pt R$1.150 | 10pt R$1.250
 Bônus anual 5+ pontos: 1º vídeo grátis + carrossel (2 vídeos alternados)
 
@@ -1244,7 +1132,13 @@ Se hesitar após 2 tentativas suas → acione Paulo:
 
   const instrucaoEtapa = funil[etapa] || funil.abertura;
 
-  return BASE + instrucaoEtapa;
+  // ── Injetar configuração do banco (preços, bônus, etc.) ──
+  const config = await getAllConfig();
+  let prompt = BASE + instrucaoEtapa;
+  if (config.tabela_precos) prompt = prompt.replace('{{TABELA_PRECOS}}', config.tabela_precos);
+  if (config.tabela_precos) prompt = prompt.replace('{{TABELA_PRECOS_COMPACTA}}', config.tabela_precos.replace(/\|/g, ' ').replace(/\s+/g, ' ').trim());
+  if (config.bonus_anual) prompt = prompt.replace('{{BONUS_ANUAL}}', config.bonus_anual);
+  return prompt;
 }
 
 
@@ -2110,7 +2004,7 @@ async function replyAI(client, txt, phone) {
     patches = patchResult.rows;
   } catch(e) { console.error("Erro ao buscar patches:", e.message); }
 
-  const sys = getSysWithFunil(etapa, lead, patches);
+  const sys = await getSysWithFunil(etapa, lead, patches);
 
   msgs.push({ role: "user", content: txt });
 
