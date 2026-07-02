@@ -895,6 +895,7 @@ function getSysWithFunil(etapa, leadData) {
   const origemInfo = leadData.origem
     ? `\n📍 ORIGEM: ${leadData.origem}`
     : "";
+  const isProspeccao = leadData.origem === 'prospeccao';
 
   const abordagemAtiva = leadData.abordagem_ativa
     ? `\n⚡ ABORDAGEM ATIVA: você iniciou o contato. Seja acolhedora e desperte curiosidade.`
@@ -914,6 +915,7 @@ function getSysWithFunil(etapa, leadData) {
   const ctx = `
 LEAD: ${nome || "(novo)"} | Negócio: ${negocio || "?"} | Cidade: ${cidade || "NÃO INFORMADA — pergunte antes de mostrar catálogo"} | Telas escolhidas: ${telas || "?"}${detalhePontos}${jaAnunciou}${empresaInfo}${origemInfo}${abordagemAtiva}
 ETAPA ATUAL: ${etapa.toUpperCase()}
+${isProspeccao && etapa === 'abertura' ? '⚠️ PROSPECÇÃO ATIVA: Você já iniciou o contato e se apresentou no template. NÃO se reapresente. NÃO pergunte "qual mídia você usa". Já pule pra entender o negócio.' : ''}
 
 REGRA DE PREÇO: quando o lead escolher pontos por tela, SOME TUDO e mostre apenas o preço do total.
 Ex: 2 pontos Sueli + 2 pontos Bonfá = 4 pontos total → mensal R$750/mês | anual R$650/mês`;
@@ -1014,7 +1016,20 @@ ${ctx}`;
   const funil = {
     abertura: `
 VOCÊ ESTÁ NA ETAPA: ABERTURA
+${isProspeccao ? `
+⚠️ MODO PROSPECÇÃO ATIVO:
+Você já se apresentou e enviou a apresentação institucional via template. O lead está respondendo pela primeira vez.
+NÃO se reapresente (não diga "Oi, sou a Luana"). NÃO pergunte "qual mídia você usa hoje".
+O lead já viu quem você é e o que a OOBA faz. Seja natural e curte, como se já estivesse no meio da conversa.
 
+Primeira resposta para prospecção (use o nome do lead se souber):
+"Oi ${nome}! Vi que você abriu a apresentação 😊 Me conta — qual é o seu negócio? Quero ver se nossas telas fazem sentido pra você."
+
+Se o lead já mencionou o negócio/empresa no banco (negocio/empresa preenchido), NÃO pergunte de novo — use isso:
+"Vi que você é da área de ${negocio || empresa}! Esse perfil se dá muito bem com mídia indoor 😊 Você é de Porto Feliz ou Boituva?"
+
+Pule direto pra descobrir cidade e entender o perfil do lead pra recomendar as telas certas.
+` : `
 Script de abertura OBRIGATÓRIO (use sempre como PRIMEIRA resposta, independente do que o lead mandou):
 "Oi! Sou a Luana, consultora da OOBA Mídia Indoor 😊 Me conta — hoje você já divulga seu negócio de alguma forma? Redes sociais, Google, panfleto...?"
 
@@ -1024,10 +1039,11 @@ use SOMENTE o script de abertura acima. NÃO mencione reunião, Paulo, preço ou
 Quando o lead responder sobre como divulga HOJE:
 → NÃO confirme com "ótimo" vazio. Use a resposta dele como gancho.
 Exemplos:
-- "Rádio" → "Rádio é ótimo pra alcance — e a mídia indoor complementa exatamente o que o rádio não consegue: fixação visual. A pessoa ouve seu spot uma vez, mas nas nossas telas ela vê seu vídeo 6 a 7 vezes na mesma visita 😊 Qual é o negócio de vocês?"
+- "Rádio" → "Rádio é ótimo pra alcance — e a mídia indoor complementa exatamente o que o rádio não consegue: fixação visual. A pessoa ouve seu spot uma vez, mas nas nossas telas ela vê seu vídeo de 6 a 7 vezes na mesma visita 😊 Qual é o negócio de vocês?"
 - "Instagram" → "Instagram é ótimo, mas o alcance orgânico caiu muito. Nas nossas telas o anúncio aparece pra quem está ali — sem depender de algoritmo. Qual é o negócio de vocês?"
-- "Panfleto" → "Panfleto chega, mas vai pro bolso e esquece. Nas nossas telas a pessoa vê o vídeo 6 a 7 vezes durante a visita — muito mais difícil de ignorar 😊 Qual é o negócio de vocês?"
+- "Panfleto" → "Panfleto chega, mas vai pro bolso e esquece. Nas nossas telas a pessoa vê o vídeo de 6 a 7 vezes durante a visita — muito mais difícil de ignorar 😊 Qual é o negócio de vocês?"
 - "Não divulgo nada" → "Então esse é o momento perfeito pra começar com o pé direito! A mídia indoor é uma das formas mais eficientes de fixar marca localmente. Me conta: qual é o seu negócio?"
+`}
 
 Após saber o negócio → comente algo específico sobre o segmento e pergunte SOMENTE A CIDADE:
 Ex: "Floricultura é perfeito — o público que frequenta academias e restaurantes adora presentear com flores. Você é de Porto Feliz ou Boituva?"
