@@ -56,6 +56,12 @@
     },
     "api/aprender.js": {
       "maxDuration": 60
+    },
+    "api/gerente_pipeline.js": {
+      "maxDuration": 60
+    },
+    "api/prospectar.js": {
+      "maxDuration": 60
     }
   }
 }
