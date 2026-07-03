@@ -2637,34 +2637,43 @@ module.exports = async (req, res) => {
       await initDB(client);
 
       // ── BYPASS DE PREÇOS: não passa pelo GPT, manda direto ──
+      // 🛑 GUARD DE VALOR: só liberar preços depois que o lead passou pela educação
       const respostasPreco = detectarPerguntaPreco(txt);
       if (respostasPreco) {
-        // PROTEÇÃO ANTI-LOOP: se a última msg do bot já foi tabela de preços (texto OU PDF), não repetir
-        const histPrecoCheck = await getHist(client, from);
-        const ultimasBotPreco = histPrecoCheck.filter(m => m.role === "assistant").slice(-3);
-        const jaMandouTabela = ultimasBotPreco.some(m => 
-          (m.content || "").includes("1 ponto") && (m.content || "").includes("10 pontos") ||
-          (m.content || "").includes("Tabela de preços PDF enviada"));
-        if (jaMandouTabela) {
-          console.log(`BYPASS PREÇO BLOQUEADO [${from}]: já mandou tabela recentemente, delegando pro GPT`);
+        const leadBypassPreco = await getLead(client, from);
+        const etapaBypassPreco = leadBypassPreco?.etapa_funil || "abertura";
+        const etapasLiberadasPreco = ["recomendacao", "materiais", "proposta", "fechamento", "reuniao"];
+        
+        if (!etapasLiberadasPreco.includes(etapaBypassPreco)) {
+          console.log(`BYPASS PREÇO BLOQUEADO [${from}]: etapa=${etapaBypassPreco} — gerar valor primeiro`);
+          // Não manda preços — deixa o GPT + interceptarPrecoAntecipado lidarem
         } else {
-          const historicoFinal = [];
-          for (let i = 0; i < respostasPreco.length; i++) {
-            const parteAtual = respostasPreco[i];
-            if (parteAtual === "🔹TABELA_PRECOS_PDF🔹") {
-              // Enviar a tabela de preços como PDF anexo (não como link/texto)
-              const linkTabelaPdf = await getConfig(client, "link_tabela_precos_pdf") || "https://media.base44.com/files/public/69f645345c37a4db77e0e07d/918c29047_tabela_precos_ooba.pdf";
-              await sendDocument(from, linkTabelaPdf, "Tabela de Preços OOBA 💰", "Tabela-de-Precos-OOBA.pdf");
-              historicoFinal.push("[Tabela de preços PDF enviada como documento anexo]");
-              console.log(`TABELA PREÇOS PDF ENVIADA [${from}]: documento anexado`);
-            } else {
-              await sendMsg(from, parteAtual);
-              historicoFinal.push(parteAtual);
+          // PROTEÇÃO ANTI-LOOP: se a última msg do bot já foi tabela de preços (texto OU PDF), não repetir
+          const histPrecoCheck = await getHist(client, from);
+          const ultimasBotPreco = histPrecoCheck.filter(m => m.role === "assistant").slice(-3);
+          const jaMandouTabela = ultimasBotPreco.some(m => 
+            (m.content || "").includes("1 ponto") && (m.content || "").includes("10 pontos") ||
+            (m.content || "").includes("Tabela de preços PDF enviada"));
+          if (jaMandouTabela) {
+            console.log(`BYPASS PREÇO BLOQUEADO [${from}]: já mandou tabela recentemente, delegando pro GPT`);
+          } else {
+            const historicoFinal = [];
+            for (let i = 0; i < respostasPreco.length; i++) {
+              const parteAtual = respostasPreco[i];
+              if (parteAtual === "🔹TABELA_PRECOS_PDF🔹") {
+                const linkTabelaPdf = await getConfig(client, "link_tabela_precos_pdf") || "https://media.base44.com/files/public/69f645345c37a4db77e0e07d/918c29047_tabela_precos_ooba.pdf";
+                await sendDocument(from, linkTabelaPdf, "Tabela de Preços OOBA 💰", "Tabela-de-Precos-OOBA.pdf");
+                historicoFinal.push("[Tabela de preços PDF enviada como documento anexo]");
+                console.log(`TABELA PREÇOS PDF ENVIADA [${from}]: documento anexado`);
+              } else {
+                await sendMsg(from, parteAtual);
+                historicoFinal.push(parteAtual);
+              }
+              if (i < respostasPreco.length - 1) await new Promise(r => setTimeout(r, 1500));
             }
-            if (i < respostasPreco.length - 1) await new Promise(r => setTimeout(r, 1500));
+            await salvarMsgHistorico(client, from, txt, historicoFinal.join("\n\n---MSG---\n\n"));
+            return;
           }
-          await salvarMsgHistorico(client, from, txt, historicoFinal.join("\n\n---MSG---\n\n"));
-          return;
         }
       }
 
