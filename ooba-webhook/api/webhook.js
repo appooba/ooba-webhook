@@ -956,10 +956,12 @@ Se o lead já mencionou o negócio/empresa no banco (negocio/empresa preenchido)
 
 Pule direto pra descobrir cidade e entender o perfil do lead pra recomendar as telas certas.
 ` : `
-Script de abertura OBRIGATÓRIO (use sempre como PRIMEIRA resposta, independente do que o lead mandou):
+Script de abertura (use APENAS na PRIMEIRA resposta, quando o histórico de mensagens estiver vazio):
 "Oi! Sou a Luana, consultora da OOBA Mídia Indoor 😊 Me conta — hoje você já divulga seu negócio de alguma forma? Redes sociais, Google, panfleto...?"
 
-⚠️ IMPORTANTE: Se o lead mandou "Obrigado", "Oi", "Olá", "Tudo bem" ou qualquer coisa na PRIMEIRA mensagem,
+⚠️ NÃO REPITA a abertura se já a enviou antes (verifique o histórico da conversa). Se já apresentou quem você é, continue a conversa naturalmente de onde parou.
+
+⚠️ IMPORTANTE: Se for a PRIMEIRA mensagem e o lead mandou "Obrigado", "Oi", "Olá", "Tudo bem" ou qualquer coisa,
 use SOMENTE o script de abertura acima. NÃO mencione reunião, Paulo, preço ou qualquer retenção na abertura.
 
 Quando o lead responder sobre como divulga HOJE:
@@ -2109,7 +2111,15 @@ async function replyAI(client, txt, phone) {
     lead = { etapa_funil: "abertura", nome: null, negocio: null, cidade: null, telas_interesse: null, pontos_interesse: null, status: "novo" };
   }
 
-  const etapa = lead.etapa_funil || "abertura";
+  // ── AUTO-AVANÇO: se já tem histórico e ainda tá em abertura, pular pra entendimento ──
+  let etapa = lead.etapa_funil || "abertura";
+  if (!isNew && etapa === "abertura") {
+    etapa = "entendimento";
+    try {
+      await client.query("UPDATE leads SET etapa_funil='entendimento', updated_at=NOW() WHERE phone=$1", [phone]);
+      console.log(`AUTO-AVANÇO [${phone}]: abertura → entendimento (já tem histórico)`);
+    } catch(e) { console.error("Erro auto-avanço:", e.message); }
+  }
 
   // Buscar patches de aprendizado ativos do banco
   let patches = [];
@@ -2139,6 +2149,36 @@ async function replyAI(client, txt, phone) {
 
   const d = await res.json();
   let rep = d?.choices?.[0]?.message?.content?.trim() || "";
+
+  // ── TRAVA ANTI-REPETIÇÃO: se não é a primeira mensagem e o bot repetiu a abertura, regenerar ──
+  if (!isNew && rep.includes("Sou a Luana, consultora da OOBA")) {
+    const jaApresentou = msgs.some(m => m.role === "assistant" && m.content?.includes("Sou a Luana, consultora da OOBA"));
+    if (jaApresentou) {
+      console.log(`⚠️ Anti-repetição [${phone}]: bot repetiu abertura. Regenerando...`);
+      // Regenerar com instrução extra
+      const res2 = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${OAI_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: sys + "\n\n⚠️ URGENTE: Você JÁ se apresentou como Luana numa mensagem anterior. NÃO repita 'Sou a Luana' ou a abertura. Continue a conversa naturalmente de onde parou. Faça uma pergunta sobre o negócio do lead." },
+            ...msgs
+          ],
+          max_tokens: 1200,
+          temperature: 0.8
+        })
+      });
+      if (res2.ok) {
+        const d2 = await res2.json();
+        const rep2 = d2?.choices?.[0]?.message?.content?.trim() || "";
+        if (rep2 && !rep2.includes("Sou a Luana, consultora da OOBA")) {
+          rep = rep2;
+          console.log(`✅ Anti-repetição [${phone}]: resposta corrigida`);
+        }
+      }
+    }
+  }
 
   if (rep) {
     msgs.push({ role: "assistant", content: rep });
