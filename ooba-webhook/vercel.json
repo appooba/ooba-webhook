@@ -30,18 +30,6 @@
       "dest": "/api/importar.js"
     },
     {
-      "src": "/api/debug",
-      "dest": "/api/debug.js"
-    },
-    {
-      "src": "/api/process",
-      "dest": "/api/process.js"
-    },
-    {
-      "src": "/api/tts_block",
-      "dest": "/api/tts_block.js"
-    },
-    {
       "src": "/api/prospectar",
       "dest": "/api/prospectar.js"
     },
