@@ -581,11 +581,18 @@ Quando fizer sentido propor reunião:
 - NÃO ofereça desconto
 - NÃO pergunte "por que?" — aceite a resposta e proponha a reunião
 
+💡 REGRA DE ECONOMIA (se o lead achar caro):
+- A OOBA NÃO dá descontos além da tabela oficial
+- Se o lead quer economizar: 1 ponto no plano anual = R$ 200/mês
+- O vídeo (institucional OU promocional) roda por um ano inteiro nesse formato
+- NUNCA sugerir parcelamento no cartão como alternativa
+- NUNCA sugerir "menos pontos no plano mensal" — o anual já é mais barato
+
 PASSO 4 — Se o lead aceitar a reunião → aguarde o sistema enviar os slots automaticamente.
 PASSO 4 — Se o lead recusar a reunião também → encerre com elegância:
 "Sem problemas! Se mudar de ideia, é só me chamar 😊 Qualquer novidade eu te aviso."
 
-Se hesitar após 2 tentativas suas → acione Paulo:
+Se hesitar após 2 tentativas suas → encaminhe pra reunião com a equipe OOBA:
 {{SLOTS_CALENDAR}}
 "Que tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — consigo montar uma proposta do zero pro seu perfil. Qual dia e horário fica melhor pra você? 📅"`,
   };
@@ -841,7 +848,7 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
 
   // Normalizar texto (remover acentos) para matching robusto
   const msgNorm = msgLead.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  console.log("🧪 INTERCEPTAR_SAIDA_CHAMADO: msgNorm=" + msgNorm.substring(0,40) + " etapa=" + (lead?.etapa_funil||"?"));
+  
   const respostaLower = respostaBot.toLowerCase();
   const etapa = lead?.etapa_funil || "abertura";
   const numTrocas = (msgs || []).length;
@@ -891,10 +898,9 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   const etapasNegociacao = ["recomendacao", "materiais", "proposta", "fechamento"];
   if (ehObjecaoOrcamento && etapasNegociacao.includes(etapa)) {
     // Verificar se o GPT já resolveu com alternativas financeiras + reunião
-    const temAlternativa = respostaLower.includes("menos pontos") || respostaLower.includes("plano mensal") ||
-                           respostaLower.includes("parcelar") || respostaLower.includes("cart") ||
-                           respostaLower.includes("reduzir") || respostaLower.includes("começar com") ||
-                           respostaLower.includes("começando com") || respostaLower.includes("1 ponto");
+    const temAlternativa = respostaLower.includes("1 ponto") || respostaLower.includes("plano anual") ||
+                           respostaLower.includes("começar com") || respostaLower.includes("começando com") ||
+                           respostaLower.includes("r$ 200") || respostaLower.includes("200/mes") || respostaLower.includes("200/mês");
     const temReuniao = respostaLower.includes("reuni") || respostaLower.includes("google meet") || respostaLower.includes("15 min");
     const jaResolveu = temAlternativa && temReuniao;
 
@@ -904,15 +910,13 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
 
       let sugestao = "";
       if (pontos && pontos > 3) {
-        sugestao = `Começando com ${Math.max(1, Math.floor(pontos / 2))} pontos no plano mensal, você paga menos e pode aumentar quando sentir o resultado. `;
-      } else if (pontos && pontos > 1) {
-        sugestao = `No plano mensal com ${Math.max(1, Math.floor(pontos / 2))} pontos, o valor cai e você testa sem compromisso de 12 meses. `;
+        sugestao = `A gente não trabalha com desconto além da tabela, mas tem um caminho pra economizar: começa com 1 ponto no plano anual — R$ 200/mês e seu vídeo (institucional ou promocional) roda o ano inteiro. `;
       } else {
-        sugestao = `A gente pode começar com 1 ponto no plano mensal — é o formato mais enxuto pra testar. `;
+        sugestao = `A gente não trabalha com desconto além da tabela, mas o formato mais econômico é 1 ponto no plano anual — R$ 200/mês e seu vídeo (institucional ou promocional) roda o ano inteiro. `;
       }
 
       console.log(`OBJEÇÃO ORÇAMENTO [etapa=${etapa}]: interceptado, oferecendo alternativas + reunião`);
-      return `🧪ORCAMENTO🧪 ${primeiroNome ? primeiroNome + ", " : ""}entendo! E olha, tem como ajustar pra caber no seu orçamento sim 👇\n\n${sugestao}Também dá pra parcelar no cartão em até 12x.\n\nMas sabe o que funciona melhor? A gente marca 15 minutinhos pelo Google Meet e monta uma proposta personalizada pra sua realidade — sem compromisso. Qual dia dessa semana funciona? 📅`;
+      return `${primeiroNome ? primeiroNome + ", " : ""}entendo! 👇\n\n${sugestao}\n\nE se quiser, a gente marca 15 minutinhos pelo Google Meet pra montar a melhor configuração pra sua realidade — sem compromisso. Qual dia dessa semana funciona? 📅`;
     }
     // Se o GPT já resolveu, deixar passar
     return respostaBot;
