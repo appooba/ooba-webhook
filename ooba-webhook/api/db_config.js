@@ -6,19 +6,33 @@
 
 const { Client } = require("pg");
 
-async function getConfig(key) {
-  const client = new Client({ 
-    connectionString: process.env.DATABASE_URL, 
-    ssl: { rejectUnauthorized: false } 
-  });
+// Aceita client opcional (para reusar conexão do webhook) ou cria nova
+async function getConfig(clientOrKey, keyOrNull) {
+  let client, key, shouldClose = false;
+  
+  if (keyOrNull !== undefined && keyOrNull !== null) {
+    // Chamada com client existente: getConfig(client, "key")
+    client = clientOrKey;
+    key = keyOrNull;
+  } else {
+    // Chamada sem client: getConfig("key")
+    key = clientOrKey;
+    client = new Client({ 
+      connectionString: process.env.DATABASE_URL, 
+      ssl: { rejectUnauthorized: false } 
+    });
+    shouldClose = true;
+  }
+  
   try {
-    await client.connect();
+    if (shouldClose) await client.connect();
     const r = await client.query("SELECT value FROM agent_config WHERE key = $1", [key]);
-    await client.end();
     return r.rows.length > 0 ? r.rows[0].value : null;
   } catch(e) {
-    try { await client.end(); } catch(_) {}
+    console.error("getConfig error:", key, e.message);
     return null;
+  } finally {
+    if (shouldClose) { try { await client.end(); } catch(_) {} }
   }
 }
 
@@ -30,15 +44,16 @@ async function getAllConfig() {
   try {
     await client.connect();
     const r = await client.query("SELECT key, value FROM agent_config");
-    await client.end();
     const config = {};
     for (const row of r.rows) {
       config[row.key] = row.value;
     }
     return config;
   } catch(e) {
-    try { await client.end(); } catch(_) {}
+    console.error("getAllConfig error:", e.message);
     return {};
+  } finally {
+    try { await client.end(); } catch(_) {}
   }
 }
 
@@ -52,7 +67,6 @@ async function getTelas(cidade = null) {
     const r = await client.query(
       "SELECT * FROM telas_config WHERE ativa = true ORDER BY ordem ASC"
     );
-    await client.end();
     let telas = r.rows;
     if (cidade) {
       const cid = cidade.toLowerCase();
@@ -64,8 +78,10 @@ async function getTelas(cidade = null) {
     }
     return telas;
   } catch(e) {
-    try { await client.end(); } catch(_) {}
+    console.error("getTelas error:", e.message);
     return [];
+  } finally {
+    try { await client.end(); } catch(_) {}
   }
 }
 
@@ -77,11 +93,12 @@ async function getConflictRules() {
   try {
     await client.connect();
     const r = await client.query("SELECT palavras, telas_bloqueadas FROM screen_conflicts");
-    await client.end();
     return r.rows;
   } catch(e) {
-    try { await client.end(); } catch(_) {}
+    console.error("getConflictRules error:", e.message);
     return [];
+  } finally {
+    try { await client.end(); } catch(_) {}
   }
 }
 
