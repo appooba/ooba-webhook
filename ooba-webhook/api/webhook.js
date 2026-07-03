@@ -861,7 +861,7 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
     "ta bom", "tá bom", "ok obrigado", "ok, obrigado",
     "vou pensar", "deixa eu pensar", "vou ver", "vou analisar",
     "qualquer coisa te aviso", "qualquer coisa eu te aviso",
-    "depois eu te chamo", "depois te chamo", "depois vejo"
+    "depois eu te chamo", "depois te chamo", "depois vejo", "ja te aviso", "já te aviso", "te aviso"
   ];
 
   const ehSaidaForte = sinaisFortes.some(s => msgLeadLower.includes(s));
@@ -892,8 +892,8 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
       hesitacoesPrevias++;
     }
   }
-  // A hesitação atual não conta (ainda não está no histórico)
-  // hesitacoesPrevias já tem as anteriores
+  // Subtrair 1 porque a mensagem atual JÁ está em msgs (foi feito push antes de chamar interceptarSaida)
+  hesitacoesPrevias = Math.max(0, hesitacoesPrevias - 1);
 
   console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: forte=${ehSaidaForte}, fraca=${ehSaidaFraca}, hesitacoesPrevias=${hesitacoesPrevias}`);
 
@@ -918,7 +918,12 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
     /\s*[Cc]ompreendo[!.,]?\s*$/,
     /\s*[Ff]ique [aà] vontade[^.!]*[.!]\s*$/,
     /\s*[Pp]erfeito!?\s*[Ff]ique[^.!]*[.!]\s*$/,
-    /\s*[Ss]em problemas!?\s*[Qq]ualquer[^.!]*[.!]\s*$/
+    /\s*[Ss]em problemas!?\s*[Qq]ualquer[^.!]*[.!]\s*$/,
+    /\s*[Ss]em problemas!?[^.!]*[.!]\s*$/,
+    /\s*[Qq]ualquer (novidade|coisa) eu te aviso[!.,]?\s*$/,
+    /\s*[Ss]e mudar de ideia[^.!]*[.!]\s*$/,
+    /\s*[Dd]isponha!?[^.!]*[.!]\s*$/,
+    /\s*[Pp]erfeito!?\s*[Ff]ique[^.!]*[.!]\s*$/
   ];
   for (const p of padroesFim) {
     novaResposta = novaResposta.replace(p, "").trim();
