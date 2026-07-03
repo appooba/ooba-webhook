@@ -341,6 +341,7 @@ function humanDelay(text) {
 
 // System prompt base — lido do banco (agent_config key: system_prompt_base)
 let _cachedSysPrompt = null;
+let _cachedBloqueioPreco = null;
 async function getSysPrompt(client) {
   if (_cachedSysPrompt) return _cachedSysPrompt;
   const r = await client.query("SELECT value FROM agent_config WHERE key='system_prompt_base_v2'");
@@ -753,14 +754,15 @@ function interceptarPrecoAntecipado(msgLead, lead) {
   const etapaAtual = lead?.etapa_funil || 'abertura';
   if (etapasLiberadas.includes(etapaAtual)) return null;
 
-  // Bloqueio: texto lido do banco
+  // Bloqueio: texto lido do banco (msg_bloqueio_preco)
   const negocio = lead?.negocio || 'seu negócio';
   const negocioRef = negocio !== 'seu negócio' ? `sobre ${negocio}` : 'o seu negócio';
   const perguntaSeq = negocio === 'seu negócio' ? 'qual é o seu negócio e em qual cidade você está?' : 'você já conhece as telas que temos disponíveis?';
-  // Fallback hardcoded se o banco não responder a tempo
-  return `Boa pergunta! Mas antes de falar em investimento, preciso entender melhor ${negocioRef} pra te recomendar as telas certas — o valor só faz sentido quando você souber exatamente quantas pessoas vai alcançar 😊
-
-Me conta: ${perguntaSeq}`;
+  // Fallback caso o banco não responda
+  const fallback = `Boa pergunta! Mas antes de falar em investimento, preciso entender melhor ${negocioRef} pra te recomendar as telas certas — o valor só faz sentido quando você souber exatamente quantas pessoas vai alcançar 😊\n\nMe conta: ${perguntaSeq}`;
+  // Como esta função é síncrona, usa cache do banco carregado no init
+  const tpl = (typeof _cachedBloqueioPreco !== 'undefined' && _cachedBloqueioPreco) ? _cachedBloqueioPreco : fallback;
+  return tpl.split('{{negocio_ref}}').join(negocioRef).split('{{pergunta_sequencia}}').join(perguntaSeq);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1979,6 +1981,9 @@ module.exports = async (req, res) => {
       client = await getDB();
       await initDB(client);
       await carregarTabelaPrecos(client);
+      // Carregar bloqueio de preço do banco
+      const bpRes = await client.query("SELECT value FROM agent_config WHERE key='msg_bloqueio_preco'");
+      if (bpRes.rows.length > 0) _cachedBloqueioPreco = bpRes.rows[0].value;
 
       // ── BYPASS DE PREÇOS: não passa pelo GPT, manda direto ──
       // 🛑 GUARD DE VALOR: só liberar preços depois que o lead passou pela educação
