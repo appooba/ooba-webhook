@@ -2903,44 +2903,6 @@ module.exports = async (req, res) => {
       // ══════════════════════════════════════════════════════════════
 
       // ══════════════════════════════════════════════════════════════
-      // 🔒 EDUCAÇÃO ETAPA 2 — lead respondeu após msg 1, enviar msg 2
-      // ══════════════════════════════════════════════════════════════
-      {
-        const leadEdu2 = await getLead(client, from);
-        if (leadEdu2?.etapa_funil === "educacao_1_enviada") {
-          console.log(`EDUCAÇÃO ETAPA 2 [${from}]: lead respondeu → enviando msg 2`);
-          await new Promise(r => setTimeout(r, 1000));
-          const msg2 = await getMsg("msg_educacao_2", {}, client, from);
-          await sendMsg(from, msg2);
-          await client.query("UPDATE leads SET etapa_funil='educacao_2_enviada', updated_at=NOW() WHERE phone=$1", [from]).catch(()=>{});
-          const histEdu2 = await getHist(client, from);
-          histEdu2.push({ role: "user", content: txt });
-          histEdu2.push({ role: "assistant", content: msg2 });
-          await saveHist(client, from, histEdu2);
-          if (!res.headersSent) res.json({ ok: true });
-          return;
-        }
-      }
-      // ══════════════════════════════════════════════════════════════
-      // 🔒 EDUCAÇÃO ETAPA 3 — lead respondeu após msg 2, enviar msg 3 + pergunta
-      // ══════════════════════════════════════════════════════════════
-      {
-        const leadEdu3 = await getLead(client, from);
-        if (leadEdu3?.etapa_funil === "educacao_2_enviada") {
-          console.log(`EDUCAÇÃO ETAPA 3 [${from}]: lead respondeu → enviando msg 3 + pergunta de confirmação`);
-          await new Promise(r => setTimeout(r, 1000));
-          const msg3 = await getMsg("msg_educacao_3", {}, client, from);
-          await sendMsg(from, msg3);
-          await client.query("UPDATE leads SET etapa_funil='aguardando_catalogo', updated_at=NOW() WHERE phone=$1", [from]).catch(()=>{});
-          const histEdu3 = await getHist(client, from);
-          histEdu3.push({ role: "user", content: txt });
-          histEdu3.push({ role: "assistant", content: msg3 });
-          await saveHist(client, from, histEdu3);
-          if (!res.headersSent) res.json({ ok: true });
-          return;
-        }
-      }
-      // ══════════════════════════════════════════════════════════════
       // 🔒 INTERCEPTADOR DE CONFIRMAÇÃO — disparo do catálogo após lead confirmar entendimento
       // ══════════════════════════════════════════════════════════════
       {
@@ -3053,7 +3015,7 @@ module.exports = async (req, res) => {
         const leadEntend = await getLead(client, from);
         const etapaEntend = leadEntend?.etapa_funil || "abertura";
         // Guard por etapa do funil (mais confiável que string match)
-        const jaTemEdu = ["educacao", "educacao_1_enviada", "educacao_2_enviada", "aguardando_catalogo", "recomendacao", "materiais", "fechamento", "proposta"].includes(etapaEntend);
+        const jaTemEdu = ["educacao", "aguardando_catalogo", "recomendacao", "materiais", "fechamento", "proposta"].includes(etapaEntend);
 
         // Detectar cidade na mensagem
         const txtN = txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -3080,11 +3042,11 @@ module.exports = async (req, res) => {
             }
           }
 
-          console.log(`INTERCEPTADOR CIDADE [${from}]: cidade=${cidadeDetectada}, negocio=${negocioFinal}, etapa=${etapaEntend} → educação etapa 1`);
+          console.log(`INTERCEPTADOR CIDADE [${from}]: cidade=${cidadeDetectada}, negocio=${negocioFinal}, etapa=${etapaEntend} → educação completa (3 msgs com pausa, só para na confirmação)`);
 
           // Salvar cidade e negócio
           await client.query(
-            "UPDATE leads SET cidade=$1, negocio=COALESCE(NULLIF(negocio,''),$2), etapa_funil='educacao_1_enviada', updated_at=NOW() WHERE phone=$3",
+            "UPDATE leads SET cidade=$1, negocio=COALESCE(NULLIF(negocio,''),$2), etapa_funil='aguardando_catalogo', updated_at=NOW() WHERE phone=$3",
             [cidadeDetectada, negocioFinal || "", from]
           ).catch(() => {});
 
@@ -3095,23 +3057,33 @@ module.exports = async (req, res) => {
           if (perguntouPorque) {
             const msgPorque = "Porque nossas telas ficam em comércios de " + cidadeDetectada + " — aí eu te mostro exatamente onde seu anúncio vai aparecer 😊";
             await sendMsg(from, msgPorque);
-            await new Promise(r => setTimeout(r, 1800));
-            // Salvar resposta do "porquê" no histórico
-            const histPorque = await getHist(client, from);
-            histPorque.push({ role: "assistant", content: msgPorque });
-            await saveHist(client, from, histPorque);
+            await new Promise(r => setTimeout(r, 2000));
           }
 
-          // ── Enviar SÓ a mensagem 1 (o que é um ponto) e esperar resposta ──
+          // ── Enviar as 3 mensagens de educação com pausas entre elas ──
+          // Pausa longa o suficiente pra lead ler, mas sem travar se ele não responder
+          
+          // Msg 1: o que é um ponto
           const msg1 = await getMsg("msg_educacao_1", {}, client, from);
           await sendMsg(from, msg1);
+          await new Promise(r => setTimeout(r, 5000)); // 5s de pausa pra ler
 
-          // Salvar no histórico
+          // Msg 2: frequência
+          const msg2 = await getMsg("msg_educacao_2", {}, client, from);
+          await sendMsg(from, msg2);
+          await new Promise(r => setTimeout(r, 5000)); // 5s de pausa pra ler
+
+          // Msg 3: formato + pergunta "ficou claro?" — AQUI para e espera resposta
+          const msg3 = await getMsg("msg_educacao_3", {}, client, from);
+          await sendMsg(from, msg3);
+
+          // Salvar tudo no histórico
           const histEdu = await getHist(client, from);
           histEdu.push({ role: "user", content: txt });
-          histEdu.push({ role: "assistant", content: msg1 });
+          histEdu.push({ role: "assistant", content: msg1 + "\n\n---MSG---\n\n" + msg2 + "\n\n---MSG---\n\n" + msg3 });
           await saveHist(client, from, histEdu);
 
+          console.log(`EDUCAÇÃO CONCLUÍDA [${from}]: 3 msgs enviadas com pausas, aguardando confirmação em aguardando_catalogo`);
           if (!res.headersSent) res.json({ ok: true });
           return;
         }
