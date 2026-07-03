@@ -2,7 +2,7 @@
 """
 Skill: Aprendizado Automático — Luana Vendas
 Analisa conversas, identifica padrões, gera patches de melhoria.
-Também analisa gargalos do funil e propõe correções estruturais.
+Schema: prompt_patches (conteudo, problema, patch_type, ativo, sugestao, fonte, trigger)
 """
 import os, json, psycopg2, datetime, urllib.request
 
@@ -16,7 +16,7 @@ if not DB_URL or not OPENAI_KEY:
 conn = psycopg2.connect(DB_URL, sslmode="require")
 cur = conn.cursor()
 
-# 1. Buscar conversas recentes (últimas 24h ou desde última análise)
+# 1. Buscar conversas recentes (últimas 6h)
 cur.execute("""
     SELECT c.phone, c.messages, l.nome, l.etapa_funil, l.status, l.origem,
            l.empresa, l.updated_at
@@ -35,26 +35,31 @@ if not conversas:
     conn.close()
     exit(0)
 
-print(f"📊 {len(conversas)} conversas analisadas")
+print(f"📊 {len(conversas)} conversas encontradas para análise")
 
 # 2. Buscar patches existentes pra não duplicar
-cur.execute("SELECT patch_text FROM prompt_patches WHERE ativo = true")
-patches_existentes = [r[0] for r in cur.fetchall()]
+cur.execute("SELECT conteudo, problema FROM prompt_patches WHERE ativo = true")
+patches_rows = cur.fetchall()
+patches_existentes = [(r[0] or "", r[1] or "") for r in patches_rows]
 print(f"🧠 {len(patches_existentes)} patches já ativos")
 
 # 3. Buscar dados de gargalos do funil
-cur.execute("""
-    SELECT etapa_anterior, etapa_nova, COUNT(*) as total
-    FROM funil_transicoes
-    WHERE created_at > NOW() - INTERVAL '7 days'
-    GROUP BY etapa_anterior, etapa_nova
-    ORDER BY COUNT(*) DESC
-""")
-transicoes = cur.fetchall()
+try:
+    cur.execute("""
+        SELECT etapa_anterior, etapa_nova, COUNT(*) as total
+        FROM funil_transicoes
+        WHERE created_at > NOW() - INTERVAL '7 days'
+        GROUP BY etapa_anterior, etapa_nova
+        ORDER BY COUNT(*) DESC
+    """)
+    transicoes = cur.fetchall()
+except:
+    transicoes = []
 
 cur.execute("""
     SELECT etapa_funil, COUNT(*) as total
     FROM leads
+    WHERE etapa_funil IS NOT NULL
     GROUP BY etapa_funil
 """)
 distribuicao = cur.fetchall()
@@ -67,7 +72,7 @@ for c in conversas:
         msgs = json.loads(messages) if isinstance(messages, str) else messages
         if isinstance(msgs, list):
             resumo = []
-            for m in msgs[-20:]:  # últimas 20 mensagens
+            for m in msgs[-20:]:
                 role = m.get("role", "?")
                 content = m.get("content", "")[:200]
                 resumo.append(f"[{role}] {content}")
@@ -100,21 +105,22 @@ Sua tarefa:
 
 Também analise os GARGALOS do funil:
 - Se muitos leads travam numa etapa, proponha uma correção estrutural
-- Se a etapa de Abertura tem baixa conversão, sugira melhorias no script de abertura
 
 REGRAS DOS PATCHES:
-- Cada patch deve ser UMA instrução clara e acionável (máx 2 linhas)
+- Cada patch deve ser UMA instrução clara e acionável (máx 3 linhas)
 - Não contradiga as regras existentes (nunca fale preço cedo, sempre seja consultiva)
 - Foque em comportamento, não em estrutura de código
-- Máximo 3 patches por rodada (priorize os mais impactantes)
+- Máximo 4 patches por rodada (priorize os mais impactantes)
 
 Responda APENAS em JSON:
 {
   "patches": [
     {
-      "patch_text": "instrução clara",
-      "motivo": "por que este patch é necessário",
-      "conversa_origem": "telefone do lead que gerou o insight"
+      "conteudo": "instrução clara e direta",
+      "problema": "descrição do problema identificado",
+      "patch_type": "objection_handling | argument | flow_fix | tone | discovery",
+      "sugestao": "o que a Luana deveria fazer diferente",
+      "fonte": "telefone do lead que gerou o insight"
     }
   ],
   "gargalo_principal": "etapa com maior problema",
@@ -124,7 +130,7 @@ Responda APENAS em JSON:
 
 prompt_usuario = f"""
 PATCHES JÁ ATIVOS (não duplicar):
-{chr(10).join(f"- {p}" for p in patches_existentes[:10])}
+{chr(10).join(f"- [{r[1][:40] if r[1] else '?'}] {r[0][:80]}" for r in patches_existentes[:10])}
 
 DISTRIBUIÇÃO ATUAL DO FUNIL:
 {chr(10).join(f"- {d[0]}: {d[1]} leads" for d in distribuicao)}
@@ -148,7 +154,7 @@ data = json.dumps({
         {"role": "user", "content": prompt_usuario}
     ],
     "temperature": 0.3,
-    "max_tokens": 1000
+    "max_tokens": 1500
 }).encode()
 
 req = urllib.request.Request(
@@ -169,7 +175,6 @@ try:
         try:
             analise = json.loads(resposta)
         except:
-            # Se não veio JSON válido, tentar extrair
             import re
             match = re.search(r'\{.*\}', resposta, re.DOTALL)
             if match:
@@ -179,42 +184,58 @@ try:
                 analise = {"patches": []}
         
         patches_novos = analise.get("patches", [])
-        gargalo = analise.get("gargalo_principal", "não identificado")
-        sugestao = analise.get("sugestao_estrutural", "")
+        gargalo = analise.get("gargalo_principal", "")
+        sugestao_estrutural = analise.get("sugestao_estrutural", "")
         
         novos_salvos = 0
         for p in patches_novos:
-            patch_text = p.get("patch_text", "").strip()
-            motivo = p.get("motivo", "").strip()
+            conteudo = (p.get("conteudo") or "").strip()
+            problema = (p.get("problema") or "").strip()
+            sugestao = (p.get("sugestao") or "").strip()
+            patch_type = (p.get("patch_type") or "general").strip()
+            fonte = (p.get("fonte") or "auto").strip()
             
-            # Verificar se já existe (busca fuzzy simples)
-            ja_existe = any(patch_text[:30] in existing for existing in patches_existentes)
-            if ja_existe or not patch_text:
+            if not conteudo:
                 continue
             
-            # Salvar no banco
-            cur.execute(
-                "INSERT INTO prompt_patches (patch_text, motivo, ativo, created_at) VALUES ($1, $2, true, NOW())",
-                [patch_text, motivo]
+            # Verificar duplicata: compara primeiros 60 caracteres do conteudo
+            ja_existe = any(
+                conteudo[:60] in (existing_conteudo or "")[:60]
+                for existing_conteudo, _ in patches_existentes
             )
+            if ja_existe:
+                continue
+            
+            today = datetime.date.today().isoformat()
+            cur.execute("""
+                INSERT INTO prompt_patches 
+                (semana, patch_type, trigger, conteudo, ativo, eficacia_score, 
+                 fonte, problema, sugestao, aplicado, created_at)
+                VALUES (%s, %s, 'auto', %s, true, 0, %s, %s, %s, true, NOW())
+            """, [today, patch_type, conteudo, fonte, problema, sugestao])
+            
             novos_salvos += 1
-            print(f"  ✅ {patch_text[:80]}")
-            patches_existentes.append(patch_text)
+            print(f"  ✅ [{patch_type}] {conteudo[:80]}")
+            patches_existentes.append((conteudo, problema))
         
-        # Log da análise estrutural
+        # Log da análise estrutural (como patch inativo ou log separado)
         if gargalo:
-            cur.execute(
-                "INSERT INTO prompt_patches (patch_text, motivo, ativo, created_at, tipo) VALUES ($1, $2, false, NOW(), 'analise_estrutural')",
-                [f"GARGALO: {gargalo}", sugestao]
-            )
+            cur.execute("""
+                INSERT INTO prompt_patches 
+                (semana, patch_type, trigger, conteudo, ativo, eficacia_score,
+                 fonte, problema, sugestao, aplicado, created_at)
+                VALUES (%s, 'analise_estrutural', 'auto', %s, false, 0,
+                        'auto', %s, %s, false, NOW())
+            """, [today, f"GARGALO: {gargalo}", gargalo, sugestao_estrutural[:500] if sugestao_estrutural else ""])
         
         conn.commit()
         
-        print(f"\n🆕 Novos patches: {novos_salvos}")
+        print(f"\n🆕 Novos patches salvos: {novos_salvos}")
         print(f"♻️ Duplicados evitados: {len(patches_novos) - novos_salvos}")
-        print(f"📊 Gargalo principal: {gargalo}")
-        if sugestao:
-            print(f"💡 Sugestão estrutural: {sugestao[:100]}")
+        if gargalo:
+            print(f"📊 Gargalo principal: {gargalo}")
+        if sugestao_estrutural:
+            print(f"💡 Sugestão estrutural: {sugestao_estrutural[:150]}")
         
 except Exception as e:
     print(f"❌ Erro ao chamar GPT: {e}")
