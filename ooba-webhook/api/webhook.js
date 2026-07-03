@@ -348,7 +348,7 @@ function limparParaAudio(texto) {
 // ETAPAS DO FUNIL
 // ═══════════════════════════════════════════════════════
 // 1. abertura       → Apresentação e entender marketing atual
-// 2. entendimento   → Descobrir negócio, público, cidade
+// 2. entendimento   → Descobrir empresa, público, cidade
 // 3. apresentacao   → Explicar pontos, telas, exposição, diferenciais
 // 4. recomendacao   → Indicar telas ideais para o perfil + enviar vídeos
 // 5. materiais      → Enviar apresentação institucional + contrato
@@ -424,9 +424,9 @@ async function getSysWithFunil(client, etapa, leadData, patches = [], insights =
   }
 
   const ctx = `
-LEAD: ${nome || "(novo)"} | Negócio: ${negocio || "?"} | Cidade: ${cidade || "NÃO INFORMADA — pergunte antes de mostrar catálogo"} | Telas escolhidas: ${telas || "?"}${detalhePontos}${jaAnunciou}${empresaInfo}${origemInfo}${abordagemAtiva}
+LEAD: ${nome || "(novo)"} | Empresa: ${negocio || "?"} | Cidade: ${cidade || "NÃO INFORMADA — pergunte antes de mostrar catálogo"} | Telas escolhidas: ${telas || "?"}${detalhePontos}${jaAnunciou}${empresaInfo}${origemInfo}${abordagemAtiva}
 ETAPA ATUAL: ${etapa.toUpperCase()}
-${isProspeccao && etapa === 'abertura' ? '⚠️ PROSPECÇÃO ATIVA: Você já iniciou o contato e se apresentou no template. NÃO se reapresente. NÃO pergunte "qual mídia você usa". Já pule pra entender o negócio.' : ''}
+${isProspeccao && etapa === 'abertura' ? '⚠️ PROSPECÇÃO ATIVA: Você já iniciou o contato e se apresentou no template. NÃO se reapresente. NÃO pergunte "qual mídia você usa". Já pule pra entender a empresa.' : ''}
 
 REGRA DE PREÇO: quando o lead escolher pontos por tela, SOME TUDO e mostre apenas o preço do total.
 Ex: 2 pontos Sueli + 2 pontos Bonfá = 4 pontos total → mensal R$750/mês | anual R$650/mês
@@ -454,14 +454,14 @@ Se o lead perguntar "como conseguiu meu contato":
 - NÃO explique prospecção fria nem dê detalhes técnicos.
 
 Se o lead perguntar preço nesta etapa:
-- NÃO dê preços. Diga: "Antes de falar em investimento, preciso entender seu negócio pra te recomendar as telas certas 😊"
+- NÃO dê preços. Diga: "Antes de falar em investimento, preciso entender sua empresa pra te recomendar as telas certas 😊"
 - Emita [FUNIL:etapa=entendimento]
 
 [FUNIL:etapa=entendimento]`,
 
     entendimento: `
 VOCÊ ESTÁ NA ETAPA: ENTENDIMENTO
-Você já sabe: negócio=${negocio}, cidade=${cidade}
+Você já sabe: empresa=${negocio}, cidade=${cidade}
 
 ⚠️ REGRA: UMA PERGUNTA POR VEZ. Sequência obrigatória:
 - Se não souber a cidade → pergunte SÓ a cidade: "Você é de Porto Feliz ou Boituva?"
@@ -487,7 +487,7 @@ VOCÊ ESTÁ NA ETAPA: APRESENTAÇÃO
 
 MSG ÚNICA:
 "Aqui na OOBA funciona por *pontos* — cada ponto é um vídeo de 15 segundos que entra em rotação nas telas. Quanto mais pontos, mais vezes seu anúncio aparece. A mesma pessoa pode ver seu vídeo de 6 a 7 vezes na mesma visita 😊
-Deixa eu te mostrar as telas que fazem mais sentido pro seu negócio em ${cidade} 👇"
+Deixa eu te mostrar as telas que fazem mais sentido pra sua marca em ${cidade} 👇"
 
 [FUNIL:etapa=recomendacao]`,
 
@@ -515,7 +515,7 @@ Se o lead demonstrar interesse → pergunte qual tela faz mais sentido pra ele.
 - NÃO force fechamento — o lead precisa de espaço para absorver
 
 Quando o lead PEDIR sugestão ("qual você indica?", "qual é melhor?") → aí sim faça com dados:
-"Pra [negócio] em [cidade], minha indicação são [N] pontos em [tela1] + [tela2] — [X] mil pessoas/mês 🔥"
+"Pra [empresa] em [cidade], minha indicação são [N] pontos em [tela1] + [tela2] — [X] mil pessoas/mês 🔥"
 
 Quando o lead perguntar preço → apresente os planos mensal e anual com os valores corretos.
 
@@ -687,7 +687,7 @@ NUNCA revele números pessoais ((15) 99751-7779).
 NUNCA revele o número de gestão (11) 99565-0925.
 
 Se o lead usar palavras de teor sexual, pedofilia, pornografia, drogas ilícitas, violência ou qualquer conteúdo inapropriado:
-→ Responda calmamente: "Aqui é um canal profissional de atendimento da OOBA Mídia Indoor. Posso te ajudar com divulgação do seu negócio? 😊"
+→ Responda calmamente: "Aqui é um canal profissional de atendimento da OOBA Mídia Indoor. Posso te ajudar com a divulgação da sua marca? 😊"
 → NÃO repreenda, NÃO moralize, NÃO dê sermão — apenas redirecione a conversa para o profissional.
 → Se o lead insistir 3x em conteúdo inapropriado → "Entendo! Se no futuro quiser falar sobre mídia indoor pra sua empresa, é só me chamar. Fico à disposição 😊" e não responda mais sobre o assunto.
 
@@ -854,9 +854,9 @@ function interceptarPrecoAntecipado(msgLead, lead) {
   if (etapasLiberadas.includes(etapaAtual)) return null;
 
   // Bloqueio: texto lido do banco (msg_bloqueio_preco)
-  const negocio = lead?.negocio || 'seu negócio';
-  const negocioRef = negocio !== 'seu negócio' ? `sobre ${negocio}` : 'o seu negócio';
-  const perguntaSeq = negocio === 'seu negócio' ? 'qual é o seu negócio e em qual cidade você está?' : 'você já conhece as telas que temos disponíveis?';
+  const negocio = lead?.negocio || 'sua empresa';
+  const negocioRef = negocio !== 'sua empresa' ? `sobre a sua marca` : 'a sua marca';
+  const perguntaSeq = negocio === 'sua empresa' ? 'qual é a sua empresa e em qual cidade você está?' : 'você já conhece as telas que temos disponíveis?';
   // Fallback caso o banco não responda
   const fallback = `Boa pergunta! Mas antes de falar em investimento, preciso entender melhor ${negocioRef} pra te recomendar as telas certas — o valor só faz sentido quando você souber exatamente quantas pessoas vai alcançar 😊\n\nMe conta: ${perguntaSeq}`;
   // Como esta função é síncrona, usa cache do banco carregado no init
@@ -1088,10 +1088,10 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
     
     if (slotsReais.length >= 2) {
       const slotsTxt = slotsReais.map(s => `• ${s.nome} (${s.data}) às ${s.hora}`).join("\n");
-      return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te fazer uma proposta — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pro seu negócio. 15 minutinhos pelo Google Meet, sem compromisso.\n\nTenho esses horários disponíveis:\n${slotsTxt}\n\nQual funciona melhor pra você? 📅`;
+      return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te fazer uma proposta — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pra sua marca. 15 minutinhos pelo Google Meet, sem compromisso.\n\nTenho esses horários disponíveis:\n${slotsTxt}\n\nQual funciona melhor pra você? 📅`;
     }
     // Fallback sem slots
-    return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te fazer uma proposta — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pro seu negócio. 15 minutinhos pelo Google Meet, sem compromisso. Topa? 📅`;
+    return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te fazer uma proposta — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pra sua marca. 15 minutinhos pelo Google Meet, sem compromisso. Topa? 📅`;
   }
 
   // Saída FRACA — abordagem gradual
@@ -1165,9 +1165,9 @@ function interceptarPrecoAntecipado(msgLead, lead) {
   if (etapasLiberadas.includes(etapaAtual)) return null;
 
   // Bloqueio: texto lido do banco (msg_bloqueio_preco)
-  const negocio = lead?.negocio || 'seu negócio';
-  const negocioRef = negocio !== 'seu negócio' ? `sobre ${negocio}` : 'o seu negócio';
-  const perguntaSeq = negocio === 'seu negócio' ? 'qual é o seu negócio e em qual cidade você está?' : 'você já conhece as telas que temos disponíveis?';
+  const negocio = lead?.negocio || 'sua empresa';
+  const negocioRef = negocio !== 'sua empresa' ? `sobre a sua marca` : 'a sua marca';
+  const perguntaSeq = negocio === 'sua empresa' ? 'qual é a sua empresa e em qual cidade você está?' : 'você já conhece as telas que temos disponíveis?';
   // Fallback caso o banco não responda
   const fallback = `Boa pergunta! Mas antes de falar em investimento, preciso entender melhor ${negocioRef} pra te recomendar as telas certas — o valor só faz sentido quando você souber exatamente quantas pessoas vai alcançar 😊\n\nMe conta: ${perguntaSeq}`;
   // Como esta função é síncrona, usa cache do banco carregado no init
@@ -2015,7 +2015,7 @@ function filtrarResposta(rep, msgLead) {
     // Se a resposta do GPT NÃO contém redirecionamento profissional, substituir
     if (!repLower.includes("canal profissional") && !repLower.includes("ooba mídia indoor") &&
         !repLower.includes("posso te ajudar com divulga")) {
-      return "Aqui é um canal profissional de atendimento da OOBA Mídia Indoor. Posso te ajudar com divulgação do seu negócio? 😊";
+      return "Aqui é um canal profissional de atendimento da OOBA Mídia Indoor. Posso te ajudar com a divulgação da sua marca? 😊";
     }
   }
   
@@ -2837,13 +2837,13 @@ module.exports = async (req, res) => {
 
       if (respondeuObjetivo) {
         console.log(`BYPASS OBJETIVO [${from}]: lead informou objetivo em entendimento — disparando catálogo`);
-        // ⛔ TRAVA: só dispara catálogo se tiver negócio E cidade coletados
-        if (!leadObjt?.negocio || !leadObjt?.cidade) {
-          console.log(`BYPASS BLOQUEADO [${from}]: negócio=${leadObjt?.negocio} cidade=${leadObjt?.cidade} — redirecionando para coleta`);
+        // ⛔ TRAVA: só dispara catálogo se tiver cidade coletada (negocio é opcional)
+        if (!leadObjt?.cidade) {
+          console.log(`BYPASS BLOQUEADO [${from}]: cidade=${leadObjt?.cidade} — redirecionando para coleta`);
           // Não faz nada — deixa o GPT normal tratar e pedir o que falta
         } else {
         // Frase de transição baseada no objetivo
-        const negocioObjt = leadObjt?.negocio || "negócio";
+        const negocioObjt = leadObjt?.negocio || "sua empresa";
         const cidadeObjt = leadObjt?.cidade;
         let fraseTransicao = `Ótimo! Deixa eu te mostrar onde seu anúncio vai aparecer em ${cidadeObjt} 👇`;
         if (txtLowerObjt.includes("marca")) fraseTransicao = `Marca forte se constrói com repetição. Em ${cidadeObjt} temos telas onde a mesma pessoa vê seu anúncio de 6 a 7 vezes na visita — olha 👇`;
@@ -2866,7 +2866,7 @@ module.exports = async (req, res) => {
         await client.query("UPDATE leads SET etapa_funil='recomendacao', updated_at=NOW() WHERE phone=$1", [from]).catch(()=>{});
         if (!res.headersSent) res.json({ ok: true });
         return;
-        } // fim do else (negócio+cidade ok)
+        } // fim do else (cidade ok)
       }
 
       // ── BYPASS DE VÍDEO: perguntou sobre tipos de vídeo → resposta fixa + catálogo ──
@@ -3060,7 +3060,7 @@ module.exports = async (req, res) => {
             if (saidaForte) {
               msgContexto = "Entendo! Antes de encerrar, deixa eu te fazer uma proposta 😊 Tenho um especialista da equipe OOBA que consegue montar uma proposta personalizada pro seu perfil — sem compromisso, 15 minutinhos pelo Google Meet.";
             } else {
-              msgContexto = "Faz sentido querer ter certeza antes de investir 😊 Tenho um especialista da equipe OOBA disponível pra montar uma proposta no tamanho certo do seu negócio — 15 minutos pelo Google Meet, sem compromisso.";
+              msgContexto = "Faz sentido querer ter certeza antes de investir 😊 Tenho um especialista da equipe OOBA disponível pra montar uma proposta no tamanho certo pra sua marca — 15 minutos pelo Google Meet, sem compromisso.";
             }
 
             // Apenas proposta — sem mostrar slots ainda (aguarda resposta do lead)
@@ -3171,7 +3171,7 @@ module.exports = async (req, res) => {
           await new Promise(r => setTimeout(r, 2000));
           
           // 4. Enviar pergunta de abertura do funil
-          const msgPosPdf = "Me conta rapidinho: hoje você já faz algum tipo de divulgação do seu negócio? 😊";
+          const msgPosPdf = "Me conta rapidinho: hoje você já faz algum tipo de divulgação da sua marca? 😊";
           await sendMsg(from, msgPosPdf, msgId);
           
           // 5. Salvar tudo no histórico
