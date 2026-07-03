@@ -1946,6 +1946,44 @@ async function replyAI(client, txt, phone) {
     // Roda SEMPRE — antes de qualquer outra lógica — para não deixar o lead escapar
     rep = interceptarSaida(txt, rep, lead, msgs);
 
+    // ── INTERCEPTADOR DE RETOMADA PROATIVA ──
+    // Se o lead já tem telas/pontos escolhidos e manda algo curto/neutro/vago,
+    // NUNCA deixar a Luana responder genérico tipo "Como posso ajudar?" — sempre
+    // retomar o fio específico da negociação (mostrando o que já foi escolhido).
+    try {
+      const txtRetomada = txt.toLowerCase().trim();
+      const etapasAvancadas = ["recomendacao", "materiais", "proposta", "fechamento"];
+      const temEscolha = lead?.telas_interesse && lead.telas_interesse.trim().length > 0;
+      const temEmail = lead?.email && lead.email.trim().length > 0;
+
+      const mensagensCurtasVagas = [
+        "oi", "olá", "ola", "opa", "eae", "e ai", "e aí",
+        "ok", "okay", "blz", "beleza", "ta bom", "tá bom", "tabom",
+        "sim", "certo", "entendi", "show", "legal", "bacana", "perfeito"
+      ];
+      const respLower = rep.toLowerCase();
+      const respostaGenerica = respLower.includes("como posso ajudar") ||
+        respLower.includes("posso ajudar com informa") ||
+        respLower.includes("nossos serviços, planos") ||
+        (respLower.includes("estou aqui para ajudar") && respLower.length < 200) ||
+        (respLower.includes("fico à disposi") && !respLower.includes("e-mail") && !respLower.includes("contrato"));
+
+      const ehMsgCurta = mensagensCurtasVagas.some(m => txtRetomada === m || txtRetomada.startsWith(m + " ") || txtRetomada.startsWith(m + "!"));
+
+      if (etapasAvancadas.includes(etapa) && temEscolha && respostaGenerica && (ehMsgCurta || txtRetomada.length < 20)) {
+        const primeiroNome = lead?.nome ? lead.nome.split(" ")[0] : "";
+        const saudacao = primeiroNome ? `${primeiroNome}, ` : "";
+        if (!temEmail) {
+          rep = `${saudacao}voltando ao que a gente tava vendo: você escolheu ${lead.telas_interesse} (${lead.pontos_interesse || ""} pontos). Só falta seu e-mail pra eu preparar o contrato e ativar seu anúncio! 😊`;
+        } else {
+          rep = `${saudacao}voltando ao que a gente tava vendo: você escolheu ${lead.telas_interesse} (${lead.pontos_interesse || ""} pontos). Posso seguir com o fechamento? 😊`;
+        }
+        console.log(`RETOMADA PROATIVA [${phone}]: resposta genérica trocada por retomada de contexto`);
+      }
+    } catch(eRetomada) {
+      console.error("Retomada proativa erro:", eRetomada.message);
+    }
+
     // ── INTERCEPTADOR DE PREÇO ANTECIPADO ──
     // Só bloqueia preço se NÃO for sinal de saída (para não sobrescrever a retenção)
     const ehSaidaAgora = ["nao quero","não quero","obrigado","obrigada","valeu","tchau","blz","flw","falou","vou pensar","até mais","ate mais","tmj","tá bom","ta bom"].some(s => txt.toLowerCase().includes(s));
@@ -2028,6 +2066,46 @@ async function replyAI(client, txt, phone) {
       }
     } catch(ePontos) {
       console.error("Detector pontos erro:", ePontos.message);
+    }
+
+    // ── FALLBACK: lead citou nomes de telas SEM dizer "X pontos" (ex: "Sueli, academia r2 e araras") ──
+    // Só roda se o detector acima não achou nada, e só nas etapas onde faz sentido escolher telas
+    try {
+      const leadFallback = await getLead(client, phone);
+      const etapaFallback = leadFallback?.etapa_funil || "abertura";
+      const etapasEscolha = ["recomendacao", "materiais", "proposta", "fechamento"];
+      const jaTemTelas = leadFallback?.telas_interesse && leadFallback.telas_interesse.trim().length > 0;
+
+      if (etapasEscolha.includes(etapaFallback)) {
+        const txtF = txt.toLowerCase();
+        const mapaTelasSinonimosF = {
+          "sueli bolos porto feliz": "Sueli Bolos Porto Feliz", "sueli porto": "Sueli Bolos Porto Feliz",
+          "sueli boituva": "Sueli Bolos Boituva",
+          "sueli bolos": "Sueli Bolos Porto Feliz", "sueli": "Sueli Bolos Porto Feliz",
+          "bonfa": "Restaurante Bonfá", "bonfá": "Restaurante Bonfá",
+          "araras": "Recanto das Araras", "recanto": "Recanto das Araras",
+          "rocks": "Pizzaria Rocks",
+          "monco": "Pizzaria Monções", "moncoes": "Pizzaria Monções", "monções": "Pizzaria Monções",
+          "academia": "Academia R2", "r2": "Academia R2"
+        };
+        const telasCitadas = new Set();
+        for (const [sinonimo, nomeReal] of Object.entries(mapaTelasSinonimosF)) {
+          if (txtF.includes(sinonimo)) telasCitadas.add(nomeReal);
+        }
+        // Só considera "escolha nova" se citou 2+ telas em uma msg sem números — sinal claro de seleção
+        if (telasCitadas.size >= 2 && !/\d+\s+pontos?/.test(txtF)) {
+          const telasArr = Array.from(telasCitadas);
+          const totalPts = telasArr.length; // 1 ponto por tela citada (padrão)
+          const telasStr = telasArr.join(", ");
+          await client.query(
+            `UPDATE leads SET pontos_interesse=$2, telas_interesse=$3, updated_at=NOW() WHERE phone=$1`,
+            [phone, totalPts, telasStr]
+          ).catch(e => console.error("Fallback telas:", e.message));
+          console.log(`FALLBACK TELAS SEM PONTOS [${phone}]: ${telasStr} → ${totalPts} pontos (estimado)`);
+        }
+      }
+    } catch(eFallbackTelas) {
+      console.error("Fallback telas erro:", eFallbackTelas.message);
     }
 
     // ── FALLBACK DE PROGRESSÃO AUTOMÁTICA ──
