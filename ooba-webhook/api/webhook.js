@@ -1946,7 +1946,7 @@ async function replyAI(client, txt, phone) {
     // Detecta quando o lead expressa dificuldade financeira explícita e oferece
     // alternativas concretas + marca reunião — antes de qualquer outra lógica.
     try {
-      const txtObj = txt.toLowerCase().trim();
+      const txtObj = txt.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const etapaObj = lead?.etapa_funil || "abertura";
       const etapasNegociacao = ["recomendacao", "materiais", "proposta", "fechamento"];
 
