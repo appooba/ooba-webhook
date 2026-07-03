@@ -2954,17 +2954,40 @@ module.exports = async (req, res) => {
         const histAposResp = await getHist(client, from);
         const jaRecebeuPdf = histAposResp.some(m => m.role === 'assistant' && m.content?.includes('[PDF apresentação enviado como documento]'));
         if (!jaRecebeuPdf) {
-          console.log(`PROSPECÇÃO 1ª RESPOSTA [${from}]: enviando PDF como documento`);
-          await new Promise(r => setTimeout(r, 1500));
+          console.log(`PROSPECÇÃO 1ª RESPOSTA [${from}]: enviando texto + PDF + pergunta de abertura`);
+          
+          // 1. Salvar a mensagem do lead no histórico PRIMEIRO
+          const histInicial = await getHist(client, from);
+          histInicial.push({ role: "user", content: txt });
+          await saveHist(client, from, histInicial);
+          
+          // 2. Enviar texto antes do PDF
+          await new Promise(r => setTimeout(r, 1200));
+          const msgPrePdf = "Tudo bem! 😊 Primeiro vou te mandar a apresentação da nossa empresa pra você conhecer nosso trabalho 👇";
+          await sendMsg(from, msgPrePdf);
+          await new Promise(r => setTimeout(r, 2000));
+          
+          // 3. Enviar o PDF
           await sendDocument(from,
             LINK_APRESENTACAO_INSTITUCIONAL,
             "Apresentação OOBA Mídia Indoor 📎",
             "Apresentacao-OOBA-Midia-Indoor.pdf"
           );
-          const histPdf = await getHist(client, from);
-          histPdf.push({ role: "assistant", content: "[PDF apresentação enviado como documento]" });
-          await saveHist(client, from, histPdf);
+          await new Promise(r => setTimeout(r, 2000));
+          
+          // 4. Enviar pergunta de abertura do funil
+          const msgPosPdf = "Enquanto você dá uma olhada, me conta: hoje você já utiliza algum tipo de divulgação da sua empresa? Redes sociais, Google, panfletos...? 📱";
+          await sendMsg(from, msgPosPdf);
+          
+          // 5. Salvar tudo no histórico
+          const histFinal = await getHist(client, from);
+          histFinal.push({ role: "assistant", content: msgPrePdf + "\n\n[PDF apresentação enviado como documento]\n\n" + msgPosPdf });
+          await saveHist(client, from, histFinal);
           await updateLead(client, from, { etapa_funil: 'entendimento', status: 'respondendo' });
+          
+          console.log(`PROSPECÇÃO CONCLUÍDA [${from}]: texto + PDF + pergunta enviados, etapa=entendimento`);
+          if (!res.headersSent) res.json({ ok: true });
+          return;
         }
       }
 
