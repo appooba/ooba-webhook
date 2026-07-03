@@ -406,7 +406,10 @@ ETAPA ATUAL: ${etapa.toUpperCase()}
 ${isProspeccao && etapa === 'abertura' ? '⚠️ PROSPECÇÃO ATIVA: Você já iniciou o contato e se apresentou no template. NÃO se reapresente. NÃO pergunte "qual mídia você usa". Já pule pra entender o negócio.' : ''}
 
 REGRA DE PREÇO: quando o lead escolher pontos por tela, SOME TUDO e mostre apenas o preço do total.
-Ex: 2 pontos Sueli + 2 pontos Bonfá = 4 pontos total → mensal R$750/mês | anual R$650/mês`;
+Ex: 2 pontos Sueli + 2 pontos Bonfá = 4 pontos total → mensal R$750/mês | anual R$650/mês
+
+⚠️ MEMÓRIA DE ESCOLHA: Se o lead já escolheu telas/pontos (campo "Telas escolhidas" acima NÃO está vazio), NUNCA reenvie o catálogo completo. Em vez disso, REFERENCIE a escolha que ele já fez: "Você tinha escolhido X, Y e Z — lembra?". Se ele perguntar "quais telas?" ou "quais opções?", lembre-o da escolha dele primeiro e só reenvie o catálogo se ele disser explicitamente "quero ver tudo de novo" ou "esqueci, me mostra tudo".
+Se o lead disser que esqueceu como funciona, reexplique de forma breve e personalizada com base no que ele já escolheu — não recomece do zero.`;
 
   const BASE = await getSysPrompt(client);
 
@@ -549,6 +552,8 @@ BÔNUS (lembrar sempre):
 `,
     fechamento: `
 VOCÊ ESTÁ NA ETAPA: FECHAMENTO
+
+⚠️ REGRA CRÍTICA: Se o lead JÁ ACEITOU o plano (disse "vou querer", "fechado", "topo", "pode mandar", "quero"), NÃO envie mais materiais, apresentações ou tabelas de preço. Vá DIRETO para: "Perfeito! Me passa seu e-mail que eu já preparo o contrato 😊" — só peça o e-mail e aguarde.
 
 PASSO 1 — Envie o contrato e PUXE O FECHAMENTO na mesma mensagem:
 "Manda o contrato pra você dar uma olhada 😊 🔹CONTRATO_PDF🔹"
@@ -1655,31 +1660,71 @@ async function replyAI(client, txt, phone) {
   const d = await res.json();
   let rep = d?.choices?.[0]?.message?.content?.trim() || "";
 
-  // ── TRAVA ANTI-REPETIÇÃO: se não é a primeira mensagem e o bot repetiu a abertura, regenerar ──
-  if (!isNew && rep.includes("Sou a Luana, consultora da OOBA")) {
-    const jaApresentou = msgs.some(m => m.role === "assistant" && m.content?.includes("Sou a Luana, consultora da OOBA"));
-    if (jaApresentou) {
-      console.log(`⚠️ Anti-repetição [${phone}]: bot repetiu abertura. Regenerando...`);
-      // Regenerar com instrução extra
+  // ── TRAVA ANTI-REPETIÇÃO UNIVERSAL: detecta qualquer repetição ──
+  if (!isNew && rep) {
+    // Pegar últimas 3 mensagens do bot
+    const ultimasBot = msgs.filter(m => m.role === "assistant").slice(-3);
+    let repetida = false;
+    let tipoRepeticao = "";
+    
+    // Check 1: Repetiu a abertura
+    if (rep.includes("Sou a Luana, consultora da OOBA")) {
+      const jaApresentou = ultimasBot.some(m => m.content?.includes("Sou a Luana, consultora da OOBA"));
+      if (jaApresentou) { repetida = true; tipoRepeticao = "abertura"; }
+    }
+    
+    // Check 2: Mensagem idêntica ou quase idêntica às últimas 3
+    if (!repetida) {
+      for (const m of ultimasBot) {
+        const contAnt = (m.content || "").trim();
+        const contNovo = rep.trim();
+        if (contAnt.length > 20 && contNovo.length > 20) {
+          // Similaridade: se 80%+ das palavras batem, é repetição
+          const palavrasAnt = new Set(contAnt.toLowerCase().split(/\s+/).filter(p => p.length > 3));
+          const palavrasNovo = new Set(contNovo.toLowerCase().split(/\s+/).filter(p => p.length > 3));
+          const inter = [...palavrasAnt].filter(p => palavrasNovo.has(p)).length;
+          const maior = Math.max(palavrasAnt.size, palavrasNovo.size);
+          if (maior > 0 && (inter / maior) > 0.8) {
+            repetida = true;
+            tipoRepeticao = "similar";
+            break;
+          }
+        }
+      }
+    }
+    
+    // Check 3: Mandou tabela de preços 2x seguidas
+    if (!repetida && rep.includes("1 ponto") && rep.includes("R$")) {
+      const tabelasRecentes = ultimasBot.filter(m => 
+        (m.content || "").includes("1 ponto") && (m.content || "").includes("R$")
+      );
+      if (tabelasRecentes.length >= 1) {
+        repetida = true;
+        tipoRepeticao = "tabela_precos";
+      }
+    }
+    
+    if (repetida) {
+      console.log(`⚠️ Anti-repetição [${phone}]: ${tipoRepeticao} detectada. Regenerando...`);
       const res2 = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": `Bearer ${OAI_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
-            { role: "system", content: sys + "\n\n⚠️ URGENTE: Você JÁ se apresentou como Luana numa mensagem anterior. NÃO repita 'Sou a Luana' ou a abertura. Continue a conversa naturalmente de onde parou. Faça uma pergunta sobre o negócio do lead." },
+            { role: "system", content: sys + "\n\n⚠️ URGENTE: Sua última resposta foi repetida. NÃO repita o que você já disse. Continue a conversa naturalmente de onde parou. Faça uma pergunta DIFERENTE que avance a conversa." },
             ...msgs
           ],
           max_tokens: 1200,
-          temperature: 0.8
+          temperature: 0.85
         })
       });
       if (res2.ok) {
         const d2 = await res2.json();
         const rep2 = d2?.choices?.[0]?.message?.content?.trim() || "";
-        if (rep2 && !rep2.includes("Sou a Luana, consultora da OOBA")) {
+        if (rep2 && rep2 !== rep) {
           rep = rep2;
-          console.log(`✅ Anti-repetição [${phone}]: resposta corrigida`);
+          console.log(`✅ Anti-repetição [${phone}]: resposta corrigida (${tipoRepeticao})`);
         }
       }
     }
