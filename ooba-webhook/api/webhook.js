@@ -51,11 +51,11 @@ async function getTelasDisponiveis(negocio, cidade) {
 // Ordem: conceito de pontos → gancho total → cada tela (texto + URL sozinha) → resumo + CTA
 // Aprovado em: 13/06/2026
 // ══════════════════════════════════════════════════════════════
-async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
+async function enviarCatalogoTelas(from, lead, delay = 1500, client = null, msgId = null) {
   const telas = await getTelasDisponiveis(lead.negocio, lead.cidade);
   const cidade = lead.cidade || null;
   if (!cidade) {
-    await sendMsg(from, await getMsg("msg_pedir_cidade", {}, client, from));
+    await sendMsg(from, await getMsg("msg_pedir_cidade", {}, client, from), msgId);
     return;
   }
 
@@ -79,7 +79,7 @@ async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
     } catch(e) {}
   }
   if (!jaExplicouPontos) {
-    await sendMsg(from, await getMsg("msg_catalogo_explicacao", {}, client, from));
+    await sendMsg(from, await getMsg("msg_catalogo_explicacao", {}, client, from), msgId);
     await new Promise(r => setTimeout(r, delay));
   }
 
@@ -90,21 +90,21 @@ async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
   }, 0);
 
   const totalFluxoK = Math.round(totalFluxo/1000).toString();
-  await sendMsg(from, await getMsg("msg_catalogo_total", {cidade: cidade, total_telas: telas.length.toString(), total_fluxo_k: totalFluxoK}, client, from));
+  await sendMsg(from, await getMsg("msg_catalogo_total", {cidade: cidade, total_telas: telas.length.toString(), total_fluxo_k: totalFluxoK}, client, from), msgId);
   await new Promise(r => setTimeout(r, delay));
 
   // PASSO 3 — Cada tela: texto com giro PRIMEIRO, depois URL sozinha (gera thumbnail)
   for (const tela of telas) {
     // MSG 1: nome + giro + horário (só texto)
     const msgTela = `📍 *${tela.nome}* — ${tela.fluxo} | ${tela.horario}`;
-    await sendMsg(from, msgTela);
+    await sendMsg(from, msgTela, msgId);
     await new Promise(r => setTimeout(r, 1800)); // delay maior para WhatsApp gerar thumbnail
 
     // MSG 2: URL sozinha na mensagem (WhatsApp gera thumbnail automático)
     if (tela.video) {
-      await sendMsg(from, tela.video);
+      await sendMsg(from, tela.video, msgId);
     } else {
-      await sendMsg(from, tela.descricao || "🎬 Vídeo em produção");
+      await sendMsg(from, tela.descricao || "🎬 Vídeo em produção", msgId);
     }
     await new Promise(r => setTimeout(r, 1800));
   }
@@ -119,7 +119,7 @@ async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
   // MSG FINAL — argumento de cobertura + total de giro + CTA (sem repetir cada tela)
   const totalFinalK = Math.round(totalFinal/1000).toString();
   const msgFinal = await getMsg("msg_catalogo_cta", {total_fluxo_k: totalFinalK, negocio: negocioFinal}, client, from);
-  if (msgFinal) await sendMsg(from, msgFinal);
+  if (msgFinal) await sendMsg(from, msgFinal, msgId);
 
   console.log(`CATÁLOGO TELAS enviado para ${from} — ${telas.length} telas`);
 }const { Client } = require("pg");
@@ -2378,7 +2378,14 @@ async function sendDocument(to, link, caption, filename) {
   return d;
 }
 
-async function sendMsg(to, body) {
+async function sendMsg(to, body, msgId = null) {
+  // 💬 Reativar o indicador de "digitando..." antes de CADA mensagem enviada.
+  // Isso faz o lead ver a bolinha de digitação sempre que a Luana vai mandar
+  // algo, mesmo em sequências de várias mensagens com pausas entre elas.
+  if (msgId) {
+    await showTyping(msgId).catch(() => {});
+    await new Promise(r => setTimeout(r, 600 + Math.random() * 400)); // dá tempo do "digitando" aparecer antes da msg chegar
+  }
   const res = await fetch(`https://graph.facebook.com/v21.0/${PID}/messages`, {
     method: "POST",
     headers: { "Authorization": `Bearer ${WAT}`, "Content-Type": "application/json" },
@@ -2524,7 +2531,7 @@ module.exports = async (req, res) => {
         } catch(whisperErr) {
           console.error("Erro Whisper:", whisperErr.message);
           // Avisar o lead que teve problema com o áudio
-          await sendMsg(from, "Tive um probleminha pra escutar seu áudio 🙏 Pode me mandar por escrito?");
+          await sendMsg(from, "Tive um probleminha pra escutar seu áudio 🙏 Pode me mandar por escrito?", msgId);
           if (!res.headersSent) res.json({ ok: true });
           return;
         }
@@ -2534,7 +2541,7 @@ module.exports = async (req, res) => {
       if (!txt) {
         // Tipo de mensagem não suportado (imagem, sticker, localização, documento)
         console.log(`Tipo não suportado [${from}]: ${m.type} — respondendo fallback`);
-        await sendMsg(from, "Recebi sua mensagem! 😊 Mas por aqui eu só consigo ler texto e áudio. Pode me mandar por escrito?");
+        await sendMsg(from, "Recebi sua mensagem! 😊 Mas por aqui eu só consigo ler texto e áudio. Pode me mandar por escrito?", msgId);
         try {
           const histNs = await getHist(client, from);
           histNs.push({ role: "user", content: `[${m.type} não suportado]` });
@@ -2624,7 +2631,7 @@ module.exports = async (req, res) => {
                 historicoFinal.push("[Tabela de preços PDF enviada como documento anexo]");
                 console.log(`TABELA PREÇOS PDF ENVIADA [${from}]: documento anexado`);
               } else {
-                await sendMsg(from, parteAtual);
+                await sendMsg(from, parteAtual, msgId);
                 historicoFinal.push(parteAtual);
               }
               if (i < respostasPreco.length - 1) await new Promise(r => setTimeout(r, 1500));
@@ -2660,11 +2667,11 @@ module.exports = async (req, res) => {
         if (txtLowerObjt.includes("promo")) fraseTransicao = `Promoção precisa aparecer pra quem está ali, no momento certo, com tempo pra absorver. Olha onde seu anúncio vai rodar em ${cidadeObjt} 👇`;
         if (txtLowerObjt.includes("lança") || txtLowerObjt.includes("lanca")) fraseTransicao = `Lançamento precisa de barulho local e repetição. Aqui onde vai aparecer em ${cidadeObjt} 👇`;
 
-        await sendMsg(from, fraseTransicao);
+        await sendMsg(from, fraseTransicao, msgId);
         await new Promise(r => setTimeout(r, 1000));
 
         // Disparar catálogo completo
-        await enviarCatalogoTelas(from, leadObjt, 800, client);
+        await enviarCatalogoTelas(from, leadObjt, 800, client, msgId);
 
         // Salvar no histórico
         const histObjt = await getHist(client, from);
@@ -2683,11 +2690,11 @@ module.exports = async (req, res) => {
       if (detectarPerguntaVideo(txt)) {
         const leadVideo = await getLead(client, from);
         const msgVideo = "Dois tipos: *institucional* (sua marca, logo, o que vocês fazem) ou *promocional* (oferta, produto, chamada de ação). São até 15 segundos, .mp4, sem áudio — e isso é estratégico: sem som, cores e movimento têm que impactar em segundos 😊\n\nAgora deixa eu te mostrar onde seu vídeo vai aparecer 👇";
-        await sendMsg(from, msgVideo);
+        await sendMsg(from, msgVideo, msgId);
         await new Promise(r => setTimeout(r, 1000));
         // ⛔ TRAVA: só dispara catálogo se tiver cidade coletada
         if (leadVideo?.cidade) {
-          await enviarCatalogoTelas(from, leadVideo, 800, client);
+          await enviarCatalogoTelas(from, leadVideo, 800, client, msgId);
         }
         // Salvar no histórico
         const histVideo = await getHist(client, from);
@@ -2725,7 +2732,7 @@ module.exports = async (req, res) => {
             const slots = await gerarSlotsReuniao();
             const slotsLinhas = slots.map(s => "📅 *" + s.nome + ", " + s.data + "* às " + s.hora).join("\n");
             const msgSlots = "Ótimo! Agenda está bem movimentada, mas ainda tenho esses horários disponíveis:\n\n" + slotsLinhas + "\n\nQual desses funciona pra você?";
-            await sendMsg(from, msgSlots);
+            await sendMsg(from, msgSlots, msgId);
 
             const histAceite = await getHist(client, from);
             histAceite.push({ role: "user", content: txt });
@@ -2774,16 +2781,16 @@ module.exports = async (req, res) => {
           console.log(`INTERCEPTADOR TABELA [${from}]: lead escolheu telas → enviando explicação de pontos + tabela`);
 
           // Msg 1: explicar pontos de 1 a 10
-          await sendMsg(from, await getMsg("msg_explicacao_contratacao", {}, client, from));
+          await sendMsg(from, await getMsg("msg_explicacao_contratacao", {}, client, from), msgId);
           await new Promise(r => setTimeout(r, 1800));
 
           // Msg 2: tabela de preços mensal + anual (do banco)
           const msgTabela = await getMsg("msg_tabela_pontos", {}, client, from);
-          if (msgTabela) await sendMsg(from, msgTabela);
+          if (msgTabela) await sendMsg(from, msgTabela, msgId);
           await new Promise(r => setTimeout(r, 1800));
 
           // Msg 3: pergunta simples
-          await sendMsg(from, await getMsg("msg_pedir_pontos", {}, client, from));
+          await sendMsg(from, await getMsg("msg_pedir_pontos", {}, client, from), msgId);
 
           // Salvar no histórico
           const histEscolha = await getHist(client, from);
@@ -2874,7 +2881,7 @@ module.exports = async (req, res) => {
             }
 
             // Apenas proposta — sem mostrar slots ainda (aguarda resposta do lead)
-            await sendMsg(from, msgContexto);
+            await sendMsg(from, msgContexto, msgId);
 
             // Salvar no histórico
             const histHes = await getHist(client, from);
@@ -2915,10 +2922,10 @@ module.exports = async (req, res) => {
 
           if (confirmou && !naoEntendeu) {
             console.log(`INTERCEPTADOR CONFIRMAÇÃO [${from}]: lead confirmou → disparando catálogo`);
-            await sendMsg(from, await getMsg("msg_confirmacao_sim", {}, client, from));
+            await sendMsg(from, await getMsg("msg_confirmacao_sim", {}, client, from), msgId);
             await new Promise(r => setTimeout(r, 1200));
             const leadFrescoConf = await getLead(client, from);
-            await enviarCatalogoTelas(from, leadFrescoConf, 1500, client);
+            await enviarCatalogoTelas(from, leadFrescoConf, 1500, client, msgId);
             const histConf = await getHist(client, from);
             histConf.push({ role: "user", content: txt });
             histConf.push({ role: "assistant", content: "[catálogo enviado após confirmação do lead]" });
@@ -2930,10 +2937,10 @@ module.exports = async (req, res) => {
 
           if (maisOuMenos) {
             console.log(`INTERCEPTADOR CONFIRMAÇÃO [${from}]: lead disse mais ou menos → reforço rápido + catálogo`);
-            await sendMsg(from, await getMsg("msg_confirmacao_mais_menos", {}, client, from));
+            await sendMsg(from, await getMsg("msg_confirmacao_mais_menos", {}, client, from), msgId);
             await new Promise(r => setTimeout(r, 1200));
             const leadFrescoMOM = await getLead(client, from);
-            await enviarCatalogoTelas(from, leadFrescoMOM, 800, client);
+            await enviarCatalogoTelas(from, leadFrescoMOM, 800, client, msgId);
             const histMOM = await getHist(client, from);
             histMOM.push({ role: "user", content: txt });
             histMOM.push({ role: "assistant", content: "[reforço de conceito + catálogo enviado]" });
@@ -2969,7 +2976,7 @@ module.exports = async (req, res) => {
           // 2. Enviar texto antes do PDF
           await new Promise(r => setTimeout(r, 1200));
           const msgPrePdf = "Tudo bem! 😊 Vou te mandar nossa apresentação pra você conhecer 👇";
-          await sendMsg(from, msgPrePdf);
+          await sendMsg(from, msgPrePdf, msgId);
           await new Promise(r => setTimeout(r, 2000));
           
           // 3. Enviar o PDF
@@ -2982,7 +2989,7 @@ module.exports = async (req, res) => {
           
           // 4. Enviar pergunta de abertura do funil
           const msgPosPdf = "Me conta rapidinho: hoje você já faz algum tipo de divulgação do seu negócio? 😊";
-          await sendMsg(from, msgPosPdf);
+          await sendMsg(from, msgPosPdf, msgId);
           
           // 5. Salvar tudo no histórico
           const histFinal = await getHist(client, from);
@@ -3046,7 +3053,7 @@ module.exports = async (req, res) => {
             txtCidadeLow.includes("pra que") || txtCidadeLow.includes("qual a") || txtCidadeLow.includes("por quê");
           if (perguntouPorque) {
             const msgPorque = "Porque nossas telas ficam em comércios de " + cidadeDetectada + " — aí eu te mostro exatamente onde seu anúncio vai aparecer 😊";
-            await sendMsg(from, msgPorque);
+            await sendMsg(from, msgPorque, msgId);
             await new Promise(r => setTimeout(r, 2000));
           }
 
@@ -3055,21 +3062,17 @@ module.exports = async (req, res) => {
           
           // Msg 1: o que é um ponto
           const msg1 = await getMsg("msg_educacao_1", {}, client, from);
-          await sendMsg(from, msg1);
+          await sendMsg(from, msg1, msgId);
           await new Promise(r => setTimeout(r, 5000)); // 5s de pausa pra ler
 
-          // 💬 Reativar typing antes da msg 2
-          showTyping(msgId).catch(() => {});
           // Msg 2: frequência
           const msg2 = await getMsg("msg_educacao_2", {}, client, from);
-          await sendMsg(from, msg2);
+          await sendMsg(from, msg2, msgId);
           await new Promise(r => setTimeout(r, 5000)); // 5s de pausa pra ler
 
-          // 💬 Reativar typing antes da msg 3
-          showTyping(msgId).catch(() => {});
           // Msg 3: formato + pergunta "ficou claro?" — AQUI para e espera resposta
           const msg3 = await getMsg("msg_educacao_3", {}, client, from);
-          await sendMsg(from, msg3);
+          await sendMsg(from, msg3, msgId);
 
           // Salvar tudo no histórico
           const histEdu = await getHist(client, from);
@@ -3095,7 +3098,7 @@ module.exports = async (req, res) => {
           "Só um segundinho, tive uma falha técnica — pode reenviar sua mensagem? 😊"
         ];
         const fb = fbMsgs[Math.floor(Math.random() * fbMsgs.length)];
-        await sendMsg(from, fb);
+        await sendMsg(from, fb, msgId);
         // Salvar no histórico
         try {
           const histFb = await getHist(client, from);
@@ -3150,7 +3153,7 @@ module.exports = async (req, res) => {
           const msgSlots = `Agenda está bem movimentada essa semana 😅 Ainda tenho esses horários disponíveis:\n\n` +
             slots.map(s => `📅 *${s.nome}, ${s.data}* às ${s.hora}`).join("\n") +
             `\n\nQual desses funciona pra você?`;
-          await sendMsg(from, msgSlots);
+          await sendMsg(from, msgSlots, msgId);
         } else {
           for (let i = 0; i < partes.length; i++) {
             // Limpar qualquer ---MSG--- residual que o GPT tenha incluído no texto
@@ -3169,13 +3172,13 @@ module.exports = async (req, res) => {
               if (jaEnviado && !pediuExplicito) {
                 console.log(`CONTRATO BLOQUEADO [${from}]: já enviado e lead não pediu explicitamente`);
                 parte = parte.replace(/🔹CONTRATO_PDF🔹/g, '').replace(/\s{2,}/g, ' ').trim();
-                if (parte) await sendMsg(from, parte);
+                if (parte) await sendMsg(from, parte, msgId);
                 continue;
               }
               // Remover o marcador do texto e limpar espaços sobrando
               parte = parte.replace(/🔹CONTRATO_PDF🔹/g, '').replace(/\s{2,}/g, ' ').trim();
               if (parte) {
-                await sendMsg(from, parte);
+                await sendMsg(from, parte, msgId);
                 await new Promise(r => setTimeout(r, 1200));
               }
               // Enviar o PDF do contrato como documento anexo
@@ -3192,7 +3195,7 @@ module.exports = async (req, res) => {
             }
 
             if (parte) {
-              await sendMsg(from, parte);
+              await sendMsg(from, parte, msgId);
               if (i < partes.length - 1) await new Promise(r => setTimeout(r, 900));
             }
           }
@@ -3235,7 +3238,7 @@ module.exports = async (req, res) => {
           await new Promise(r => setTimeout(r, 1200));
           // Sempre usar dados frescos do banco — nunca do lead em memória
           const leadFresco = await getLead(client, from);
-          if (leadFresco?.cidade) { await enviarCatalogoTelas(from, leadFresco, 800, client); }
+          if (leadFresco?.cidade) { await enviarCatalogoTelas(from, leadFresco, 800, client, msgId); }
           // Marcar no histórico
           const histAtual2 = await getHist(client, from);
           histAtual2.push({ role: "assistant", content: "[catálogo automático: conceito de pontos + todas as telas + vídeos enviados]" });
