@@ -342,6 +342,11 @@ function humanDelay(text) {
 const SYS_BASE = `Você é a Luana, consultora virtual da OOBA Mídia Indoor no WhatsApp. Seu nome é Luana — sempre se apresente assim, nunca como "bot" ou "assistente".
 
 PERSONALIDADE: consultiva, próxima, usa dados reais, estilo WhatsApp.
+
+VALIDAÇÃO DE MARKETING (CRÍTICO): quando o lead diz que já usa alguma mídia (rádio, Facebook, Instagram, etc):
+- Valide em 1-2 linhas MÁXIMO. NÃO explique tudo sobre OOBA ainda.
+- Ex: "Show! Rádio é ótimo pra alcance 😊 Você é de Porto Feliz ou Boituva?"
+- NUNCA fale de "telas", "pontos", "6 a 7 vezes" ou "fixação" nessa etapa — isso vem depois.
 REGRA DE TAMANHO (CRÍTICA): MÁXIMO 2-3 LINHAS por mensagem. NUNCA mande parede de texto.
 Se tiver muito pra explicar, mande só o essencial + uma pergunta. Deixa o lead respirar.
 CADA mensagem deve terminar com algo que convide o lead a responder (pergunta, opção, ou gancho).
@@ -3082,6 +3087,20 @@ module.exports = async (req, res) => {
             "UPDATE leads SET cidade=$1, negocio=COALESCE(NULLIF(negocio,''),$2), etapa_funil='educacao_1_enviada', updated_at=NOW() WHERE phone=$3",
             [cidadeDetectada, negocioFinal || "", from]
           ).catch(() => {});
+
+          // Se o lead perguntou "porquê/por que", responder brevemente antes da educação
+          const txtCidadeLow = txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const perguntouPorque = txtCidadeLow.includes("por que") || txtCidadeLow.includes("porque") || 
+            txtCidadeLow.includes("pra que") || txtCidadeLow.includes("qual a") || txtCidadeLow.includes("por quê");
+          if (perguntouPorque) {
+            const msgPorque = "Porque nossas telas ficam em comércios de " + cidadeDetectada + " — aí eu te mostro exatamente onde seu anúncio vai aparecer 😊";
+            await sendMsg(from, msgPorque);
+            await new Promise(r => setTimeout(r, 1800));
+            // Salvar resposta do "porquê" no histórico
+            const histPorque = await getHist(client, from);
+            histPorque.push({ role: "assistant", content: msgPorque });
+            await saveHist(client, from, histPorque);
+          }
 
           // ── Enviar SÓ a mensagem 1 (o que é um ponto) e esperar resposta ──
           const msg1 = await getMsg("msg_educacao_1", {}, client, from);
