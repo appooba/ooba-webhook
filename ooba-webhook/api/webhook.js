@@ -6,14 +6,37 @@
 // ══════════════════════════════════════════════════════════════
 
 // Lock anti-processamento concorrente por telefone
-const _processingLocks = new Map();
-function acquireLock(phone) {
-  if (_processingLocks.has(phone)) return false;
-  _processingLocks.set(phone, Date.now());
-  return true;
+// IMPORTANTE: lock em memória (Map) NÃO funciona no Vercel — cada invocação
+// serverless pode rodar em instância/container diferente, então 2 mensagens
+// quase simultâneas do mesmo lead processavam em paralelo e geravam respostas
+// duplicadas. Agora usa pg_advisory_lock (nível de sessão da conexão Postgres),
+// que é compartilhado entre TODAS as instâncias porque vive no banco.
+function hashPhoneToInt(phone) {
+  let hash = 0;
+  for (let i = 0; i < phone.length; i++) {
+    hash = (hash * 31 + phone.charCodeAt(i)) | 0; // mantém em 32 bits
+  }
+  return hash;
 }
-function releaseLock(phone) {
-  _processingLocks.delete(phone);
+async function acquireDbLock(client, phone, maxWaitMs = 20000) {
+  const lockKey = hashPhoneToInt(phone);
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    try {
+      const r = await client.query("SELECT pg_try_advisory_lock($1::bigint) as locked", [lockKey]);
+      if (r.rows[0].locked) return lockKey;
+    } catch (e) {
+      console.error("acquireDbLock erro:", e.message);
+      return lockKey; // não bloqueia o fluxo por erro de lock
+    }
+    await new Promise(res => setTimeout(res, 400));
+  }
+  console.error(`LOCK TIMEOUT [${phone}]: prosseguindo sem lock após ${maxWaitMs}ms (evita perder a mensagem)`);
+  return null;
+}
+async function releaseDbLock(client, lockKey) {
+  if (lockKey === null || lockKey === undefined || !client) return;
+  try { await client.query("SELECT pg_advisory_unlock($1::bigint)", [lockKey]); } catch (e) {}
 }
 
 async function getTelasDisponiveis(negocio, cidade) {
@@ -2324,6 +2347,7 @@ module.exports = async (req, res) => {
   if (req.method === "POST") {
     let client;
     let from = "";
+    let lockKey = null;
     try {
       const body = await parseBody(req);
       console.log("Body recebido:", JSON.stringify(body).substring(0, 150));
@@ -2347,6 +2371,13 @@ module.exports = async (req, res) => {
       showTyping(msgId).catch(() => {});
 
       from = m.from;
+
+      // ── ABRIR CONEXÃO E ADQUIRIR LOCK ANTES DE QUALQUER PROCESSAMENTO ──
+      // Evita que 2 mensagens quase simultâneas do mesmo lead gerem respostas duplicadas
+      client = await getDB();
+      await initDB(client);
+      lockKey = await acquireDbLock(client, from);
+
       let txt = "";
 
       if (m.type === "text") {
@@ -2433,8 +2464,6 @@ module.exports = async (req, res) => {
       }
 
       console.log(`IN [${from}] etapa=? : ${txt}`);
-      client = await getDB();
-      await initDB(client);
       await carregarTabelaPrecos(client);
       // Carregar bloqueio de preço do banco
       const bpRes = await client.query("SELECT value FROM agent_config WHERE key='msg_bloqueio_preco'");
@@ -3093,8 +3122,8 @@ module.exports = async (req, res) => {
       console.error("ERR:", e.message, e.stack?.substring(0, 300));
       if (!res.headersSent) res.json({ ok: true });
     } finally {
+      if (client && lockKey !== null) await releaseDbLock(client, lockKey).catch(() => {});
       if (client) await client.end().catch(() => {});
-      if (from) releaseLock(from);
     }
   }
 
