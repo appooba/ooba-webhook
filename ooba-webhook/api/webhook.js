@@ -645,16 +645,11 @@ Se hesitar após 2 tentativas suas → encaminhe pra reunião com a equipe OOBA:
     } catch(e) { console.log("Erro ao injetar preços:", e.message); }
   }
 
-  // ── Injetar slots reais do Calendar quando a etapa envolver reunião ──
-  if (etapa === 'reuniao' || etapa === 'proposta' || etapa === 'fechamento') {
-    try {
-      const { texto: slotsTexto } = await buscarSlotsDisponiveis();
-      if (slotsTexto) {
-        prompt = prompt.replace("{{SLOTS_CALENDAR}}", slotsTexto);
-      }
-    } catch(e) { console.error("Slots injection:", e.message); }
-  }
-  prompt = prompt.replace("{{SLOTS_CALENDAR}}", "");
+  // ── NÃO injetar lista bruta de horários no prompt (causava poluição visual) ──
+  // O sistema (código) já envia os horários reais formatados de forma limpa
+  // (1 opção por dia) automaticamente via gerarSlotsReuniao() assim que o lead
+  // aceitar a reunião. O GPT NUNCA deve listar horários específicos sozinho.
+  prompt = prompt.replace("{{SLOTS_CALENDAR}}", "⚠️ NÃO liste horários específicos você mesmo — apenas pergunte se o lead topa marcar. O sistema envia automaticamente os horários reais disponíveis assim que ele aceitar.");
 
   if (config.tabela_precos) prompt = prompt.replace('{{TABELA_PRECOS}}', config.tabela_precos);
   if (config.tabela_precos) prompt = prompt.replace('{{TABELA_PRECOS_COMPACTA}}', config.tabela_precos.replace(/\|/g, ' ').replace(/\s+/g, ' ').trim());
@@ -3052,18 +3047,28 @@ module.exports = async (req, res) => {
 
         // ── INTERCEPTADOR DE AGENDAMENTO: se GPT pediu "qual dia/horário" → substituir por slots reais ──
         const repJuntada = partes.join(" ").toLowerCase();
-        // Só disparar slots se a etapa atual for fechamento E o GPT claramente propôs reunião
         const leadCheck = await getLead(client, from); const etapaAtualCheck = leadCheck?.etapa_funil || "abertura";
-        const gptPediuDisponibilidade = etapaAtualCheck === "fechamento" && (
-          repJuntada.includes("qual dia") || repJuntada.includes("qual horário") || 
+        const etapasReuniaoCheck = ["fechamento", "reuniao_proposta", "aguardando_reuniao", "proposta"];
+
+        // Detecta pedido de disponibilidade (fala genérica sobre agendar)
+        const pediuDia = repJuntada.includes("qual dia") || repJuntada.includes("qual horário") || 
           repJuntada.includes("qual horario") || repJuntada.includes("que dia") ||
           repJuntada.includes("quando fica") || repJuntada.includes("quando você") ||
           repJuntada.includes("quando voce") || repJuntada.includes("melhor pra você") ||
-          repJuntada.includes("melhor pra voce")
-        ) && (
-          repJuntada.includes("meet") || repJuntada.includes("reuni") || 
-          repJuntada.includes("15 min")
-        );
+          repJuntada.includes("melhor pra voce") || repJuntada.includes("vamos agendar") ||
+          repJuntada.includes("opções disponíveis") || repJuntada.includes("opcoes disponiveis") ||
+          repJuntada.includes("horários disponíveis") || repJuntada.includes("horarios disponiveis");
+        const mencionaReuniao = repJuntada.includes("meet") || repJuntada.includes("reuni") || 
+          repJuntada.includes("15 min") || repJuntada.includes("agend");
+
+        // Detecta VAZAMENTO de lista bruta de horários (defesa em profundidade) —
+        // 3+ ocorrências de "HH:MM" ou 2+ datas no formato DD/MM na mesma resposta
+        const contagemHoras = (repJuntada.match(/\d{1,2}:\d{2}/g) || []).length;
+        const contagemDatas = (repJuntada.match(/\d{1,2}\/\d{1,2}/g) || []).length;
+        const listaBrutaVazou = contagemHoras >= 3 || contagemDatas >= 2;
+
+        const gptPediuDisponibilidade = etapasReuniaoCheck.includes(etapaAtualCheck) &&
+          ((pediuDia && mencionaReuniao) || listaBrutaVazou);
 
         if (gptPediuDisponibilidade) {
           const slots = await gerarSlotsReuniao();
