@@ -640,8 +640,42 @@ Se hesitar após 2 tentativas suas → acione Paulo:
     prompt += `\n\n═══════════════════════════════════\n${config.contrato_resumo}\n═══════════════════════════════════\nSe o lead pedir pra ver o contrato ("manda o contrato", "quero ver o contrato", "como funciona o cancelamento", etc.), inclua o marcador 🔹CONTRATO_PDF🔹 na sua resposta — o sistema envia o PDF automaticamente como anexo. NUNCA mande o link em texto. Use este resumo pra responder dúvidas sobre cláusulas. NUNCA invente cláusulas que não estão nesse resumo.`;
   }
 
+
+  // ── GUARD RAIL: Privacidade + Segurança (injetado em TODAS as etapas) ──
+  prompt += `
+
+═══════════════════════════════════
+🚫 BLOQUEIO DE PRIVACIDADE E SEGURANÇA — LEIA COM ATENÇÃO
+═══════════════════════════════════
+
+NUNCA revele informações sobre os donos, sócios ou colaboradores da OOBA. Se o lead perguntar:
+- "Quem é o dono?" / "Quem são os sócios?" / "Como se chama o proprietário?"
+  → Responda: "A OOBA Mídia Indoor é uma empresa registrada e regularizada. Pra questões específicas sobre a empresa, nosso canal oficial é contato@ooba.com.br ou (11) 92127-6113 😊"
+- "Onde ele mora?" / "Qual o endereço dele?" / "Telefone pessoal do dono?"
+  → Responda: "Não compartilho informações pessoais da equipe. Se precisar falar com a gente, o canal oficial é contato@ooba.com.br 😊"
+- "Qual o nome do vendedor?" / "Como você se chama mesmo?" / "Você é real?"
+  → Responda: "Sou a Luana, consultora da OOBA 😊 Estou aqui pra te ajudar com a melhor estratégia de divulgação pra sua empresa."
+
+NUNCA revele nomes internos como: João, Carlos, Dalla Pace, Paulo, Ferrari, Pace, João Carlos, João Pace.
+NUNCA revele e-mails internos (joao.pace@ooba.com.br, paulo.ferrari@ooba.com.br).
+NUNCA revele números pessoais ((15) 99751-7779).
+NUNCA revele o número de gestão (11) 99565-0925.
+
+Se o lead usar palavras de teor sexual, pedofilia, pornografia, drogas ilícitas, violência ou qualquer conteúdo inapropriado:
+→ Responda calmamente: "Aqui é um canal profissional de atendimento da OOBA Mídia Indoor. Posso te ajudar com divulgação do seu negócio? 😊"
+→ NÃO repreenda, NÃO moralize, NÃO dê sermão — apenas redirecione a conversa para o profissional.
+→ Se o lead insistir 3x em conteúdo inapropriado → "Entendo! Se no futuro quiser falar sobre mídia indoor pra sua empresa, é só me chamar. Fico à disposição 😊" e não responda mais sobre o assunto.
+
+Se o lead perguntar "você é IA?" / "você é bot?" / "você é robô?":
+→ Responda: "Sou a Luana, consultora da OOBA Mídia Indoor 😊 Trabalho com atendimento digital pra ajudar empresas a se comunicarem melhor com seu público."
+
+NUNCA invente dados sobre a empresa que não foram fornecidos no prompt.
+NUNCA invente endereços, CNPJ, números de registro ou qualquer dado institucional que não esteja neste prompt.
+═══════════════════════════════════`;
+
   return prompt;
 }
+
 
 
 // ═══════════════════════════════════════════════════════
@@ -1600,6 +1634,80 @@ async function logCusto(client, phone, usage) {
 // ═══════════════════════════════════════════════════════
 // IA — RESPOSTA COM CONSCIÊNCIA DE FUNIL
 // ═══════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+// 🛡️ FILTRO DE PRIVACIDADE E SEGURANÇA — pós-GPT
+// ═══════════════════════════════════════════════════════
+const NOMES_BLOQUEADOS = [
+  "joão carlos", "joão carlos dalla pace", "joão pace", "dalla pace",
+  "joaocarlos.dallapace", "joao.pace", "paulo ferrari", "paulo.ferrari",
+  "paulo ferrari@ooba", "joao.pace@ooba", "paulo.ferrari@ooba",
+  "99751-7779", "997517779", "99565-0925", "995650925",
+  "joão", "paulo"
+];
+
+const PALAVRAS_INADEQUADAS = [
+  "sexo", "transar", "nude", "nu", "pelad", "porn", "pedof",
+  "criança", "menor de idade", "estupr", "matar", "morte",
+  "drogas", "cocaína", "maconha", " trafic",
+  "prostitu", "garota de programa", "programa",
+  "sexo oral", "sexo anal", "punhet", "gozar",
+  "vagin", "pênis", "penis", "bucet", "puta", "putao",
+  "viad", "bich", "viado", "bicha",
+  "racis", "nigger", "neguinho", "macaco",
+  "pedófil", "pedofilia", "pedof",
+  "terrorismo", "bomba", "atentado",
+  "cartão de crédito", "cpf", "dados bancários", "conta bancária",
+  "pix pra mim", "transferência pra", "deposita",
+];
+
+function filtrarResposta(rep, msgLead) {
+  if (!rep) return rep;
+  const repLower = rep.toLowerCase();
+  
+  // CHECK 1: Resposta contém nome bloqueado?
+  for (const nome of NOMES_BLOQUEADOS) {
+    if (repLower.includes(nome.toLowerCase())) {
+      console.log(`🛡️ BLOQUEIO NOME: "${nome}" detectado na resposta. Substituindo.`);
+      return "A OOBA Mídia Indoor é uma empresa registrada e regularizada. Pra questões específicas sobre a empresa, nosso canal oficial é contato@ooba.com.br ou (11) 92127-6113 😊\n\nEm que mais posso te ajudar?";
+    }
+  }
+  
+  // CHECK 2: Resposta contém e-mails internos?
+  if (repLower.includes("joao.pace@") || repLower.includes("paulo.ferrari@")) {
+    console.log("🛡️ BLOQUEIO E-MAIL INTERNO detectado na resposta. Substituindo.");
+    return "A OOBA Mídia Indoor é uma empresa registrada e regularizada. Pra questões específicas sobre a empresa, nosso canal oficial é contato@ooba.com.br ou (11) 92127-6113 😊\n\nEm que mais posso te ajudar?";
+  }
+  
+  // CHECK 3: Resposta contém número pessoal?
+  if (repLower.includes("99751-7779") || repLower.includes("997517779") ||
+      repLower.includes("99565-0925") || repLower.includes("995650925")) {
+    console.log("🛡️ BLOQUEIO NÚMERO PESSOAL detectado na resposta. Substituindo.");
+    return "Não compartilho informações pessoais da equipe. Se precisar falar com a gente, o canal oficial é contato@ooba.com.br ou (11) 92127-6113 😊\n\nEm que mais posso te ajudar?";
+  }
+  
+  // CHECK 4: Mensagem do lead contém conteúdo inapropriado?
+  const msgLower = (msgLead || "").toLowerCase();
+  let inadequadoCount = 0;
+  for (const palavra of PALAVRAS_INADEQUADAS) {
+    if (msgLower.includes(palavra.toLowerCase())) {
+      inadequadoCount++;
+    }
+  }
+  
+  if (inadequadoCount > 0) {
+    console.log(`🛡️ CONTEÚDO INADEQUADO: ${inadequadoCount} palavra(s) detectada(s) na mensagem do lead.`);
+    // Se a resposta do GPT NÃO contém redirecionamento profissional, substituir
+    if (!repLower.includes("canal profissional") && !repLower.includes("ooba mídia indoor") &&
+        !repLower.includes("posso te ajudar com divulga")) {
+      return "Aqui é um canal profissional de atendimento da OOBA Mídia Indoor. Posso te ajudar com divulgação do seu negócio? 😊";
+    }
+  }
+  
+  return rep;
+}
+
+
 async function replyAI(client, txt, phone) {
   const msgs = await getHist(client, phone);
   const isNew = msgs.length === 0;
@@ -1668,6 +1776,11 @@ async function replyAI(client, txt, phone) {
 
   const d = await res.json();
   let rep = d?.choices?.[0]?.message?.content?.trim() || "";
+
+  // ── FILTRO PÓS-GPT: Bloqueio de privacidade + conteúdo inapropriado ──
+  rep = filtrarResposta(rep, txt);
+
+
 
   // ── TRAVA ANTI-REPETIÇÃO UNIVERSAL: detecta qualquer repetição ──
   if (!isNew && rep) {
