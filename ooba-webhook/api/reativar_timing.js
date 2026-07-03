@@ -72,8 +72,8 @@ module.exports = async (req, res) => {
       const nome = lead.nome ? lead.nome.split(" ")[0] : "tudo bem";
       const timingTxt = lead.timing_anunciar || "";
       
-      // Usar template ooba_consulta_marketing (aprovado) para reabrir janela 24h
-      const ok = await sendTemplate(lead.phone, "ooba_consulta_marketing", [nome]);
+      // Usar template ooba_reativacao_followup (aprovado) para reabrir janela 24h
+      const ok = await sendTemplate(lead.phone, "ooba_reativacao_followup", [nome]);
 
       if (ok) {
         // Marcar como reativado e atualizar status
