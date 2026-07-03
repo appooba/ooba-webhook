@@ -4,6 +4,18 @@
 // Qualquer alteração aqui afeta o catálogo inteiro enviado ao lead
 // Aprovado em: 13/06/2026
 // ══════════════════════════════════════════════════════════════
+
+// Lock anti-processamento concorrente por telefone
+const _processingLocks = new Map();
+function acquireLock(phone) {
+  if (_processingLocks.has(phone)) return false;
+  _processingLocks.set(phone, Date.now());
+  return true;
+}
+function releaseLock(phone) {
+  _processingLocks.delete(phone);
+}
+
 async function getTelasDisponiveis(negocio, cidade) {
   // Versão data-driven: lê telas e conflitos do banco (Neon Postgres)
   // Mudou tela? INSERT no banco. Nova regra de conflito? INSERT. Zero deploy.
