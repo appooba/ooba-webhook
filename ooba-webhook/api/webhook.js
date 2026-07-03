@@ -1662,36 +1662,10 @@ function detectarPerguntaPreco(txt) {
     ];
   }
 
-  // ── CASO 2: Lead perguntou preço sem especificar pontos → tabela completa ──
+  // ── CASO 2: Lead perguntou preço sem especificar pontos → enviar PDF da tabela ──
   return [
-    `📅 *Plano Mensal* (sem fidelidade):
-
-• 1 ponto → R$ 400/mês
-• 2 pontos → R$ 550/mês
-• 3 pontos → R$ 650/mês
-• 4 pontos → R$ 750/mês
-• 5 pontos → R$ 850/mês
-• 6 pontos → R$ 950/mês
-• 7 pontos → R$ 1.050/mês
-• 8 pontos → R$ 1.150/mês
-• 9 pontos → R$ 1.250/mês
-• 10 pontos → R$ 1.350/mês`,
-
-    `📆 *Plano Anual* (22% de desconto):
-
-• 1 ponto → R$ 200/mês
-• 2 pontos → R$ 450/mês
-• 3 pontos → R$ 550/mês
-• 4 pontos → R$ 650/mês
-• 5 pontos → R$ 750/mês ⭐
-• 6 pontos → R$ 850/mês ⭐
-• 7 pontos → R$ 950/mês ⭐
-• 8 pontos → R$ 1.050/mês ⭐
-• 9 pontos → R$ 1.150/mês ⭐
-• 10 pontos → R$ 1.250/mês ⭐
-
-⭐ A partir de 5 pontos no anual: 1º vídeo grátis + 2 vídeos em carrossel 🎯`,
-
+    `Segue nossa tabela de preços completa 👇`,
+    "🔹TABELA_PRECOS_PDF🔹",
     `Quantos pontos você está pensando? Assim calculo o valor exato pra você 😊`
   ];
 }
@@ -2665,19 +2639,31 @@ module.exports = async (req, res) => {
       // ── BYPASS DE PREÇOS: não passa pelo GPT, manda direto ──
       const respostasPreco = detectarPerguntaPreco(txt);
       if (respostasPreco) {
-        // PROTEÇÃO ANTI-LOOP: se a última msg do bot já foi tabela de preços, não repetir
+        // PROTEÇÃO ANTI-LOOP: se a última msg do bot já foi tabela de preços (texto OU PDF), não repetir
         const histPrecoCheck = await getHist(client, from);
-        const ultimasBotPreco = histPrecoCheck.filter(m => m.role === "assistant").slice(-2);
+        const ultimasBotPreco = histPrecoCheck.filter(m => m.role === "assistant").slice(-3);
         const jaMandouTabela = ultimasBotPreco.some(m => 
-          (m.content || "").includes("1 ponto") && (m.content || "").includes("10 pontos"));
+          (m.content || "").includes("1 ponto") && (m.content || "").includes("10 pontos") ||
+          (m.content || "").includes("Tabela de preços PDF enviada"));
         if (jaMandouTabela) {
           console.log(`BYPASS PREÇO BLOQUEADO [${from}]: já mandou tabela recentemente, delegando pro GPT`);
         } else {
+          const historicoFinal = [];
           for (let i = 0; i < respostasPreco.length; i++) {
-            await sendMsg(from, respostasPreco[i]);
+            const parteAtual = respostasPreco[i];
+            if (parteAtual === "🔹TABELA_PRECOS_PDF🔹") {
+              // Enviar a tabela de preços como PDF anexo (não como link/texto)
+              const linkTabelaPdf = await getConfig(client, "link_tabela_precos_pdf") || "https://media.base44.com/files/public/69f645345c37a4db77e0e07d/918c29047_tabela_precos_ooba.pdf";
+              await sendDocument(from, linkTabelaPdf, "Tabela de Preços OOBA 💰", "Tabela-de-Precos-OOBA.pdf");
+              historicoFinal.push("[Tabela de preços PDF enviada como documento anexo]");
+              console.log(`TABELA PREÇOS PDF ENVIADA [${from}]: documento anexado`);
+            } else {
+              await sendMsg(from, parteAtual);
+              historicoFinal.push(parteAtual);
+            }
             if (i < respostasPreco.length - 1) await new Promise(r => setTimeout(r, 1500));
           }
-          await salvarMsgHistorico(client, from, txt, respostasPreco.join("\n\n---MSG---\n\n"));
+          await salvarMsgHistorico(client, from, txt, historicoFinal.join("\n\n---MSG---\n\n"));
           return;
         }
       }
