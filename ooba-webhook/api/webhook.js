@@ -1989,9 +1989,6 @@ async function replyAI(client, txt, phone) {
   }
 
   if (rep) {
-    msgs.push({ role: "assistant", content: rep });
-    await saveHist(client, phone, msgs);
-
     // Registrar custo da mensagem
     await logCusto(client, phone, d?.usage);
 
