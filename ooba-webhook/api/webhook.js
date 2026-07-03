@@ -501,8 +501,8 @@ NÃO peça permissão — já envie:
 VOCÊ ESTÁ NA ETAPA: PROPOSTA/VALORES
 
 TABELA DE PREÇOS (use para calcular):
-Mensal: 1pt=R$400 | 2pt=R$550 | 3pt=R$650 | 4pt=R$750 | 5pt=R$850 | 6pt=R$950 | 7pt=R$1.050 | 8pt=R$1.150 | 9pt=R$1.250 | 10pt=R$1.350
-Anual (-22%): 1pt=R$200 | 2pt=R$450 | 3pt=R$550 | 4pt=R$650 | 5pt=R$750 | 6pt=R$850 | 7pt=R$950 | 8pt=R$1.050 | 9pt=R$1.150 | 10pt=R$1.250
+{{TABELA_PRECOS_MENSAL}}
+{{TABELA_PRECOS_ANUAL}}
 
 REGRA CRÍTICA DE CÁLCULO:
 - Se o lead escolheu telas específicas com pontos (ex: "2 na Sueli e 2 no Bonfá"), SOME O TOTAL.
@@ -520,13 +520,11 @@ Qual você prefere? Já preparo o contrato 😊"
 COMO APRESENTAR se o lead ainda não definiu o total (mostrar tabela resumida):
 MSG 1:
 "📅 *Plano Mensal* (sem fidelidade):
-• 1 ponto → R$ 400/mês | 2 pontos → R$ 550 | 3 pontos → R$ 650
-• 4 pontos → R$ 750 | 5 pontos → R$ 850 | 10 pontos → R$ 1.350/mês"
+{{TABELA_PRECOS_MENSAL_FORMATADA}}"
 ---MSG---
 MSG 2:
 "📆 *Plano Anual* (22% de desconto):
-• 1 ponto → R$ 200/mês | 2 pontos → R$ 450 | 3 pontos → R$ 550
-• 4 pontos → R$ 650 | 5 pontos → R$ 750 ✅ vídeo grátis | 10 pontos → R$ 1.250/mês ✅"
+{{TABELA_PRECOS_ANUAL_FORMATADA}}"
 ---MSG---
 MSG 3:
 "Com quantos pontos você quer começar? Já calculo exatamente pra você 😊"
@@ -580,6 +578,25 @@ Se hesitar após 2 tentativas suas → acione Paulo:
   // ── Injetar configuração do banco (preços, bônus, links, contrato, etc.) ──
   const config = await getAllConfig();
   let prompt = BASE + instrucaoEtapa;
+  
+  // Injetar tabela de preços do banco nos placeholders
+  const precosJson = await getConfig(client, "tabela_precos_json");
+  if (precosJson) {
+    try {
+      const precos = JSON.parse(precosJson);
+      // Formato compacto (para referência do GPT)
+      const mensalCompact = "Mensal: " + Object.entries(precos.mensal).map(([p,v]) => `${p}pt=R$${v}`).join(" | ");
+      const anualCompact = "Anual (-22%): " + Object.entries(precos.anual).map(([p,v]) => `${p}pt=R$${v}`).join(" | ");
+      // Formato formatado (para exibição)
+      const mensalFmt = "• 1 ponto → R$ " + precos.mensal["1"] + "/mês | 2 pontos → R$ " + precos.mensal["2"] + " | 3 pontos → R$ " + precos.mensal["3"] + "\n• 4 pontos → R$ " + precos.mensal["4"] + " | 5 pontos → R$ " + precos.mensal["5"] + " | 10 pontos → R$ " + precos.mensal["10"] + "/mês";
+      const anualFmt = "• 1 ponto → R$ " + precos.anual["1"] + "/mês | 2 pontos → R$ " + precos.anual["2"] + " | 3 pontos → R$ " + precos.anual["3"] + "\n• 4 pontos → R$ " + precos.anual["4"] + " | 5 pontos → R$ " + precos.anual["5"] + " ✅ vídeo grátis | 10 pontos → R$ " + precos.anual["10"] + "/mês ✅";
+      
+      prompt = prompt.split("{{TABELA_PRECOS_MENSAL}}").join(mensalCompact)
+                         .split("{{TABELA_PRECOS_ANUAL}}").join(anualCompact)
+                         .split("{{TABELA_PRECOS_MENSAL_FORMATADA}}").join(mensalFmt)
+                         .split("{{TABELA_PRECOS_ANUAL_FORMATADA}}").join(anualFmt);
+    } catch(e) { console.log("Erro ao injetar preços:", e.message); }
+  }
 
   // ── Injetar slots reais do Calendar quando a etapa envolver reunião ──
   if (etapa === 'reuniao' || etapa === 'proposta' || etapa === 'fechamento') {
