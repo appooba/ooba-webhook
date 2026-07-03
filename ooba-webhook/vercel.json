@@ -1,55 +1,19 @@
 {
-  "version": 2,
-  "routes": [
-    {
-      "src": "/webhook",
-      "dest": "/api/webhook.js"
-    },
-    {
-      "src": "/api/aprender",
-      "dest": "/api/aprender.js"
-    },
-    {
-      "src": "/api/followup",
-      "dest": "/api/followup.js"
-    },
-    {
-      "src": "/api/followup_funil",
-      "dest": "/api/followup_funil.js"
-    },
-    {
-      "src": "/api/reativar",
-      "dest": "/api/reativar.js"
-    },
-    {
-      "src": "/api/registrar_prospeccao",
-      "dest": "/api/registrar_prospeccao.js"
-    },
-    {
-      "src": "/api/importar",
-      "dest": "/api/importar.js"
-    },
-    {
-      "src": "/api/prospectar",
-      "dest": "/api/prospectar.js"
-    },
-    {
-      "src": "/api/gerente_pipeline",
-      "dest": "/api/gerente_pipeline.js"
-    }
+  "rewrites": [
+    { "source": "/webhook", "destination": "/api/webhook" },
+    { "source": "/api/aprender", "destination": "/api/aprender" },
+    { "source": "/api/followup", "destination": "/api/followup" },
+    { "source": "/api/followup_funil", "destination": "/api/followup_funil" },
+    { "source": "/api/reativar", "destination": "/api/reativar" },
+    { "source": "/api/registrar_prospeccao", "destination": "/api/registrar_prospeccao" },
+    { "source": "/api/importar", "destination": "/api/importar" },
+    { "source": "/api/prospectar", "destination": "/api/prospectar" },
+    { "source": "/api/gerente_pipeline", "destination": "/api/gerente_pipeline" }
   ],
   "functions": {
-    "api/webhook.js": {
-      "maxDuration": 60
-    },
-    "api/aprender.js": {
-      "maxDuration": 60
-    },
-    "api/gerente_pipeline.js": {
-      "maxDuration": 60
-    },
-    "api/prospectar.js": {
-      "maxDuration": 60
-    }
+    "api/webhook.js": { "maxDuration": 60 },
+    "api/aprender.js": { "maxDuration": 60 },
+    "api/gerente_pipeline.js": { "maxDuration": 60 },
+    "api/prospectar.js": { "maxDuration": 60 }
   }
 }
