@@ -2477,6 +2477,30 @@ module.exports = async (req, res) => {
 
       console.log(`IN [${from}] etapa=? : ${txt}`);
 
+      // ── ANTI-DUPLICATA: se o lead mandou a mesma mensagem consecutiva, ignorar ──
+      // Comportamento: o lead pode mandar a mesma msg 2-3x por erro (clique duplo,
+      // rede lenta, WhatsApp reenviando). A Luana NÃO deve responder a cada duplicata.
+      // Se for a 2ª+ msg idêntica seguida, simplesmente ignorar (não processar GPT).
+      try {
+        const histDup = await client.query("SELECT messages FROM conversations WHERE phone=$1", [from]);
+        if (histDup.rows.length > 0) {
+          const allMsgs = typeof histDup.rows[0].messages === 'string'
+            ? JSON.parse(histDup.rows[0].messages || '[]')
+            : (histDup.rows[0].messages || []);
+          const ultimasUser = allMsgs.filter(m => m.role === 'user').slice(-3);
+          const txtNormDup = txt.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          let duplicatas = 0;
+          for (const m of ultimasUser) {
+            const mNorm = (m.content || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            if (mNorm === txtNormDup) duplicatas++;
+          }
+          if (duplicatas >= 1) {
+            console.log(`DUPLICATA DETECTADA [${from}]: "${txt}" já foi enviado ${duplicatas}x. Ignorando.`);
+            return res.status(200).send("OK");
+          }
+        }
+      } catch(eDup) { console.error("Anti-duplicata erro:", eDup.message); }
+
       // ── EXTRAÇÃO AUTOMÁTICA DE E-MAIL E PLANO DO LEAD ──
       try {
         const emailDetectado = extrairEmail(txt);
