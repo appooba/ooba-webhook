@@ -613,7 +613,7 @@ Quando fizer sentido propor reunião:
 
 PASSO 4 — Se o lead aceitar a reunião → aguarde o sistema enviar os slots automaticamente.
 PASSO 4 — Se o lead recusar a reunião também → encerre com elegância:
-"Sem problemas! Se mudar de ideia, é só me chamar 😊 Qualquer novidade eu te aviso."
+"Entendo perfeitamente! 😊 Me conta uma coisa — quando seria o melhor momento pra você começar a anunciar? Daqui a 1 mês, 3 meses, ou mais pro final do ano? Assim eu sei quando te chamar de novo."
 
 Se hesitar após 2 tentativas suas → encaminhe pra reunião com a equipe OOBA:
 {{SLOTS_CALENDAR}}
@@ -1077,8 +1077,8 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
         ];
         return opcoesRetencao[Math.floor(Math.random() * opcoesRetencao.length)];
       }
-      // Se já tentou retenção e o lead insistiu → deixar ir
-      return respostaBot;
+      // Se já tentou retenção e o lead insistiu → entender timing antes de encerrar
+      return `${oi ? oi + ", " : ""}entendo, sem problema! 😊 Só pra eu saber quando é o melhor momento pra você — você pensa em investir em divulgação daqui a quanto tempo? Tipo 1 mês, 3 meses, ou mais pro final do ano?`;
     }
     // Buscar slots reais do Google Calendar
     let slotsReais = [];
@@ -1133,12 +1133,12 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
     return `${prefixo}${oi ? oi + ", " : ""}Olha, a melhor forma de resolver isso é uma conversa rápida — 15 minutinhos pelo Google Meet com um especialista da equipe OOBA. Sem compromisso, e você sai sabendo exatamente se faz sentido ou não. Topa? 📅`;
   }
 
-  // 4+ hesitações: aceitar e deixar porta aberta
-  const opcoes = [
-    `${oi ? oi + ", " : ""}Tudo bem! Se mudar de ideia, é só me chamar 😊`,
-    `Sem problema! Fico à disposição — se quiser conversar depois, é só me chamar 😊`
+  // 4+ hesitações: entender timing do lead ao invés de desistir
+  const opcoesTiming = [
+    `${oi ? oi + ", " : ""}Entendo! Sem pressa 😊 Me conta — quando seria o momento ideal pra você começar? Daqui a 1 mês, 3 meses, ou mais pro final do ano?`,
+    `${oi ? oi + ", " : ""}Tudo bem! Pra eu saber quando te chamar de novo — você pensa em investir em divulgação daqui quanto tempo? 1 mês, 3 meses, ou mais pro fim do ano?`
   ];
-  return prefixo + opcoes[Math.floor(Math.random() * opcoes.length)];
+  return prefixo + opcoesTiming[Math.floor(Math.random() * opcoesTiming.length)];
 }
 
 // ═══════════════════════════════════════════════════════
