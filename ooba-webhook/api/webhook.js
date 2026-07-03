@@ -367,7 +367,7 @@ async function getSysPrompt(client) {
 // ═══════════════════════════════════════════════════════
 // INSTRUÇÕES DE FUNIL POR ETAPA
 // ═══════════════════════════════════════════════════════
-async function getSysWithFunil(etapa, leadData, patches = [], insights = []) {
+async function getSysWithFunil(client, etapa, leadData, patches = [], insights = []) {
   const nome = leadData.nome ? leadData.nome : "";
   const negocio = leadData.negocio ? leadData.negocio : "";
   const cidade = leadData.cidade || null;
@@ -1635,7 +1635,7 @@ async function replyAI(client, txt, phone) {
     insights = insightResult.rows;
   } catch(e) { console.error("Erro ao buscar aprendizado:", e.message); }
 
-  const sys = await getSysWithFunil(etapa, lead, patches, insights);
+  const sys = await getSysWithFunil(client, etapa, lead, patches, insights);
 
   msgs.push({ role: "user", content: txt });
 
