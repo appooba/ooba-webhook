@@ -980,8 +980,28 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
 
   console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: forte=${ehSaidaForte}, fraca=${ehSaidaFraca}, orcamento=${ehObjecaoOrcamento}, hesitacoes=${hesitacoesPrevias}`);
 
-  // Remover encerramento passivo do GPT
-  let novaResposta = respostaBot;
+  // Detectar se a resposta do GPT é puramente passiva
+  // Se for, descartar completamente e usar apenas a resposta de escalada
+  const respostasPassivas = [
+    "pense com calma", "pense à vontade", "fique à vontade", "fique a vontade",
+    "sem pressa", "sem problemas", "compreendo", "entendido",
+    "estou aqui para ajudar", "estou a disposicao", "estou à disposição",
+    "é só me chamar", "e so me chamar", "qualquer coisa é só",
+    "se mudar de ideia", "depois eu falo", "te aviso",
+    "tenha um ótimo dia", "tenha um bom dia", "respeito sua decisão",
+    "de nada", "fico feliz", "que bom", "ótimo! fico"
+  ];
+  const ehTotalmentePassiva = respostasPassivas.some(p => respostaLower.includes(p)) &&
+    !respostaLower.includes("reuni") && !respostaLower.includes("google meet") &&
+    !respostaLower.includes("15 min") && !respostaLower.includes("topa") &&
+    !respostaLower.includes("qual dia") && !respostaLower.includes("qual horario") &&
+    !respostaLower.includes("1 ponto") && !respostaLower.includes("plano anual") &&
+    !respostaLower.includes("r$ 200") && !respostaLower.includes("começar com");
+
+  // Se a resposta é puramente passiva, descartar ela inteira
+  let novaResposta = ehTotalmentePassiva ? "" : respostaBot;
+
+  // Também tentar limpar padrões de fim passivo (backup)
   const padroesFim = [
     /\s*[Oo]brigad[oa] pelo seu tempo[!.,]?\s*$/,
     /\s*[Ss]ucesso[!.,]?\s*$/,
@@ -2125,7 +2145,15 @@ async function replyAI(client, txt, phone) {
 
     // ── INTERCEPTADOR DE SAÍDA + OBJEÇÃO DE ORÇAMENTO (prioridade máxima) ──
     // Roda SEMPRE — antes de qualquer outra lógica — para não deixar o lead escapar
-    rep = interceptarSaida(txt, rep, lead, msgs);
+    try {
+      const antesIntercept = rep;
+      rep = interceptarSaida(txt, rep, lead, msgs);
+      if (rep !== antesIntercept) {
+        console.log(`INTERCEPTAR SAÍDA [${phone}]: resposta substituída (era passiva)`);
+      }
+    } catch(eIntercept) {
+      console.error(`ERRO interceptarSaida [${phone}]:`, eIntercept.message);
+    }
 
     // ── INTERCEPTADOR DE RETOMADA PROATIVA ──
     // Se o lead já tem telas/pontos escolhidos e manda algo curto/neutro/vago,
@@ -2571,9 +2599,19 @@ module.exports = async (req, res) => {
             const mNorm = (m.content || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             if (mNorm === txtNormDup) duplicatas++;
           }
-          if (duplicatas >= 1) {
+          // Exceção: hesitações repetidas ("vou pensar", "deixa pra depois") NÃO são
+          // duplicatas técnicas — são o lead resistindo. Cada uma deve ser processada
+          // para o interceptarSaida escalar a resposta (investigar → resolver → reunião).
+          const txtNormH = txtNormDup;
+          const ehHesitacaoRepetida = ["vou pensar","deixa pra depois","vou ver","depois eu falo",
+            "nao quero","nao tenho interesse","deixa pra la","fica pra depois"].some(s => txtNormH.includes(s));
+
+          if (duplicatas >= 1 && !ehHesitacaoRepetida) {
             console.log(`DUPLICATA DETECTADA [${from}]: "${txt}" já foi enviado ${duplicatas}x. Ignorando.`);
             return res.status(200).send("OK");
+          }
+          if (duplicatas >= 1 && ehHesitacaoRepetida) {
+            console.log(`HESITAÇÃO REPETIDA [${from}]: "${txt}" ${duplicatas}x — processando para escalada`);
           }
         }
       } catch(eDup) { console.error("Anti-duplicata erro:", eDup.message); }
