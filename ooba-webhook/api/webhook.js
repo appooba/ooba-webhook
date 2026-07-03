@@ -1652,7 +1652,7 @@ async function buscarSlotsDisponiveis() {
 // ══════════════════════════════════════════════════════════════
 // VALIDAR SE O HORÁRIO ESCOLHIDO É VÁLIDO (não é fim de semana)
 // ══════════════════════════════════════════════════════════════
-function validarHorarioAgendamento(data, hora) {
+async function validarHorarioAgendamento(data, hora, client) {
   // Aceitar formatos: DD/MM/YYYY, DD/MM, "amanhã", "amanha", dias da semana
   const diasSemana = {
     "segunda": 1, "seg": 1, "terça": 2, "terca": 2, "ter": 2,
@@ -1661,35 +1661,97 @@ function validarHorarioAgendamento(data, hora) {
   };
   
   const dataLower = (data || "").toLowerCase().trim();
+  let dataISO = null;
   
-  // Verificar dia da semana explicitamente
-  for (const [palavra, dia] of Object.entries(diasSemana)) {
-    if (dataLower.includes(palavra)) {
-      if (dia === 0 || dia === 6) {
-        return { valido: false, motivo: "Não trabalhamos aos sábados e domingos. Por favor, escolha um dia entre segunda e sexta." };
-      }
-    }
-  }
-  
-  // Verificar data no formato DD/MM
+  // Resolver data para ISO (YYYY-MM-DD)
   const matchDMY = dataLower.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
   if (matchDMY) {
     const day = parseInt(matchDMY[1]);
-    const month = parseInt(matchDMY[2]) - 1;
+    const month = parseInt(matchDMY[2]);
     const year = matchDMY[3] ? (parseInt(matchDMY[3]) < 100 ? 2000 + parseInt(matchDMY[3]) : parseInt(matchDMY[3])) : new Date().getFullYear();
-    const dateObj = new Date(year, month, day);
+    dataISO = `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    const dateObj = new Date(year, month - 1, day);
     const dayOfWeek = dateObj.getDay();
     if (dayOfWeek === 6 || dayOfWeek === 0) {
       return { valido: false, motivo: "Não trabalhamos aos sábados e domingos. Por favor, escolha um dia entre segunda e sexta." };
+    }
+  } else {
+    // Tentar resolver nome do dia ou "amanhã"
+    const agora = new Date();
+    const offsetMs = -3 * 60 * 60 * 1000;
+    const agoraBR = new Date(Date.now() + offsetMs);
+    
+    if (dataLower.includes("amanha") || dataLower.includes("amanhã")) {
+      const amanha = new Date(agoraBR);
+      amanha.setDate(amanha.getDate() + 1);
+      dataISO = amanha.getUTCFullYear() + "-" + String(amanha.getUTCMonth()+1).padStart(2,"0") + "-" + String(amanha.getUTCDate()).padStart(2,"0");
+    } else {
+      for (const [palavra, dia] of Object.entries(diasSemana)) {
+        if (dataLower.includes(palavra)) {
+          if (dia === 0 || dia === 6) {
+            return { valido: false, motivo: "Não trabalhamos aos sábados e domingos. Por favor, escolha um dia entre segunda e sexta." };
+          }
+          // Próxima ocorrência desse dia da semana
+          const proximo = new Date(agoraBR);
+          let diff = (dia - proximo.getUTCDay() + 7) % 7;
+          if (diff === 0) diff = 7; // próxima semana, não hoje
+          proximo.setDate(proximo.getDate() + diff);
+          dataISO = proximo.getUTCFullYear() + "-" + String(proximo.getUTCMonth()+1).padStart(2,"0") + "-" + String(proximo.getUTCDate()).padStart(2,"0");
+          break;
+        }
+      }
     }
   }
   
   // Verificar horário (deve estar entre 9h e 18h)
   const matchHora = (hora || "").match(/(\d{1,2})[:h]/i);
+  let horaNum = null;
   if (matchHora) {
-    const h = parseInt(matchHora[1]);
-    if (h < 9 || h >= 18) {
+    horaNum = parseInt(matchHora[1]);
+    if (horaNum < 9 || horaNum >= 18) {
       return { valido: false, motivo: "Nosso horário de atendimento é de segunda a sexta, das 9h às 18h." };
+    }
+  }
+  
+  // ── CHECK EM TEMPO REAL NO GOOGLE CALENDAR ──
+  if (dataISO && horaNum !== null) {
+    try {
+      const base44ApiKey = process.env.BASE44_API_KEY;
+      const tokenRes = await fetch("https://api.base44.com/api/apps/69f645345c37a4db77e0e07d/connectors/googlecalendar/token", {
+        headers: { "x-api-key": base44ApiKey }
+      });
+      if (tokenRes.ok) {
+        const tokenData = await tokenRes.json();
+        const gcToken = tokenData.access_token || tokenData.token || tokenData.accessToken;
+        
+        if (gcToken) {
+          const horaFmt = String(horaNum).padStart(2,"0") + ":00";
+          const timeMin = `${dataISO}T${horaFmt}:00-03:00`;
+          const timeMax = `${dataISO}T${String(horaNum + 1).padStart(2,"0")}:00:00-03:00`;
+          
+          const gcUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true`;
+          const gcRes = await fetch(gcUrl, { headers: { Authorization: `Bearer ${gcToken}` } });
+          
+          if (gcRes.ok) {
+            const gcData = await gcRes.json();
+            const conflitos = (gcData.items || []).filter(ev => 
+              !ev.summary?.toLowerCase().includes("cancelad") && ev.status !== "cancelled"
+            );
+            if (conflitos.length > 0) {
+              console.log(`CALENDAR CONFLITO: ${dataISO} ${horaFmt} já tem ${conflitos.length} evento(s)`);
+              return { 
+                valido: false, 
+                motivo: `Esse horário acabou de ser preenchido 😅 Deixa eu te mandar outras opções disponíveis.`,
+                gerarAlternativas: true 
+              };
+            }
+            console.log(`CALENDAR OK: ${dataISO} ${horaFmt} está livre`);
+          }
+        }
+      }
+    } catch(e) {
+      console.error("Calendar check erro:", e.message);
+      // Se não conseguir checar, permitir (melhor esforço)
     }
   }
   
@@ -1746,12 +1808,25 @@ async function processarAgendamento(client, rep, phone) {
   params.telefone = params.telefone || phone;
 
   // ── VALIDAR: não permitir sábado/domingo nem fora do horário comercial ──
-  const validacao = validarHorarioAgendamento(params.data, params.hora);
+  // AGORA TAMBÉM CHECA GOOGLE CALENDAR EM TEMPO REAL
+  const validacao = await validarHorarioAgendamento(params.data, params.hora, client);
   if (!validacao.valido) {
     console.log("AGENDAMENTO BLOQUEADO:", validacao.motivo);
-    // Remover o marcador e retornar mensagem de correção
+    // Remover o marcador
     rep = rep.replace(/\[AGENDAR_REUNIAO:[^\]]+\]/g, "");
-    rep += `\n\n⚠️ ${validacao.motivo}`;
+    
+    // Se o horário já foi preenchido, gerar alternativas reais do Calendar
+    if (validacao.gerarAlternativas) {
+      const slotsAlt = await gerarSlotsReuniao();
+      if (slotsAlt.length > 0) {
+        const slotsTxt = slotsAlt.map(s => `📅 *${s.nome}, ${s.data}* às ${s.hora}`).join("\n");
+        rep += `\n\n${validacao.motivo}\n\n${slotsTxt}\n\nQual desses funciona pra você?`;
+      } else {
+        rep += `\n\n⚠️ ${validacao.motivo}\n\nVocê poderia me dizer outro dia e horário que funciona pra você?`;
+      }
+    } else {
+      rep += `\n\n⚠️ ${validacao.motivo}`;
+    }
     return rep;
   }
 
