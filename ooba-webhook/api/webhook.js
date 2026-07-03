@@ -1964,6 +1964,7 @@ async function replyAI(client, txt, phone) {
       ];
 
       const ehObjecaoOrcamento = padroesOrcamento.some(p => txtObj.includes(p));
+      console.log(`ORCAMENTO DEBUG [${phone}]: txtObj="${txtObj.substring(0,60)}" | etapaObj=${etapaObj} | ehObjecao=${ehObjecaoOrcamento} | pontos=${lead?.pontos_interesse} | telas=${lead?.telas_interesse}`);
 
       if (ehObjecaoOrcamento && etapasNegociacao.includes(etapaObj)) {
         const pontos = lead?.pontos_interesse || null;
