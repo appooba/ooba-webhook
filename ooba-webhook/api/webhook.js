@@ -20,7 +20,7 @@ async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
   const telas = await getTelasDisponiveis(lead.negocio, lead.cidade);
   const cidade = lead.cidade || null;
   if (!cidade) {
-    await sendMsg(from, await getMsg("msg_pedir_cidade", {}, client));
+    await sendMsg(from, await getMsg("msg_pedir_cidade", {}, client, from));
     return;
   }
 
@@ -44,7 +44,7 @@ async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
     } catch(e) {}
   }
   if (!jaExplicouPontos) {
-    await sendMsg(from, await getMsg("msg_catalogo_explicacao", {}, client));
+    await sendMsg(from, await getMsg("msg_catalogo_explicacao", {}, client, from));
     await new Promise(r => setTimeout(r, delay));
   }
 
@@ -55,7 +55,7 @@ async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
   }, 0);
 
   const totalFluxoK = Math.round(totalFluxo/1000).toString();
-  await sendMsg(from, await getMsg("msg_catalogo_total", {cidade: cidade, total_telas: telas.length.toString(), total_fluxo_k: totalFluxoK}, client));
+  await sendMsg(from, await getMsg("msg_catalogo_total", {cidade: cidade, total_telas: telas.length.toString(), total_fluxo_k: totalFluxoK}, client, from));
   await new Promise(r => setTimeout(r, delay));
 
   // PASSO 3 — Cada tela: texto com giro PRIMEIRO, depois URL sozinha (gera thumbnail)
@@ -83,7 +83,7 @@ async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
 
   // MSG FINAL — argumento de cobertura + total de giro + CTA (sem repetir cada tela)
   const totalFinalK = Math.round(totalFinal/1000).toString();
-  const msgFinal = await getMsg("msg_catalogo_cta", {total_fluxo_k: totalFinalK, negocio: negocioFinal}, client);
+  const msgFinal = await getMsg("msg_catalogo_cta", {total_fluxo_k: totalFinalK, negocio: negocioFinal}, client, from);
   if (msgFinal) await sendMsg(from, msgFinal);
 
   console.log(`CATÁLOGO TELAS enviado para ${from} — ${telas.length} telas`);
@@ -95,7 +95,66 @@ const { getTelasFiltradas, getAllConfig, getConfig } = require("./db_config");
 // Substitui textos hardcoded. Mudou texto? UPDATE no banco, sem deploy.
 // ══════════════════════════════════════════════════════════════
 const _msgCache = {};
-async function getMsg(key, vars = {}, client = null) {
+async function getMsg(key, vars = {}, client = null, leadPhone = null) {
+  if (!client) client = await getDB();
+  
+  // ══ A/B TESTING ══
+  // Verificar se existe teste A/B ativo para esta key
+  if (leadPhone) {
+    try {
+      const testR = await client.query(
+        "SELECT id, status FROM ab_tests WHERE config_key=$1 AND status='active' LIMIT 1", [key]
+      );
+      if (testR.rows.length > 0) {
+        const testId = testR.rows[0].id;
+        
+        // Verificar se o lead já foi atribuído a uma variante
+        const assignR = await client.query(
+          "SELECT variant_id FROM ab_test_assignments WHERE test_id=$1 AND lead_phone=$2", [testId, leadPhone]
+        );
+        
+        let variantId, variantContent;
+        if (assignR.rows.length > 0) {
+          // Lead já tem variante — usar a mesma
+          variantId = assignR.rows[0].variant_id;
+          const varR = await client.query("SELECT content FROM ab_test_variants WHERE id=$1", [variantId]);
+          variantContent = varR.rows[0]?.content;
+        } else {
+          // Atribuir variante aleatoriamente (distribuição equilibrada)
+          const variantsR = await client.query(
+            "SELECT id, content FROM ab_test_variants WHERE test_id=$1 ORDER BY assigned_count ASC", [testId]
+          );
+          if (variantsR.rows.length > 0) {
+            // Pegar a variante com menos atribuições (balanceamento)
+            const chosen = variantsR.rows[0];
+            variantId = chosen.id;
+            variantContent = chosen.content;
+            
+            // Registrar atribuição
+            await client.query(
+              "INSERT INTO ab_test_assignments (test_id, variant_id, lead_phone) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+              [testId, variantId, leadPhone]
+            );
+            await client.query(
+              "UPDATE ab_test_variants SET assigned_count = assigned_count + 1 WHERE id=$1", [variantId]
+            );
+            console.log(`A/B test [${key}]: lead ${leadPhone} → variante ${variantId}`);
+          }
+        }
+        
+        if (variantContent) {
+          // Aplicar template vars na variante
+          let text = variantContent;
+          for (const [k, v] of Object.entries(vars)) {
+            text = text.replace(new RegExp(`{{${k}}}`, 'g'), v);
+          }
+          return text;
+        }
+      }
+    } catch(e) { console.error("A/B test error:", e.message); }
+  }
+  // ══ FIM A/B TESTING ══
+  
   // Cache em memória (por request serverless)
   if (_msgCache[key]) {
     let text = _msgCache[key];
@@ -105,8 +164,7 @@ async function getMsg(key, vars = {}, client = null) {
     return text;
   }
   
-  // Buscar do banco
-  if (!client) client = await getDB();
+  // Buscar do banco (fallback: texto padrão)
   try {
     const r = await client.query("SELECT value FROM agent_config WHERE key=$1", [key]);
     if (r.rows.length > 0) {
@@ -1892,6 +1950,30 @@ async function atualizarEtapaFunil(client, phone, novaEtapa, mensagemLead = null
     [phone, etapaAnterior, novaEtapa, mensagemLead, respostaResumida]
   ).catch(e => console.error("log transicao:", e.message));
   
+  // ══ A/B TESTING: marcar conversão ══
+  // Quando o lead avança de etapa, todas as atribuições de teste da etapa anterior
+  // são marcadas como convertidas (o texto daquela etapa funcionou)
+  try {
+    await client.query(`
+      UPDATE ab_test_assignments SET converted = true, converted_at = NOW()
+      WHERE lead_phone = $1 AND converted = false
+      AND test_id IN (
+        SELECT id FROM ab_tests WHERE etapa_funil = $2 AND status = 'active'
+      )
+    `, [phone, etapaAnterior]);
+    
+    // Incrementar converted_count nas variantes
+    await client.query(`
+      UPDATE ab_test_variants SET converted_count = converted_count + 1
+      WHERE id IN (
+        SELECT variant_id FROM ab_test_assignments
+        WHERE lead_phone = $1 AND converted = true
+        AND converted_at > NOW() - INTERVAL '5 seconds'
+      )
+    `, [phone]);
+  } catch(e) { console.error("A/B conversion tracking:", e.message); }
+  // ══ FIM A/B TESTING ══
+  
   console.log(`FUNIL TRANSICAO [${phone}]: ${etapaAnterior} → ${novaEtapa}`);
 }
 
@@ -2699,16 +2781,16 @@ module.exports = async (req, res) => {
           console.log(`INTERCEPTADOR TABELA [${from}]: lead escolheu telas → enviando explicação de pontos + tabela`);
 
           // Msg 1: explicar pontos de 1 a 10
-          await sendMsg(from, await getMsg("msg_explicacao_contratacao", {}, client));
+          await sendMsg(from, await getMsg("msg_explicacao_contratacao", {}, client, from));
           await new Promise(r => setTimeout(r, 1800));
 
           // Msg 2: tabela de preços mensal + anual (do banco)
-          const msgTabela = await getMsg("msg_tabela_pontos", {}, client);
+          const msgTabela = await getMsg("msg_tabela_pontos", {}, client, from);
           if (msgTabela) await sendMsg(from, msgTabela);
           await new Promise(r => setTimeout(r, 1800));
 
           // Msg 3: pergunta simples
-          await sendMsg(from, await getMsg("msg_pedir_pontos", {}, client));
+          await sendMsg(from, await getMsg("msg_pedir_pontos", {}, client, from));
 
           // Salvar no histórico
           const histEscolha = await getHist(client, from);
@@ -2828,7 +2910,7 @@ module.exports = async (req, res) => {
 
           if (confirmou && !naoEntendeu) {
             console.log(`INTERCEPTADOR CONFIRMAÇÃO [${from}]: lead confirmou → disparando catálogo`);
-            await sendMsg(from, await getMsg("msg_confirmacao_sim", {}, client));
+            await sendMsg(from, await getMsg("msg_confirmacao_sim", {}, client, from));
             await new Promise(r => setTimeout(r, 1200));
             const leadFrescoConf = await getLead(client, from);
             await enviarCatalogoTelas(from, leadFrescoConf, 1500, client);
@@ -2843,7 +2925,7 @@ module.exports = async (req, res) => {
 
           if (maisOuMenos) {
             console.log(`INTERCEPTADOR CONFIRMAÇÃO [${from}]: lead disse mais ou menos → reforço rápido + catálogo`);
-            await sendMsg(from, await getMsg("msg_confirmacao_mais_menos", {}, client));
+            await sendMsg(from, await getMsg("msg_confirmacao_mais_menos", {}, client, from));
             await new Promise(r => setTimeout(r, 1200));
             const leadFrescoMOM = await getLead(client, from);
             await enviarCatalogoTelas(from, leadFrescoMOM, 800, client);
@@ -2932,15 +3014,15 @@ module.exports = async (req, res) => {
           ).catch(() => {});
 
           // ── Mensagem 1: o que é um PONTO ──
-          await sendMsg(from, await getMsg("msg_educacao_1", {}, client));
+          await sendMsg(from, await getMsg("msg_educacao_1", {}, client, from));
           await new Promise(r => setTimeout(r, 1800));
 
           // ── Mensagem 2: frequência de exibição ──
-          await sendMsg(from, await getMsg("msg_educacao_2", {}, client));
+          await sendMsg(from, await getMsg("msg_educacao_2", {}, client, from));
           await new Promise(r => setTimeout(r, 1800));
 
           // ── Mensagem 3: formato do vídeo + pergunta de confirmação ──
-          await sendMsg(from, await getMsg("msg_educacao_3", {}, client));
+          await sendMsg(from, await getMsg("msg_educacao_3", {}, client, from));
           await new Promise(r => setTimeout(r, 800));
 
           // ── Salvar no histórico — etapa aguardando confirmação ──
@@ -3055,11 +3137,11 @@ module.exports = async (req, res) => {
         if (etapaPosEnvio === "recomendacao" && !jaTemVideos && !jaTemEduHist && etapaPosEnvio !== "aguardando_catalogo") {
           console.log(`EDUCAÇÃO FORÇADA PÓS-RESPOSTA [${from}]: etapa=recomendacao mas educação não foi enviada → forçando`);
           await new Promise(r => setTimeout(r, 800));
-          await sendMsg(from, await getMsg("msg_educacao_1", {}, client));
+          await sendMsg(from, await getMsg("msg_educacao_1", {}, client, from));
           await new Promise(r => setTimeout(r, 1800));
-          await sendMsg(from, await getMsg("msg_educacao_2", {}, client));
+          await sendMsg(from, await getMsg("msg_educacao_2", {}, client, from));
           await new Promise(r => setTimeout(r, 1800));
-          await sendMsg(from, await getMsg("msg_educacao_3_com_cta", {}, client));
+          await sendMsg(from, await getMsg("msg_educacao_3_com_cta", {}, client, from));
           await new Promise(r => setTimeout(r, 1800));
           const leadFrescoForc = await getLead(client, from);
           if (leadFrescoForc?.cidade) { await enviarCatalogoTelas(from, leadFrescoForc, 800, client); }

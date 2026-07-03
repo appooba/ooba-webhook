@@ -102,7 +102,49 @@ module.exports = async (req, res) => {
 
     for (const lead of leads) {
       const tentativa = (lead.total_abordagens || 0) + 1;
-      const mensagem = montarMsg(lead, tentativa);
+      // A/B testing para msg de retomada 1
+      let mensagem;
+      try {
+        const testR = await client.query(
+          "SELECT id FROM ab_tests WHERE config_key='msg_followup_retomada_1' AND status='active' LIMIT 1"
+        );
+        if (testR.rows.length > 0 && tentativa === 1) {
+          const testId = testR.rows[0].id;
+          // Verificar se lead já tem variante
+          const assignR = await client.query(
+            "SELECT variant_id FROM ab_test_assignments WHERE test_id=$1 AND lead_phone=$2", [testId, lead.phone]
+          );
+          let variantId, variantContent;
+          if (assignR.rows.length > 0) {
+            variantId = assignR.rows[0].variant_id;
+            const varR = await client.query("SELECT content FROM ab_test_variants WHERE id=$1", [variantId]);
+            variantContent = varR.rows[0]?.content;
+          } else {
+            const variantsR = await client.query(
+              "SELECT id, content FROM ab_test_variants WHERE test_id=$1 ORDER BY assigned_count ASC", [testId]
+            );
+            if (variantsR.rows.length > 0) {
+              variantId = variantsR.rows[0].id;
+              variantContent = variantsR.rows[0].content;
+              await client.query("INSERT INTO ab_test_assignments (test_id, variant_id, lead_phone) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", [testId, variantId, lead.phone]);
+              await client.query("UPDATE ab_test_variants SET assigned_count = assigned_count + 1 WHERE id=$1", [variantId]);
+            }
+          }
+          if (variantContent) {
+            const nome = lead.nome ? lead.nome.split(" ")[0] : "";
+            const negocio = lead.negocio || "seu negócio";
+            const cidade = lead.cidade || "Porto Feliz";
+            mensagem = variantContent.replace(/{{nome}}/g, nome).replace(/{{negocio}}/g, negocio).replace(/{{cidade}}/g, cidade);
+          } else {
+            mensagem = montarMsg(lead, tentativa);
+          }
+        } else {
+          mensagem = montarMsg(lead, tentativa);
+        }
+      } catch(e) {
+        console.error("A/B test followup:", e.message);
+        mensagem = montarMsg(lead, tentativa);
+      }
 
       const ok = await sendMsg(lead.phone, mensagem);
 

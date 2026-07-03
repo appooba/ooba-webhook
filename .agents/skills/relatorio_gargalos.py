@@ -231,6 +231,91 @@ Gere UMA correção específica para esta etapa. Responda em JSON:
     except Exception as e:
         print(f"⚠️ Erro ao gerar auto-patch: {e}")
 
+
+# ═══════════════════════════════════════════════════════════
+# 5. A/B TESTING — avaliar e promover vencedores
+# ═══════════════════════════════════════════════════════════
+
+cur.execute("""
+  SELECT t.id, t.name, t.config_key, t.etapa_funil, t.min_sample, t.confidence_threshold,
+         t.winner_variant_id
+  FROM ab_tests t WHERE t.status = 'active'
+""")
+active_tests = cur.fetchall()
+
+ab_results = []
+ab_promotions = []
+
+for test in active_tests:
+    test_id, test_name, config_key, etapa, min_sample, conf_thresh, winner_id = test
+    
+    cur.execute("""
+      SELECT v.id, v.variant_name, v.content, v.assigned_count, v.converted_count,
+             v.is_control
+      FROM ab_test_variants v WHERE v.test_id = %s ORDER BY v.variant_name
+    """, [test_id])
+    variants = cur.fetchall()
+    
+    test_info = {"name": test_name, "config_key": config_key, "variants": []}
+    
+    # Verificar se todas as variantes têm amostra suficiente
+    all_have_sample = all(v[3] >= min_sample for v in variants)
+    
+    best_variant = None
+    best_rate = -1
+    
+    for v in variants:
+        vid, vname, vcontent, assigned, converted, is_ctrl = v
+        rate = (converted / assigned * 100) if assigned > 0 else 0
+        test_info["variants"].append({
+            "name": vname, "assigned": assigned, "converted": converted,
+            "rate": round(rate, 1), "is_control": is_ctrl
+        })
+        if rate > best_rate:
+            best_rate = rate
+            best_variant = v
+    
+    ab_results.append(test_info)
+    
+    # Se todas as variantes têm amostra suficiente e há um vencedor claro
+    if all_have_sample and best_variant and len(variants) >= 2:
+        ctrl_rate = next((v[4] / v[3] * 100 for v in variants if v[5] and v[3] > 0), 0)
+        diff = best_rate - ctrl_rate
+        
+        if diff >= conf_thresh * 100:
+            # Promover vencedor: atualizar agent_config com o texto da variante vencedora
+            winner_content = best_variant[2]
+            cur.execute("""
+              UPDATE agent_config SET value = %s, updated_at = NOW() WHERE key = %s
+            """, [winner_content, config_key])
+            
+            # Marcar teste como concluído
+            cur.execute("""
+              UPDATE ab_tests SET status = 'completed', winner_variant_id = %s, completed_at = NOW()
+              WHERE id = %s
+            """, [best_variant[0], test_id])
+            
+            ab_promotions.append({
+                "test": test_name,
+                "winner": best_variant[1],
+                "winner_rate": round(best_rate, 1),
+                "control_rate": round(ctrl_rate, 1),
+                "improvement": round(diff, 1),
+                "config_key": config_key
+            })
+            print(f"  🏆 A/B PROMOTED: {test_name} → variante {best_variant[1]} ({best_rate:.1f}% vs {ctrl_rate:.1f}%)")
+
+conn.commit()
+
+if ab_results:
+    print(f"\n🧪 A/B Tests ativos: {len(ab_results)}")
+    for t in ab_results:
+        print(f"  {t['name'][:40]}:")
+        for v in t['variants']:
+            ctrl = " (controle)" if v['is_control'] else ""
+            print(f"    {v['name']}{ctrl}: {v['assigned']} leads, {v['converted']} convertidos, {v['rate']}%")
+
+
 # ═══════════════════════════════════════════════════════════
 # 4. RELATÓRIO ESTRUTURADO NO WHATSAPP
 # ═══════════════════════════════════════════════════════════
@@ -294,6 +379,19 @@ if estagnados:
         nome = est[0] or est[1][-4:]
         dias = int(est[3])
         relatorio += f"\n• {nome} — {est[2]} — {dias}d"
+
+if ab_results:
+    relatorio += f"\n\n🧪 *A/B TESTS*"
+    for t in ab_results:
+        relatorio += f"\n{t['name'][:35]}"
+        for v in t['variants']:
+            ctrl = " *" if v['is_control'] else ""
+            relatorio += f"\n  {v['name']}{ctrl}: {v['rate']}% ({v['converted']}/{v['assigned']})"
+
+if ab_promotions:
+    relatorio += f"\n\n🏆 *PROMOÇÕES A/B*"
+    for p in ab_promotions:
+        relatorio += f"\n→ {p['test'][:30]}: {p['winner']} (+{p['improvement']}%)"
 
 relatorio += f"\n\n🧠 *APRENDIZADO*"
 relatorio += f"\n├─ Patches ativos: {patches_ativos}"
