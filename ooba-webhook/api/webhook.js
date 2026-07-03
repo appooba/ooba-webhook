@@ -1644,6 +1644,10 @@ async function replyAI(client, txt, phone) {
 
   msgs.push({ role: "user", content: txt });
 
+  // Timeout de 45s — se o GPT demorar mais, aborta pra não estourar o limite da Vercel (60s)
+  const gptController = new AbortController();
+  const gptTimeout = setTimeout(() => gptController.abort(), 45000);
+  
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Authorization": `Bearer ${OAI_KEY}`, "Content-Type": "application/json" },
@@ -1652,10 +1656,15 @@ async function replyAI(client, txt, phone) {
       messages: [{ role: "system", content: sys }, ...msgs],
       max_tokens: 1200,
       temperature: 0.72
-    })
+    }),
+    signal: gptController.signal
+  }).catch(e => {
+    console.error("GPT fetch error:", e.message);
+    return null;
   });
+  clearTimeout(gptTimeout);
 
-  if (!res.ok) { console.error("OpenAI:", res.status, await res.text()); return ""; }
+  if (!res || !res.ok) { console.error("OpenAI:", res?.status || "timeout", res ? await res.text() : "aborted"); return ""; }
 
   const d = await res.json();
   let rep = d?.choices?.[0]?.message?.content?.trim() || "";
@@ -1706,6 +1715,8 @@ async function replyAI(client, txt, phone) {
     
     if (repetida) {
       console.log(`⚠️ Anti-repetição [${phone}]: ${tipoRepeticao} detectada. Regenerando...`);
+      const res2Controller = new AbortController();
+      const res2Timeout = setTimeout(() => res2Controller.abort(), 30000);
       const res2 = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": `Bearer ${OAI_KEY}`, "Content-Type": "application/json" },
@@ -1717,9 +1728,11 @@ async function replyAI(client, txt, phone) {
           ],
           max_tokens: 1200,
           temperature: 0.85
-        })
-      });
-      if (res2.ok) {
+        }),
+        signal: res2Controller.signal
+      }).catch(e => { console.error("GPT retry error:", e.message); return null; });
+      clearTimeout(res2Timeout);
+      if (res2 && res2.ok) {
         const d2 = await res2.json();
         const rep2 = d2?.choices?.[0]?.message?.content?.trim() || "";
         if (rep2 && rep2 !== rep) {
@@ -1962,6 +1975,7 @@ module.exports = async (req, res) => {
 
   if (req.method === "POST") {
     let client;
+    let from = "";
     try {
       const body = await parseBody(req);
       console.log("Body recebido:", JSON.stringify(body).substring(0, 150));
@@ -1981,7 +1995,7 @@ module.exports = async (req, res) => {
       processedMsgs.add(msgId);
       if (processedMsgs.size > 200) processedMsgs.delete(processedMsgs.values().next().value);
 
-      const from = m.from;
+      from = m.from;
       let txt = "";
 
       if (m.type === "text") {
@@ -2045,11 +2059,27 @@ module.exports = async (req, res) => {
 
         } catch(whisperErr) {
           console.error("Erro Whisper:", whisperErr.message);
+          // Avisar o lead que teve problema com o áudio
+          await sendMsg(from, "Tive um probleminha pra escutar seu áudio 🙏 Pode me mandar por escrito?");
+          if (!res.headersSent) res.json({ ok: true });
           return;
         }
       }
 
-      if (!from || !txt) { console.log('from ou txt vazio, abortando'); return; }
+      if (!from) { console.log('from vazio, abortando'); return; }
+      if (!txt) {
+        // Tipo de mensagem não suportado (imagem, sticker, localização, documento)
+        console.log(`Tipo não suportado [${from}]: ${m.type} — respondendo fallback`);
+        await sendMsg(from, "Recebi sua mensagem! 😊 Mas por aqui eu só consigo ler texto e áudio. Pode me mandar por escrito?");
+        try {
+          const histNs = await getHist(client, from);
+          histNs.push({ role: "user", content: `[${m.type} não suportado]` });
+          histNs.push({ role: "assistant", content: "Recebi sua mensagem! 😊 Mas por aqui eu só consigo ler texto e áudio. Pode me mandar por escrito?" });
+          await saveHist(client, from, histNs);
+        } catch(e2) {}
+        if (!res.headersSent) res.json({ ok: true });
+        return;
+      }
 
       console.log(`IN [${from}] etapa=? : ${txt}`);
       client = await getDB();
@@ -2534,6 +2564,28 @@ module.exports = async (req, res) => {
       // ══════════════════════════════════════════════════════════════
 
       const rep = await replyAI(client, txt, from);
+      
+      // FALLBACK: se GPT retornou vazio, enviar mensagem genérica pra não deixar lead sem resposta
+      if (!rep || rep.trim().length < 2) {
+        console.error(`GPT VAZIO [${from}]: respondendo fallback`);
+        const fbMsgs = [
+          "Desculpe, tive um probleminha técnico aqui 🙏 Pode repetir?",
+          "Ops! Acho que travou aqui 😅 Pode mandar de novo?",
+          "Só um segundinho, tive uma falha técnica — pode reenviar sua mensagem? 😊"
+        ];
+        const fb = fbMsgs[Math.floor(Math.random() * fbMsgs.length)];
+        await sendMsg(from, fb);
+        // Salvar no histórico
+        try {
+          const histFb = await getHist(client, from);
+          histFb.push({ role: "user", content: txt });
+          histFb.push({ role: "assistant", content: fb });
+          await saveHist(client, from, histFb);
+        } catch(e2) { console.error("Fallback save error:", e2.message); }
+        if (!res.headersSent) res.json({ ok: true });
+        return;
+      }
+      
       if (rep) {
         console.log(`OUT [${from}]: ${rep.substring(0, 120)}...`);
 
@@ -2675,6 +2727,7 @@ module.exports = async (req, res) => {
       if (!res.headersSent) res.json({ ok: true });
     } finally {
       if (client) await client.end().catch(() => {});
+      if (from) releaseLock(from);
     }
   }
 
