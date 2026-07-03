@@ -111,6 +111,8 @@ module.exports = async (req, res) => {
         AND l.status NOT IN ('fechado', 'reuniao', 'perdido', 'timing_capturado')
         AND c.updated_at < NOW() - INTERVAL '4 hours'
         AND l.phone IS NOT NULL
+        AND l.phone NOT IN ('5511995650925', '5515997517779', '5511999999999', '5511921276113', '5511933082786')
+        -- Excluir numeros internos: gestao(99565), Paulo(99751), teste(99999), WhatsApp Business(92127), teste2(93308)
       ORDER BY c.updated_at ASC
       LIMIT 15
     `);
