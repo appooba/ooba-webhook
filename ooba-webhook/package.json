@@ -4,9 +4,10 @@
   "description": "Webhook WhatsApp - Vendedor OOBA Midia Indoor",
   "main": "api/webhook.js",
   "engines": {
-    "node": "24.x"
+    "node": "20.x"
   },
   "dependencies": {
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "form-data": "^4.0.0"
   }
 }
