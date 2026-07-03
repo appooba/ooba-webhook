@@ -69,6 +69,14 @@ module.exports = async (req, res) => {
   try {
     client = await getDB();
 
+    // Buscar intervalo de follow-up do banco (auto-ajustado pela analytics)
+    let intervaloHoras = 24; // fallback
+    try {
+      const cfgR = await client.query("SELECT value FROM agent_config WHERE key='followup_intervalo_horas'");
+      if (cfgR.rows.length > 0) intervaloHoras = parseInt(cfgR.rows[0].value) || 24;
+      console.log(`Follow-up funil: intervalo do banco = ${intervaloHoras}h`);
+    } catch(e) { console.log("Usando intervalo padrão 24h"); }
+
     // Leads que pararam antes de ver as telas
     // Etapas: abertura ou entendimento — com pelo menos 1 msg do usuário
     // Sem atualização há mais de 24h
@@ -79,13 +87,13 @@ module.exports = async (req, res) => {
       LEFT JOIN conversations c ON c.phone = l.phone
       WHERE l.etapa_funil IN ('abertura', 'entendimento')
         AND jsonb_array_length(c.messages::jsonb) >= 2
-        AND c.updated_at < NOW() - INTERVAL '24 hours'
+        AND c.updated_at < NOW() - ($1 || ' hours')::interval
         AND c.updated_at > NOW() - INTERVAL '30 days'
         AND (l.total_abordagens IS NULL OR l.total_abordagens < 3)
-        AND (l.data_ultima_abordagem IS NULL OR l.data_ultima_abordagem < NOW() - INTERVAL '24 hours')
+        AND (l.data_ultima_abordagem IS NULL OR l.data_ultima_abordagem < NOW() - ($1 || ' hours')::interval)
       ORDER BY c.updated_at ASC
       LIMIT 20
-    `);
+    `, [intervaloHoras]);
 
     const leads = r.rows;
     console.log(`Follow-up funil: ${leads.length} leads elegíveis`);
