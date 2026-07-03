@@ -31,7 +31,11 @@ async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
       const histCat = await getHist(client, from);
       jaExplicouPontos = histCat.some(m => m.role === "assistant" &&
         (m.content?.includes("compra *pontos*") || m.content?.includes("compra pontos") ||
-         m.content?.includes("Ficou claro como funciona")));
+         m.content?.includes("Ficou claro como funciona") ||
+         m.content?.includes("educação automática") ||
+         m.content?.includes("catálogo enviado após confirmação") ||
+         m.content?.includes("reforço de conceito + catálogo") ||
+         m.content?.includes("catálogo automático enviado")));
     } catch(e) {}
   }
   if (!jaExplicouPontos) {
