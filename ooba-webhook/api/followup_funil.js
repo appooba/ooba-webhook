@@ -42,9 +42,21 @@ function aplicarVars(texto, vars) {
 async function montarMsg(lead, tentativa, client) {
   const negocio = lead.negocio || "seu negócio";
   const cidade = lead.cidade || "Porto Feliz";
-  const vars = { negocio, cidade };
+  const nome = lead.nome ? lead.nome.split(" ")[0] : "";
+  const telas = lead.telas_interesse || "";
+  const pontos = lead.pontos_interesse || "";
+  const vars = { negocio, cidade, nome, telas, pontos };
 
-  const keyMap = {
+  // Leads em etapa avançada (fechamento/proposta) usam mensagens diferentes
+  // de leads em etapa inicial (abertura/entendimento)
+  const etapasAvancadas = ["proposta", "fechamento"];
+  const ehAvancado = etapasAvancadas.includes(lead.etapa_funil);
+
+  const keyMap = ehAvancado ? {
+    1: "followup_fechamento_1",
+    2: "followup_fechamento_2",
+    3: "followup_fechamento_3"
+  } : {
     1: "followup_funil_1",
     2: "followup_funil_2",
     3: "followup_funil_3"
@@ -55,7 +67,11 @@ async function montarMsg(lead, tentativa, client) {
 
   const template = await getConfig(client, key);
   if (!template) {
-    console.error(`Texto ${key} nao encontrado no agent_config`);
+    // Fallback: se a key específica não existir no banco, usa a genérica
+    const fallbackKey = `followup_funil_${tentativa}`;
+    const fallback = await getConfig(client, fallbackKey);
+    if (fallback) return aplicarVars(fallback, vars);
+    console.error(`Texto ${key} nem fallback ${fallbackKey} encontrados no agent_config`);
     return null;
   }
 

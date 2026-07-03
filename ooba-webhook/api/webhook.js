@@ -774,7 +774,7 @@ async function saveHist(client, phone, msgs) {
       INSERT INTO conversations (phone, messages, updated_at)
       VALUES ($1, $2, NOW())
       ON CONFLICT (phone) DO UPDATE SET messages=$2, updated_at=NOW()
-    `, [phone, JSON.stringify(msgs.slice(-60))]);
+    `, [phone, JSON.stringify(msgs.slice(-100))]);
   } catch(e) { console.error("saveHist:", e.message); }
 }
 
@@ -961,15 +961,27 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   if (etapa === "abertura" && ehSaidaFraca) return respostaBot;
 
   // ── CONTAR HESITAÇÕES PRÉVIAS no histórico ──
+  // IMPORTANTE: só contar HESITAÇÕES REAIS, não acknowledgments genéricos
+  // "ok", "sim", "blz", "obrigado" NÃO são hesitações — são fluição natural da conversa
+  const sinaisHesitacaoReal = [
+    "vou pensar", "deixa eu pensar", "vou ver", "vou analisar",
+    "vou esperar", "qualquer coisa te aviso", "qualquer coisa eu te aviso",
+    "depois eu te chamo", "depois te chamo", "depois vejo",
+    "ja te aviso", "já te aviso", "te aviso",
+    "nao sei se tenho o investimento", "nao tenho o investimento",
+    "nao tenho dinheiro", "orcamento apertado", "achei caro", "muito caro",
+    "nao quero", "não quero", "nao tenho interesse", "sem interesse",
+    "deixa pra la", "deixa pra lá", "nao preciso"
+  ];
   const msgsUser = (msgs || []).filter(m => m.role === "user");
   let hesitacoesPrevias = 0;
   for (const m of msgsUser) {
     const mc = (m.content || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    if (sinaisFracos.some(s => mc.includes(s)) || sinaisFortes.some(s => mc.includes(s)) || padroesOrcamento.some(s => mc.includes(s))) {
+    if (sinaisHesitacaoReal.some(s => mc.includes(s))) {
       hesitacoesPrevias++;
     }
   }
-  hesitacoesPrevias = Math.max(0, hesitacoesPrevias - 1);
+  hesitacoesPrevias = Math.max(0, hesitacoesPrevias - 1); // -1 = mensagem atual
 
   console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: forte=${ehSaidaForte}, fraca=${ehSaidaFraca}, orcamento=${ehObjecaoOrcamento}, hesitacoes=${hesitacoesPrevias}`);
 
@@ -1253,7 +1265,7 @@ async function salvarMsgHistorico(client, phone, msgUser, msgBot) {
     // Limpar separadores antes de salvar no histórico
     const msgBotLimpa = msgBot.replace(/---MSG---/g, ' ').trim();
     msgs.push({ role: "assistant", content: msgBotLimpa });
-    if (msgs.length > 60) msgs = msgs.slice(-60);
+    if (msgs.length > 100) msgs = msgs.slice(-100);
 
     if (r.rows.length > 0) {
       await client.query("UPDATE conversations SET messages=$1, updated_at=NOW() WHERE phone=$2",
@@ -2464,6 +2476,25 @@ module.exports = async (req, res) => {
       }
 
       console.log(`IN [${from}] etapa=? : ${txt}`);
+
+      // ── EXTRAÇÃO AUTOMÁTICA DE E-MAIL E PLANO DO LEAD ──
+      try {
+        const emailDetectado = extrairEmail(txt);
+        if (emailDetectado) {
+          await client.query("UPDATE leads SET email=$1, updated_at=NOW() WHERE phone=$2", [emailDetectado, from]);
+          console.log(`EMAIL EXTRAÍDO [${from}]: ${emailDetectado}`);
+        }
+        // Detectar plano de interesse (mensal vs anual)
+        const txtLowerPlano = txt.toLowerCase();
+        if (txtLowerPlano.includes("anual") && !txtLowerPlano.includes("mensal")) {
+          await client.query("UPDATE leads SET plano_interesse='anual', updated_at=NOW() WHERE phone=$1", [from]);
+          console.log(`PLANO DETECTADO [${from}]: anual`);
+        } else if (txtLowerPlano.includes("mensal") && !txtLowerPlano.includes("anual")) {
+          await client.query("UPDATE leads SET plano_interesse='mensal', updated_at=NOW() WHERE phone=$1", [from]);
+          console.log(`PLANO DETECTADO [${from}]: mensal`);
+        }
+      } catch(eEmail) { console.error("Erro ao salvar email/plano:", eEmail.message); }
+
       await carregarTabelaPrecos(client);
       // Carregar bloqueio de preço do banco
       const bpRes = await client.query("SELECT value FROM agent_config WHERE key='msg_bloqueio_preco'");
@@ -3023,6 +3054,20 @@ module.exports = async (req, res) => {
 
             // ── INTERCEPTADOR DE CONTRATO PDF: se o GPT incluiu o marcador, enviar PDF como anexo ──
             if (parte.includes("🔹CONTRATO_PDF🔹")) {
+              // ── GUARD: não reenviar contrato se já foi enviado E o lead não pediu explicitamente ──
+              const leadCheckCont = await getLead(client, from);
+              const jaEnviado = leadCheckCont?.contrato_enviado === true;
+              const txtLowerCont = txt.toLowerCase();
+              const pediuExplicito = txtLowerCont.includes("manda o contrato") || txtLowerCont.includes("me mande o contrato") ||
+                txtLowerCont.includes("quero ver o contrato") || txtLowerCont.includes("pode mandar o contrato") ||
+                txtLowerCont.includes("me envia o contrato") || txtLowerCont.includes("envie o contrato") ||
+                txtLowerCont.includes("reenvia o contrato") || txtLowerCont.includes("mandar o contrato");
+              if (jaEnviado && !pediuExplicito) {
+                console.log(`CONTRATO BLOQUEADO [${from}]: já enviado e lead não pediu explicitamente`);
+                parte = parte.replace(/🔹CONTRATO_PDF🔹/g, '').replace(/\s{2,}/g, ' ').trim();
+                if (parte) await sendMsg(from, parte);
+                continue;
+              }
               // Remover o marcador do texto e limpar espaços sobrando
               parte = parte.replace(/🔹CONTRATO_PDF🔹/g, '').replace(/\s{2,}/g, ' ').trim();
               if (parte) {
