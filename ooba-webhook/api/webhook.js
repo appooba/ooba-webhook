@@ -839,42 +839,93 @@ function interceptarPrecoAntecipado(msgLead, lead) {
 function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   if (!msgLead || !respostaBot) return respostaBot;
 
-  const msgLeadLower = msgLead.toLowerCase().trim();
+  // Normalizar texto (remover acentos) para matching robusto
+  const msgNorm = msgLead.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const respostaLower = respostaBot.toLowerCase();
   const etapa = lead?.etapa_funil || "abertura";
   const numTrocas = (msgs || []).length;
 
-  // Sinais FORTES de saída — interceptar sempre
+  // ── CATEGORIA 1: OBJEÇÃO DE ORÇAMENTO (mais forte que hesitação) ──
+  // O lead expressa dificuldade financeira explícita → oferecer alternativas + reunião
+  const padroesOrcamento = [
+    "que caro", "achei caro", "muito caro", "ta caro", "tá caro",
+    "valor alto", "ta alto", "tá alto", "muito alto", "investimento alto",
+    "nao sei se tenho o investimento", "nao tenho o investimento",
+    "nao tenho dinheiro", "sem dinheiro", "sem grana",
+    "orcamento apertado", "apertado",
+    "ta fora do orcamento", "fora do orcamento", "fora do orçamento",
+    "nao tenho esse valor", "nao tenho como pagar", "nao posso pagar",
+    "custa muito", "ta salgado", "tá salgado",
+    "fora da realidade", "nao fecho esse valor"
+  ];
+  const ehObjecaoOrcamento = padroesOrcamento.some(s => msgNorm.includes(s));
+
+  // ── CATEGORIA 2: SAÍDA FORTE — lead quer encerrar de vez ──
   const sinaisFortes = [
     "nao quero mais", "não quero mais", "nao quero", "não quero",
     "nao tenho interesse", "não tenho interesse", "sem interesse",
     "nao vou", "não vou", "deixa pra la", "deixa pra lá",
     "nao preciso", "não preciso", "nao serve", "não serve",
     "pode fechar", "encerra", "nao quero saber",
+    "agora nao vou querer", "no momento nao", "nao quero mais nada",
     "tchau", "ate mais", "até mais", "flw", "falou"
   ];
 
-  // Sinais FRACOS de hesitação — só interceptar se já houver ao menos 4 mensagens
+  // ── CATEGORIA 3: HESITAÇÃO FRACA — lead está pensando/adanhando ──
   const sinaisFracos = [
     "obrigado", "obrigada", "vlw", "valeu", "blz", "tmj",
     "era só isso", "era isso", "por hora", "por enquanto",
     "ta bom", "tá bom", "ok obrigado", "ok, obrigado",
     "vou pensar", "deixa eu pensar", "vou ver", "vou analisar",
-    "qualquer coisa te aviso", "qualquer coisa eu te aviso",
-    "depois eu te chamo", "depois te chamo", "depois vejo", "ja te aviso", "já te aviso", "te aviso"
+    "vou esperar", "qualquer coisa te aviso", "qualquer coisa eu te aviso",
+    "depois eu te chamo", "depois te chamo", "depois vejo",
+    "ja te aviso", "já te aviso", "te aviso",
+    "talvez", "sim", "ok"
   ];
 
-  const ehSaidaForte = sinaisFortes.some(s => msgLeadLower.includes(s));
-  const ehSaidaFraca = sinaisFracos.some(s => msgLeadLower.includes(s));
+  const ehSaidaForte = sinaisFortes.some(s => msgNorm.includes(s));
+  const ehSaidaFraca = sinaisFracos.some(s => msgNorm.includes(s));
 
+  // ── Se é objeção de orçamento E está em etapa de negociação → agir imediatamente ──
+  const etapasNegociacao = ["recomendacao", "materiais", "proposta", "fechamento"];
+  if (ehObjecaoOrcamento && etapasNegociacao.includes(etapa)) {
+    // Verificar se o GPT já resolveu com alternativas financeiras + reunião
+    const temAlternativa = respostaLower.includes("menos pontos") || respostaLower.includes("plano mensal") ||
+                           respostaLower.includes("parcelar") || respostaLower.includes("cart") ||
+                           respostaLower.includes("reduzir") || respostaLower.includes("começar com") ||
+                           respostaLower.includes("começando com") || respostaLower.includes("1 ponto");
+    const temReuniao = respostaLower.includes("reuni") || respostaLower.includes("google meet") || respostaLower.includes("15 min");
+    const jaResolveu = temAlternativa && temReuniao;
+
+    if (!jaResolveu) {
+      const pontos = lead?.pontos_interesse || null;
+      const primeiroNome = lead?.nome ? lead.nome.split(" ")[0] : "";
+
+      let sugestao = "";
+      if (pontos && pontos > 3) {
+        sugestao = `Começando com ${Math.max(1, Math.floor(pontos / 2))} pontos no plano mensal, você paga menos e pode aumentar quando sentir o resultado. `;
+      } else if (pontos && pontos > 1) {
+        sugestao = `No plano mensal com ${Math.max(1, Math.floor(pontos / 2))} pontos, o valor cai e você testa sem compromisso de 12 meses. `;
+      } else {
+        sugestao = `A gente pode começar com 1 ponto no plano mensal — é o formato mais enxuto pra testar. `;
+      }
+
+      console.log(`OBJEÇÃO ORÇAMENTO [etapa=${etapa}]: interceptado, oferecendo alternativas + reunião`);
+      return `${primeiroNome ? primeiroNome + ", " : ""}entendo! E olha, tem como ajustar pra caber no seu orçamento sim 👇\n\n${sugestao}Também dá pra parcelar no cartão em até 12x.\n\nMas sabe o que funciona melhor? A gente marca 15 minutinhos pelo Google Meet e monta uma proposta personalizada pra sua realidade — sem compromisso. Qual dia dessa semana funciona? 📅`;
+    }
+    // Se o GPT já resolveu, deixar passar
+    return respostaBot;
+  }
+
+  // ── Para sinais fortes e fracos, seguir lógica gradual existente ──
   const ehSaida = ehSaidaForte || (ehSaidaFraca && numTrocas >= 4);
   if (!ehSaida) return respostaBot;
 
-  // Verificar se o bot já está propondo reunião nessa resposta → não duplicar
+  // Verificar se o bot já está propondo reunião → não duplicar
   const jaPropondoReuniao = [
     "qual dia", "qual horário", "qual horario", "fica bom pra você",
     "me passa seu e-mail", "google meet", "agendar", "15 minutos",
-    "reunião", "reuniao", "sem compromisso"
+    "reunião", "reuniao", "sem compromisso", "15 min"
   ].some(s => respostaLower.includes(s));
   if (jaPropondoReuniao) return respostaBot;
 
@@ -882,20 +933,17 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   if (etapa === "abertura" && ehSaidaFraca) return respostaBot;
 
   // ── CONTAR HESITAÇÕES PRÉVIAS no histórico ──
-  const msgsBot = (msgs || []).filter(m => m.role === "assistant");
   const msgsUser = (msgs || []).filter(m => m.role === "user");
-  
   let hesitacoesPrevias = 0;
   for (const m of msgsUser) {
-    const mc = (m.content || "").toLowerCase();
-    if (sinaisFracos.some(s => mc.includes(s)) || sinaisFortes.some(s => mc.includes(s))) {
+    const mc = (m.content || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (sinaisFracos.some(s => mc.includes(s)) || sinaisFortes.some(s => mc.includes(s)) || padroesOrcamento.some(s => mc.includes(s))) {
       hesitacoesPrevias++;
     }
   }
-  // Subtrair 1 porque a mensagem atual JÁ está em msgs (foi feito push antes de chamar interceptarSaida)
   hesitacoesPrevias = Math.max(0, hesitacoesPrevias - 1);
 
-  console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: forte=${ehSaidaForte}, fraca=${ehSaidaFraca}, hesitacoesPrevias=${hesitacoesPrevias}`);
+  console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: forte=${ehSaidaForte}, fraca=${ehSaidaFraca}, orcamento=${ehObjecaoOrcamento}, hesitacoes=${hesitacoesPrevias}`);
 
   // Remover encerramento passivo do GPT
   let novaResposta = respostaBot;
@@ -933,12 +981,9 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   const oi = lead?.nome ? lead.nome.split(" ")[0] : "";
   const prefixo = novaResposta ? novaResposta + "\n\n" : "";
 
-  // ── ABORDAGEM GRADUAL ──
-  // Saída FORTE = lead quer encerrar de vez → pular pra proposta de reunião
+  // Saída FORTE → propor reunião
   if (ehSaidaForte) {
-    // Só propõe reunião se já passou da etapa de abertura
     if (etapa === "abertura") return respostaBot;
-    
     const opcoes = [
       `${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te fazer uma proposta — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pro seu negócio. 15 minutinhos pelo Google Meet, sem compromisso. Topa? 📅`,
       `${oi ? oi + ", s" : "S"}em problema! Mas antes de ir — que tal uma conversa rápida de 15 min com um especialista da equipe OOBA? Sem compromisso, pelo Google Meet. Posso te mostrar exatamente como ficaria seu anúncio. Topa? 😊`
@@ -946,14 +991,9 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
     return prefixo + opcoes[Math.floor(Math.random() * opcoes.length)];
   }
 
-  // Saída FRACA — abordagem gradual baseada em quantas vezes hesitou
-  // 0 hesitações prévias (1ª vez): entender o que está travando
-  // 1 hesitação prévia (2ª vez): resolver objeção + sugerir reunião suavemente
-  // 2+ hesitações prévias (3ª+ vez): propor reunião diretamente
-  // 3+ hesitações prévias: aceitar e deixar em aberto
-
+  // Saída FRACA — abordagem gradual
   if (hesitacoesPrevias === 0) {
-    // 1ª hesitação: NÃO propor reunião. Entender o que está travando.
+    // 1ª hesitação: investigar o que está travando
     const opcoes = [
       `${oi ? oi + ", c" : "C"}laro, sem pressa! Me conta — o que você está pesando? É o valor, quais telas escolher, ou como funciona a veiculação?`,
       `${oi ? oi + ", t" : "T"}udo bem! Pra eu te ajudar melhor — o que ficou de dúvida? É sobre o contrato, os pontos, ou quer ver mais alguma tela?`,
@@ -963,7 +1003,7 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   }
 
   if (hesitacoesPrevias === 1) {
-    // 2ª hesitação: resolver + sugerir reunião suavemente (sem mandar slots)
+    // 2ª hesitação: resolver + sugerir reunião
     const opcoes = [
       `${oi ? oi + ", e" : "E"}ntendo! Olha — com os pontos que você escolheu, seu anúncio alcança milhares de pessoas por mês. Basta 1 cliente novo pra pagar o investimento 😊 Se quiser, posso arranjar um especialista da equipe OOBA pra montar uma proposta personalizada pra você — 15 minutinhos pelo Google Meet, sem compromisso. Topa?`,
       `${oi ? oi + ", f" : "F"}az todo sentido querer ter certeza 😊 Que tal a gente marcar 15 minutos pelo Google Meet? Um especialista da equipe OOBA monta uma proposta do zero pro seu perfil — sem compromisso. Topa? 📅`
@@ -986,6 +1026,40 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
     `Sem problema! Fico à disposição — se quiser conversar depois, é só me chamar 😊`
   ];
   return prefixo + opcoes[Math.floor(Math.random() * opcoes.length)];
+}
+
+// ═══════════════════════════════════════════════════════
+// INTERCEPTADOR DE PREÇO ANTECIPADO — bloqueia preço antes do funil
+// ═══════════════════════════════════════════════════════
+function interceptarPrecoAntecipado(msgLead, lead) {
+  if (!msgLead) return null;
+  const msg = msgLead.toLowerCase().trim();
+
+  const perguntasPreco = [
+    "qual o valor", "quanto custa", "qual o preço", "qual o preco",
+    "me fala o preço", "me fala o preco", "qual é o valor", "qual e o valor",
+    "valor dos planos", "tabela de preço", "tabela de preco", "quanto fica",
+    "qual o investimento", "caro?", "é caro", "e caro", "tem desconto",
+    "valor mensal", "valor anual", "quanto por mes", "quanto por mês"
+  ];
+
+  const isPerguntaPreco = perguntasPreco.some(p => msg.includes(p));
+  if (!isPerguntaPreco) return null;
+
+  // Etapas que já passaram da recomendação — pode falar de preço
+  const etapasLiberadas = ['recomendacao', 'materiais', 'proposta', 'fechamento', 'reuniao'];
+  const etapaAtual = lead?.etapa_funil || 'abertura';
+  if (etapasLiberadas.includes(etapaAtual)) return null;
+
+  // Bloqueio: texto lido do banco (msg_bloqueio_preco)
+  const negocio = lead?.negocio || 'seu negócio';
+  const negocioRef = negocio !== 'seu negócio' ? `sobre ${negocio}` : 'o seu negócio';
+  const perguntaSeq = negocio === 'seu negócio' ? 'qual é o seu negócio e em qual cidade você está?' : 'você já conhece as telas que temos disponíveis?';
+  // Fallback caso o banco não responda
+  const fallback = `Boa pergunta! Mas antes de falar em investimento, preciso entender melhor ${negocioRef} pra te recomendar as telas certas — o valor só faz sentido quando você souber exatamente quantas pessoas vai alcançar 😊\n\nMe conta: ${perguntaSeq}`;
+  // Como esta função é síncrona, usa cache do banco carregado no init
+  const tpl = (typeof _cachedBloqueioPreco !== 'undefined' && _cachedBloqueioPreco) ? _cachedBloqueioPreco : fallback;
+  return tpl.split('{{negocio_ref}}').join(negocioRef).split('{{pergunta_sequencia}}').join(perguntaSeq);
 }
 
 
@@ -1942,68 +2016,7 @@ async function replyAI(client, txt, phone) {
     // Limpar markdown — converte [texto](url) para URL solta (gera thumbnail no WhatsApp)
     rep = limparMarkdown(rep);
 
-    // ── INTERCEPTADOR DE OBJEÇÃO DE ORÇAMENTO ──
-    // Detecta quando o lead expressa dificuldade financeira explícita e oferece
-    // alternativas concretas + marca reunião — antes de qualquer outra lógica.
-    try {
-      const txtObj = txt.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const etapaObj = lead?.etapa_funil || "abertura";
-      const etapasNegociacao = ["recomendacao", "materiais", "proposta", "fechamento"];
-
-      // Padrões que indicam objeção de ORÇAMENTO (não hesitação genérica)
-      const padroesOrcamento = [
-        "nao sei se tenho o investimento", "não sei se tenho o investimento",
-        "tenho o investimento", "nao tenho o investimento", "não tenho o investimento",
-        "ta caro", "tá caro", "muito caro", "ta fora do orcamento", "tá fora do orçamento",
-        "fora do orcamento", "fora do orçamento", "nao tenho esse valor", "não tenho esse valor",
-        "ta alto", "tá alto", "muito alto", "valor alto",
-        "custa muito", "ta salgado", "tá salgado",
-        "nao posso pagar", "não posso pagar", "nao tenho como pagar", "não tenho como pagar",
-        "sem grana", "sem dinheiro", "apertado", "orcamento apertado", "orçamento apertado",
-        "investimento alto", "fora da realidade", "nao fecho esse valor", "não fecho esse valor"
-      ];
-
-      const ehObjecaoOrcamento = padroesOrcamento.some(p => txtObj.includes(p));
-      console.log(`ORCAMENTO DEBUG [${phone}]: txtObj="${txtObj.substring(0,60)}" | etapaObj=${etapaObj} | ehObjecao=${ehObjecaoOrcamento} | pontos=${lead?.pontos_interesse} | telas=${lead?.telas_interesse}`);
-
-      if (ehObjecaoOrcamento && etapasNegociacao.includes(etapaObj)) {
-        const pontos = lead?.pontos_interesse || null;
-        const telas = lead?.telas_interesse || null;
-        const primeiroNome = lead?.nome ? lead.nome.split(" ")[0] : "";
-
-        // Se tem pontos definidos, sugerir redução + mensal
-        let sugestaoPontos = "";
-        if (pontos && pontos > 3) {
-          sugestaoPontos = ` Começando com ${Math.max(1, Math.floor(pontos / 2))} pontos no plano mensal, você paga menos e pode aumentar quando sentir o resultado. `;
-        } else if (pontos && pontos > 1) {
-          sugestaoPontos = ` No plano mensal com ${Math.max(1, Math.floor(pontos / 2))} pontos, o valor cai e você testa sem compromisso de 12 meses. `;
-        } else {
-          sugestaoPontos = ` A gente pode começar com 1 ponto no plano mensal — é o formato mais enxuto pra testar. `;
-        }
-
-        // Verificar se a resposta do GPT já está propondo algo concreto
-        const respLowerObj = rep.toLowerCase();
-        // Só pula o interceptador se o GPT JÁ ofereceu alternativas financeiras CONCRETAS
-        // (não basta só mencionar reunião — precisa ter oferecido pelo menos uma opção de redução/parcelamento)
-        const temAlternativaFinanceira = respLowerObj.includes("menos pontos") || respLowerObj.includes("plano mensal") ||
-                           respLowerObj.includes("parcelar") || respLowerObj.includes("cartão") ||
-                           respLowerObj.includes("cartao") || respLowerObj.includes("reduzir") ||
-                           respLowerObj.includes("menor") || respLowerObj.includes("começar com") ||
-                           respLowerObj.includes("começando com");
-        const temReuniao = respLowerObj.includes("reunião") || respLowerObj.includes("reuniao") ||
-                           respLowerObj.includes("google meet") || respLowerObj.includes("15 min");
-        const jaResolveu = temAlternativaFinanceira && temReuniao;
-
-        if (!jaResolveu) {
-          rep = `${primeiroNome ? primeiroNome + ", " : ""}entendo! E olha, tem como ajustar pra caber no seu orçamento sim 👇\n\n${sugestaoPontos}E se preferir, também dá pra parcelar no cartão em até 12x.\n\nMas sabe o que funciona melhor? A gente marca 15 minutinhos pelo Google Meet e monta uma proposta personalizada pra sua realidade — sem compromisso. Qual dia dessa semana funciona? 📅`;
-          console.log(`OBJEÇÃO ORÇAMENTO [${phone}]: interceptado e oferecendo alternativas + reunião`);
-        }
-      }
-    } catch(eOrcamento) {
-      console.error("Interceptador orçamento erro:", eOrcamento.message);
-    }
-
-    // ── INTERCEPTADOR DE SAÍDA (prioridade máxima) ──
+    // ── INTERCEPTADOR DE SAÍDA + OBJEÇÃO DE ORÇAMENTO (prioridade máxima) ──
     // Roda SEMPRE — antes de qualquer outra lógica — para não deixar o lead escapar
     rep = interceptarSaida(txt, rep, lead, msgs);
 
