@@ -1532,7 +1532,7 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
 }
 
 
-function injetarPDF(msgLead, respostaBot) {
+async function injetarPDF(msgLead, respostaBot, client) {
   if (!msgLead || !respostaBot) return respostaBot;
 
   const lead = msgLead.toLowerCase();
@@ -1552,8 +1552,14 @@ function injetarPDF(msgLead, respostaBot) {
     return respostaBot;
   }
 
-  // Injetar o link da apresentação com valores
-  const linkApresentacao = "{{LINK_APRESENTACAO_VALORES}}";
+  // Injetar o link da apresentação com valores (buscar valor real do banco)
+  let linkApresentacao = "https://drive.google.com/file/d/1Gv8p8EHx0K44Z3H4ElDfQNL7bmtLsljq/view?usp=drive_link";
+  try {
+    if (client) {
+      const cfgRes = await client.query("SELECT value FROM agent_config WHERE key='link_apresentacao_valores'");
+      if (cfgRes.rows[0]?.value) linkApresentacao = cfgRes.rows[0].value;
+    }
+  } catch (e) { console.error("injetarPDF: erro ao buscar link do banco:", e.message); }
 
   return respostaBot.trimEnd() + `
 
@@ -2378,7 +2384,7 @@ async function replyAI(client, txt, phone) {
 
     // ── DETECTOR DE PEDIDO DE PDF ──
     // Se o lead pediu PDF/proposta e a resposta não tem o link → injetar o link da apresentação
-    rep = injetarPDF(txt, rep);
+    rep = await injetarPDF(txt, rep, client);
 
     // ── DETECTOR DE PONTOS POR TELA ──
     // Detecta quando o lead fala "X pontos na/no [tela]" e atualiza o banco
