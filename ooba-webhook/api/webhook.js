@@ -841,6 +841,7 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
 
   // Normalizar texto (remover acentos) para matching robusto
   const msgNorm = msgLead.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  console.log("🧪 INTERCEPTAR_SAIDA_CHAMADO: msgNorm=" + msgNorm.substring(0,40) + " etapa=" + (lead?.etapa_funil||"?"));
   const respostaLower = respostaBot.toLowerCase();
   const etapa = lead?.etapa_funil || "abertura";
   const numTrocas = (msgs || []).length;
@@ -911,7 +912,7 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
       }
 
       console.log(`OBJEÇÃO ORÇAMENTO [etapa=${etapa}]: interceptado, oferecendo alternativas + reunião`);
-      return `${primeiroNome ? primeiroNome + ", " : ""}entendo! E olha, tem como ajustar pra caber no seu orçamento sim 👇\n\n${sugestao}Também dá pra parcelar no cartão em até 12x.\n\nMas sabe o que funciona melhor? A gente marca 15 minutinhos pelo Google Meet e monta uma proposta personalizada pra sua realidade — sem compromisso. Qual dia dessa semana funciona? 📅`;
+      return `🧪ORCAMENTO🧪 ${primeiroNome ? primeiroNome + ", " : ""}entendo! E olha, tem como ajustar pra caber no seu orçamento sim 👇\n\n${sugestao}Também dá pra parcelar no cartão em até 12x.\n\nMas sabe o que funciona melhor? A gente marca 15 minutinhos pelo Google Meet e monta uma proposta personalizada pra sua realidade — sem compromisso. Qual dia dessa semana funciona? 📅`;
     }
     // Se o GPT já resolveu, deixar passar
     return respostaBot;
