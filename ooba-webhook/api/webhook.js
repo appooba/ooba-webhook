@@ -1616,6 +1616,16 @@ function detectarPerguntaPreco(txt) {
   ];
   if (gatilhosVideo.some(g => t.includes(g))) return null; // não é pedido de preço
 
+  // RECLAMAÇÕES — não são pedidos de preço, são reclamações sobre erro
+  const reclamacoes = [
+    "preço errado", "preco errado", "valor errado", "valor incorreto",
+    "preço incorreto", "preco incorreto", "passou o preço errado",
+    "passou o valor errado", "preço ta errado", "preco ta errado",
+    "preço está errado", "preco está errado", "fez mais barato",
+    "fazer mais barato", "passou preço errado"
+  ];
+  if (reclamacoes.some(r => t.includes(r))) return null; // reclamação, não pedido de preço
+
   const perguntando = gatilhos.some(g => t.includes(g));
 
   // "pontos" só dispara preço se vier com número ou palavra numérica E contexto de preço
@@ -2649,12 +2659,21 @@ module.exports = async (req, res) => {
       // ── BYPASS DE PREÇOS: não passa pelo GPT, manda direto ──
       const respostasPreco = detectarPerguntaPreco(txt);
       if (respostasPreco) {
-        for (let i = 0; i < respostasPreco.length; i++) {
-          await sendMsg(from, respostasPreco[i]);
-          if (i < respostasPreco.length - 1) await new Promise(r => setTimeout(r, 1500));
+        // PROTEÇÃO ANTI-LOOP: se a última msg do bot já foi tabela de preços, não repetir
+        const histPrecoCheck = await getHist(client, from);
+        const ultimasBotPreco = histPrecoCheck.filter(m => m.role === "assistant").slice(-2);
+        const jaMandouTabela = ultimasBotPreco.some(m => 
+          (m.content || "").includes("1 ponto") && (m.content || "").includes("10 pontos"));
+        if (jaMandouTabela) {
+          console.log(`BYPASS PREÇO BLOQUEADO [${from}]: já mandou tabela recentemente, delegando pro GPT`);
+        } else {
+          for (let i = 0; i < respostasPreco.length; i++) {
+            await sendMsg(from, respostasPreco[i]);
+            if (i < respostasPreco.length - 1) await new Promise(r => setTimeout(r, 1500));
+          }
+          await salvarMsgHistorico(client, from, txt, respostasPreco.join("\n\n---MSG---\n\n"));
+          return;
         }
-        await salvarMsgHistorico(client, from, txt, respostasPreco.join("\n\n---MSG---\n\n"));
-        return;
       }
 
       // ── BYPASS DE OBJETIVO: lead informou objetivo (marca/promoção/lançamento) ──
