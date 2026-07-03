@@ -696,6 +696,12 @@ Se o lead perguntar "você é IA?" / "você é bot?" / "você é robô?":
 
 NUNCA invente dados sobre a empresa que não foram fornecidos no prompt.
 NUNCA invente endereços, CNPJ, números de registro ou qualquer dado institucional que não esteja neste prompt.
+
+🚫 PALAVRAS PROIBIDAS no seu vocabulário:
+- NUNCA use a palavra "discutir" ou "discussão" — use "conversar", "falar sobre", "alinhar" ou "esclarecer"
+- NUNCA use "negociar" — use "fechar", "contratar" ou "ativar"
+- NUNCA use "compromisso" (soa sério demais) — use "sem compromisso" ou "sem obrigação"
+- NUNCA use linguagem formal de e-mail ("prezado", "atenciosamente") — você é uma consultora no WhatsApp, seja próxima
 ═══════════════════════════════════`;
 
   return prompt;
@@ -861,7 +867,7 @@ function interceptarPrecoAntecipado(msgLead, lead) {
 // ═══════════════════════════════════════════════════════
 // INTERCEPTADOR DE SAÍDA — impede o lead de escapar sem tentar reunião
 // ═══════════════════════════════════════════════════════
-function interceptarSaida(msgLead, respostaBot, lead, msgs) {
+async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
   if (!msgLead || !respostaBot) return respostaBot;
 
   // Normalizar texto (remover acentos) para matching robusto
@@ -934,6 +940,16 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
       }
 
       console.log(`OBJEÇÃO ORÇAMENTO [etapa=${etapa}]: interceptado, oferecendo alternativas + reunião`);
+      // Buscar slots reais
+      let slotsOrc = [];
+      try {
+        if (client) slotsOrc = await gerarSlotsReuniao();
+      } catch(e) { console.error("Slots em interceptarSaida(orc):", e.message); }
+      
+      if (slotsOrc.length >= 2) {
+        const slotsTxt = slotsOrc.map(s => `• ${s.nome} (${s.data}) às ${s.hora}`).join("\n");
+        return `${primeiroNome ? primeiroNome + ", " : ""}entendo! 👇\n\n${sugestao}\n\nE se quiser, a gente marca 15 minutinhos pelo Google Meet pra montar a melhor configuração pra sua realidade — sem compromisso. Tenho esses horários:\n${slotsTxt}\n\nQual funciona? 📅`;
+      }
       return `${primeiroNome ? primeiroNome + ", " : ""}entendo! 👇\n\n${sugestao}\n\nE se quiser, a gente marca 15 minutinhos pelo Google Meet pra montar a melhor configuração pra sua realidade — sem compromisso. Qual dia dessa semana funciona? 📅`;
     }
     // Se o GPT já resolveu, deixar passar
@@ -1036,14 +1052,21 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   const oi = lead?.nome ? lead.nome.split(" ")[0] : "";
   const prefixo = novaResposta ? novaResposta + "\n\n" : "";
 
-  // Saída FORTE → propor reunião
+  // Saída FORTE → propor reunião com slots reais
   if (ehSaidaForte) {
     if (etapa === "abertura") return respostaBot;
-    const opcoes = [
-      `${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te fazer uma proposta — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pro seu negócio. 15 minutinhos pelo Google Meet, sem compromisso. Topa? 📅`,
-      `${oi ? oi + ", s" : "S"}em problema! Mas antes de ir — que tal uma conversa rápida de 15 min com um especialista da equipe OOBA? Sem compromisso, pelo Google Meet. Posso te mostrar exatamente como ficaria seu anúncio. Topa? 😊`
-    ];
-    return prefixo + opcoes[Math.floor(Math.random() * opcoes.length)];
+    // Buscar slots reais do Google Calendar
+    let slotsReais = [];
+    try {
+      if (client) slotsReais = await gerarSlotsReuniao();
+    } catch(e) { console.error("Slots em interceptarSaida(forte):", e.message); }
+    
+    if (slotsReais.length >= 2) {
+      const slotsTxt = slotsReais.map(s => `• ${s.nome} (${s.data}) às ${s.hora}`).join("\n");
+      return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te fazer uma proposta — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pro seu negócio. 15 minutinhos pelo Google Meet, sem compromisso.\n\nTenho esses horários disponíveis:\n${slotsTxt}\n\nQual funciona melhor pra você? 📅`;
+    }
+    // Fallback sem slots
+    return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te fazer uma proposta — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pro seu negócio. 15 minutinhos pelo Google Meet, sem compromisso. Topa? 📅`;
   }
 
   // Saída FRACA — abordagem gradual
@@ -1058,21 +1081,31 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   }
 
   if (hesitacoesPrevias === 1) {
-    // 2ª hesitação: resolver + sugerir reunião
-    const opcoes = [
-      `${oi ? oi + ", e" : "E"}ntendo! Olha — com os pontos que você escolheu, seu anúncio alcança milhares de pessoas por mês. Basta 1 cliente novo pra pagar o investimento 😊 Se quiser, posso arranjar um especialista da equipe OOBA pra montar uma proposta personalizada pra você — 15 minutinhos pelo Google Meet, sem compromisso. Topa?`,
-      `${oi ? oi + ", f" : "F"}az todo sentido querer ter certeza 😊 Que tal a gente marcar 15 minutos pelo Google Meet? Um especialista da equipe OOBA monta uma proposta do zero pro seu perfil — sem compromisso. Topa? 📅`
-    ];
-    return prefixo + opcoes[Math.floor(Math.random() * opcoes.length)];
+    // 2ª hesitação: resolver + sugerir reunião com slots reais
+    let slotsReais = [];
+    try {
+      if (client) slotsReais = await gerarSlotsReuniao();
+    } catch(e) { console.error("Slots em interceptarSaida(hes1):", e.message); }
+    
+    if (slotsReais.length >= 2) {
+      const slotsTxt = slotsReais.map(s => `• ${s.nome} (${s.data}) às ${s.hora}`).join("\n");
+      return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Olha — com os pontos que você escolheu, seu anúncio alcança milhares de pessoas por mês. Basta 1 cliente novo pra pagar o investimento 😊\n\nQue tal 15 minutinhos pelo Google Meet com um especialista da equipe OOBA? Sem compromisso. Tenho esses horários:\n${slotsTxt}\n\nQual encaixa melhor? 📅`;
+    }
+    return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Olha — com os pontos que você escolheu, seu anúncio alcança milhares de pessoas por mês. Basta 1 cliente novo pra pagar o investimento 😊 Se quiser, posso arranjar um especialista da equipe OOBA pra montar uma proposta personalizada pra você — 15 minutinhos pelo Google Meet, sem compromisso. Topa?`;
   }
 
   if (hesitacoesPrevias === 2) {
-    // 3ª hesitação: propor reunião diretamente
-    const opcoes = [
-      `${oi ? oi + ", " : ""}Olha, a melhor forma de resolver isso é uma conversa rápida — 15 minutinhos pelo Google Meet com um especialista da equipe OOBA. Sem compromisso, e você sai sabendo exatamente se faz sentido ou não. Topa? 📅`,
-      `${oi ? oi + ", " : ""}Que tal a gente marcar 15 minutos? Um especialista da equipe OOBA te mostra tudo na prática — sem compromisso. Qual dia dessa semana funciona? 😊`
-    ];
-    return prefixo + opcoes[Math.floor(Math.random() * opcoes.length)];
+    // 3ª hesitação: propor reunião diretamente com slots reais
+    let slotsReais = [];
+    try {
+      if (client) slotsReais = await gerarSlotsReuniao();
+    } catch(e) { console.error("Slots em interceptarSaida(hes2):", e.message); }
+    
+    if (slotsReais.length >= 2) {
+      const slotsTxt = slotsReais.map(s => `• ${s.nome} (${s.data}) às ${s.hora}`).join("\n");
+      return `${prefixo}${oi ? oi + ", " : ""}Olha, a melhor forma de resolver isso é uma conversa rápida — 15 minutinhos pelo Google Meet com um especialista da equipe OOBA. Sem compromisso, e você sai sabendo exatamente se faz sentido ou não.\n\nTenho esses horários:\n${slotsTxt}\n\nQual funciona? 📅`;
+    }
+    return `${prefixo}${oi ? oi + ", " : ""}Olha, a melhor forma de resolver isso é uma conversa rápida — 15 minutinhos pelo Google Meet com um especialista da equipe OOBA. Sem compromisso, e você sai sabendo exatamente se faz sentido ou não. Topa? 📅`;
   }
 
   // 4+ hesitações: aceitar e deixar porta aberta
@@ -2147,7 +2180,7 @@ async function replyAI(client, txt, phone) {
     // Roda SEMPRE — antes de qualquer outra lógica — para não deixar o lead escapar
     try {
       const antesIntercept = rep;
-      rep = interceptarSaida(txt, rep, lead, msgs);
+      rep = await interceptarSaida(txt, rep, lead, msgs, client);
       if (rep !== antesIntercept) {
         console.log(`INTERCEPTAR SAÍDA [${phone}]: resposta substituída (era passiva)`);
       }
