@@ -1,19 +1,5 @@
 {
   "rewrites": [
-    { "source": "/webhook", "destination": "/api/webhook" },
-    { "source": "/api/aprender", "destination": "/api/aprender" },
-    { "source": "/api/followup", "destination": "/api/followup" },
-    { "source": "/api/followup_funil", "destination": "/api/followup_funil" },
-    { "source": "/api/reativar", "destination": "/api/reativar" },
-    { "source": "/api/registrar_prospeccao", "destination": "/api/registrar_prospeccao" },
-    { "source": "/api/importar", "destination": "/api/importar" },
-    { "source": "/api/prospectar", "destination": "/api/prospectar" },
-    { "source": "/api/gerente_pipeline", "destination": "/api/gerente_pipeline" }
-  ],
-  "functions": {
-    "api/webhook.js": { "maxDuration": 60 },
-    "api/aprender.js": { "maxDuration": 60 },
-    "api/gerente_pipeline.js": { "maxDuration": 60 },
-    "api/prospectar.js": { "maxDuration": 60 }
-  }
+    { "source": "/webhook", "destination": "/api/webhook" }
+  ]
 }
