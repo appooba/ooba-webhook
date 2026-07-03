@@ -1,15 +1,15 @@
 // ═══════════════════════════════════════════════════════
 // OOBA — Follow-up automático de leads quentes
 // POST /api/followup
-// Dispara para leads que receberam material e sumiram há 20-48h
+// Textos lidos do banco (agent_config) — sem hardcoded
 // ═══════════════════════════════════════════════════════
 
 const { Client } = require("pg");
+const { getConfig } = require("./db_config");
 
 const WAT = process.env.WHATSAPP_TOKEN || "";
 const PID = "1189704930882063";
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const OAI_KEY = process.env.OPENAI_API_KEY || "";
 
 async function getDB() {
   const client = new Client({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
@@ -29,47 +29,39 @@ async function sendMsg(to, body) {
   return true;
 }
 
-function montarFollowup(lead, tipo) {
+function aplicarVars(texto, vars) {
+  if (!texto) return null;
+  let out = texto;
+  for (const [k, v] of Object.entries(vars)) {
+    out = out.split(`{{${k}}}`).join(v);
+  }
+  return out;
+}
+
+async function montarFollowup(lead, tipo, client) {
   const nome = lead.nome ? lead.nome.split(" ")[0] : null;
   const oi = nome ? `Oi ${nome}!` : `Oi!`;
   const negocio = lead.negocio || "seu negócio";
   const telas = lead.telas_interesse || "as telas que conversamos";
+  const vars = { oi, negocio, telas };
 
-  if (tipo === "apos_material") {
-    return `${oi} 😊 Tudo bem?
+  const keyMap = {
+    "apos_material": "followup_apos_material",
+    "apos_videos": "followup_apos_videos",
+    "apos_proposta": "followup_apos_proposta",
+    "recuperar_conversa": "followup_recuperar_conversa"
+  };
 
-Mandei a apresentação da OOBA ontem — conseguiu dar uma olhada nos valores?
+  const key = keyMap[tipo];
+  if (!key) return null;
 
-Fico feliz em tirar qualquer dúvida aqui mesmo, ou posso agendar 15 min pelo Google Meet pra montar uma proposta personalizada pra ${negocio}. Qual prefere? 😊`;
+  const template = await getConfig(client, key);
+  if (!template) {
+    console.error(`Texto ${key} nao encontrado no agent_config`);
+    return null;
   }
 
-  if (tipo === "apos_videos") {
-    return `${oi} 😊
-
-Vi que te mandei os vídeos das telas — o que achou? Alguma chamou mais atenção?
-
-Com base no seu perfil, eu recomendaria começar por ${telas}. Posso te mandar a apresentação completa com os valores? É rapidinho 📊`;
-  }
-
-  if (tipo === "apos_proposta") {
-    return `${oi}! 😊
-
-Só passando pra saber se ficou alguma dúvida sobre os valores que te apresentei.
-
-Se o investimento pareceu alto, posso te mostrar uma opção menor pra começar — 1 ponto já coloca sua marca na frente de milhares de pessoas por mês 💡
-
-O que achou?`;
-  }
-
-  if (tipo === "recuperar_conversa") {
-    return `${oi}! Sou a Luana da OOBA 😊
-
-A gente conversou sobre divulgar ${negocio} nas nossas telas — ficou alguma dúvida que eu possa tirar?
-
-Posso marcar 15 min pelo Google Meet essa semana, sem compromisso, pra te mostrar as opções. O que acha?`;
-  }
-
-  return null;
+  return aplicarVars(template, vars);
 }
 
 module.exports = async (req, res) => {
@@ -82,42 +74,38 @@ module.exports = async (req, res) => {
   try {
     client = await getDB();
 
-    // Buscar leads que receberam material mas não responderam em 20-48h
-    // Etapas: materiais, proposta, recomendacao — sem atualização recente
     const r = await client.query(`
-      SELECT l.*, c.updated_at as ultima_msg_at
+      SELECT l.*, COALESCE(c.updated_at, l.created_at) as ultima_msg_at
       FROM leads l
       LEFT JOIN conversations c ON c.phone = l.phone
       WHERE l.etapa_funil IN ('materiais', 'proposta', 'recomendacao', 'apresentacao', 'fechamento')
         AND l.etapa_funil != 'fechado'
         AND l.etapa_funil != 'reuniao'
-        AND c.updated_at < NOW() - INTERVAL '20 hours'
-        AND c.updated_at > NOW() - INTERVAL '30 days'
+        AND COALESCE(c.updated_at, l.created_at) < NOW() - INTERVAL '20 hours'
+        AND COALESCE(c.updated_at, l.created_at) > NOW() - INTERVAL '30 days'
         AND (l.data_ultima_abordagem IS NULL OR l.data_ultima_abordagem < NOW() - INTERVAL '48 hours')
         AND l.total_abordagens < 3
-      ORDER BY c.updated_at DESC
+      ORDER BY ultima_msg_at DESC
       LIMIT 15
     `);
 
     const leads = r.rows;
-    console.log(`Follow-up: ${leads.length} leads elegíveis`);
+    console.log(`Follow-up: ${leads.length} leads elegiveis`);
 
     const resultados = [];
 
     for (const lead of leads) {
-      // Determinar tipo de follow-up pela etapa
       let tipo = "recuperar_conversa";
       if (lead.etapa_funil === "materiais" || lead.etapa_funil === "proposta") tipo = "apos_material";
       else if (lead.etapa_funil === "recomendacao") tipo = "apos_videos";
       else if (lead.etapa_funil === "fechamento") tipo = "apos_proposta";
 
-      const mensagem = montarFollowup(lead, tipo);
+      const mensagem = await montarFollowup(lead, tipo, client);
       if (!mensagem) continue;
 
       const ok = await sendMsg(lead.phone, mensagem);
 
       if (ok) {
-        // Registrar abordagem
         await client.query(`
           UPDATE leads 
           SET data_ultima_abordagem = NOW(),
@@ -126,7 +114,6 @@ module.exports = async (req, res) => {
           WHERE phone = $1
         `, [lead.phone]);
 
-        // Salvar no histórico de conversa para manter contexto
         const convR = await client.query("SELECT messages FROM conversations WHERE phone=$1", [lead.phone]);
         if (convR.rows.length > 0) {
           const msgsRaw = convR.rows[0].messages;
@@ -142,7 +129,6 @@ module.exports = async (req, res) => {
         resultados.push({ phone: lead.phone, tipo, etapa: lead.etapa_funil, status: "falhou" });
       }
 
-      // Delay entre envios para não parecer spam
       await new Promise(r => setTimeout(r, 2000));
     }
 
