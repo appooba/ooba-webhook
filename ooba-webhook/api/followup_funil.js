@@ -86,7 +86,7 @@ module.exports = async (req, res) => {
       SELECT l.*, COALESCE(c.updated_at, l.created_at) as ultima_msg_at
       FROM leads l
       LEFT JOIN conversations c ON c.phone = l.phone
-      WHERE l.etapa_funil IN ('abertura', 'entendimento')
+      WHERE l.etapa_funil IN ('abertura', 'entendimento', 'apresentacao', 'recomendacao', 'materiais', 'proposta', 'fechamento')
         AND l.etapa_funil != 'fechado'
         AND COALESCE(c.updated_at, l.created_at) < NOW() - INTERVAL '${intervaloHoras} hours'
         AND COALESCE(c.updated_at, l.created_at) > NOW() - INTERVAL '30 days'
