@@ -842,12 +842,9 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   const msgLeadLower = msgLead.toLowerCase().trim();
   const respostaLower = respostaBot.toLowerCase();
   const etapa = lead?.etapa_funil || "abertura";
-
-  // Nunca interceptar na etapa inicial se ainda não houve apresentação
-  // (evita confundir "obrigado" como primeira mensagem com sinal de saída)
   const numTrocas = (msgs || []).length;
 
-  // Sinais FORTES de saída — interceptar sempre (mínimo 1 troca = lead já foi apresentado)
+  // Sinais FORTES de saída — interceptar sempre
   const sinaisFortes = [
     "nao quero mais", "não quero mais", "nao quero", "não quero",
     "nao tenho interesse", "não tenho interesse", "sem interesse",
@@ -857,8 +854,7 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
     "tchau", "ate mais", "até mais", "flw", "falou"
   ];
 
-  // Sinais FRACOS de saída — só interceptar se já houver ao menos 4 mensagens trocadas
-  // (evita pegar "obrigado" de abertura, "blz" de confirmação, etc.)
+  // Sinais FRACOS de hesitação — só interceptar se já houver ao menos 4 mensagens
   const sinaisFracos = [
     "obrigado", "obrigada", "vlw", "valeu", "blz", "tmj",
     "era só isso", "era isso", "por hora", "por enquanto",
@@ -871,19 +867,35 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   const ehSaidaForte = sinaisFortes.some(s => msgLeadLower.includes(s));
   const ehSaidaFraca = sinaisFracos.some(s => msgLeadLower.includes(s));
 
-  // Só intercepta sinal fraco se conversa já tem pelo menos 4 mensagens (2 trocas)
   const ehSaida = ehSaidaForte || (ehSaidaFraca && numTrocas >= 4);
   if (!ehSaida) return respostaBot;
 
   // Verificar se o bot já está propondo reunião nessa resposta → não duplicar
   const jaPropondoReuniao = [
     "qual dia", "qual horário", "qual horario", "fica bom pra você",
-    "me passa seu e-mail", "google meet", "agendar", "15 minutos"
+    "me passa seu e-mail", "google meet", "agendar", "15 minutos",
+    "reunião", "reuniao", "sem compromisso"
   ].some(s => respostaLower.includes(s));
   if (jaPropondoReuniao) return respostaBot;
 
-  // Não interceptar na etapa abertura com sinal fraco (lead está só chegando)
+  // Não interceptar na etapa abertura com sinal fraco
   if (etapa === "abertura" && ehSaidaFraca) return respostaBot;
+
+  // ── CONTAR HESITAÇÕES PRÉVIAS no histórico ──
+  const msgsBot = (msgs || []).filter(m => m.role === "assistant");
+  const msgsUser = (msgs || []).filter(m => m.role === "user");
+  
+  let hesitacoesPrevias = 0;
+  for (const m of msgsUser) {
+    const mc = (m.content || "").toLowerCase();
+    if (sinaisFracos.some(s => mc.includes(s)) || sinaisFortes.some(s => mc.includes(s))) {
+      hesitacoesPrevias++;
+    }
+  }
+  // A hesitação atual não conta (ainda não está no histórico)
+  // hesitacoesPrevias já tem as anteriores
+
+  console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: forte=${ehSaidaForte}, fraca=${ehSaidaFraca}, hesitacoesPrevias=${hesitacoesPrevias}`);
 
   // Remover encerramento passivo do GPT
   let novaResposta = respostaBot;
@@ -891,7 +903,7 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
     /\s*[Oo]brigad[oa] pelo seu tempo[!.,]?\s*$/,
     /\s*[Ss]ucesso[!.,]?\s*$/,
     /\s*[Aa]té mais[!.,]?\s*$/,
-    /\s*[Ff]ico [aà] disposição[!.,]?\s*$/,
+    /\s*[Ff]ico [aà] disposi[çã][oã][!.,]?\s*$/,
     /\s*[Qq]uando precisar[^.!]*[.!]\s*$/,
     /\s*[Ee]starei (por )?aqui[!.,]?\s*$/,
     /\s*[Ee]stou (por )?aqui[!.,]?\s*$/,
@@ -903,7 +915,10 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
     /\s*[Pp]or aqui[!.,]?\s*$/,
     /\s*[Dd]e nada[!.,]\s*[Qq]ualquer coisa[^.!]*[.!]\s*$/,
     /\s*[Rr]espeito sua decisão[!.,]?\s*$/,
-    /\s*[Cc]ompreendo[!.,]?\s*$/
+    /\s*[Cc]ompreendo[!.,]?\s*$/,
+    /\s*[Ff]ique [aà] vontade[^.!]*[.!]\s*$/,
+    /\s*[Pp]erfeito!?\s*[Ff]ique[^.!]*[.!]\s*$/,
+    /\s*[Ss]em problemas!?\s*[Qq]ualquer[^.!]*[.!]\s*$/
   ];
   for (const p of padroesFim) {
     novaResposta = novaResposta.replace(p, "").trim();
@@ -911,28 +926,61 @@ function interceptarSaida(msgLead, respostaBot, lead, msgs) {
   if (!novaResposta || novaResposta.length < 10) novaResposta = "";
 
   const oi = lead?.nome ? lead.nome.split(" ")[0] : "";
-  const etapasQuentes = ["materiais", "proposta", "fechamento", "recomendacao", "videos"];
-  const etapaQuente = etapasQuentes.includes(etapa);
+  const prefixo = novaResposta ? novaResposta + "\n\n" : "";
 
-  let sufixo;
-  if (etapaQuente) {
+  // ── ABORDAGEM GRADUAL ──
+  // Saída FORTE = lead quer encerrar de vez → pular pra proposta de reunião
+  if (ehSaidaForte) {
+    // Só propõe reunião se já passou da etapa de abertura
+    if (etapa === "abertura") return respostaBot;
+    
     const opcoes = [
-      `${oi ? oi + ", a" : "A"}ntes de ir — você chegou até aqui e faz todo sentido pro seu negócio. O que ficou travado? Me conta que eu resolvo agora 🎯`,
-      `${oi ? oi + ", q" : "Q"}ue tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — só pra fechar os detalhes. Qual dia essa semana fica bom? 📅`,
-      `${oi ? oi + ", p" : "P"}odemos marcar uma conversa rápida — 15 minutos, sem compromisso, pelo Google Meet. Qual dia e horário funciona? 😊`
+      `${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te fazer uma proposta — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pro seu negócio. 15 minutinhos pelo Google Meet, sem compromisso. Topa? 📅`,
+      `${oi ? oi + ", s" : "S"}em problema! Mas antes de ir — que tal uma conversa rápida de 15 min com um especialista da equipe OOBA? Sem compromisso, pelo Google Meet. Posso te mostrar exatamente como ficaria seu anúncio. Topa? 😊`
     ];
-    sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
-  } else {
-    const opcoes = [
-      `${oi ? oi + ", o" : "O"} que ficou de dúvida? Preço, qual tela ou como funciona? Me fala que eu resolvo agora 🎯`,
-      `${oi ? oi + ", q" : "Q"}ue tal a gente marcar 15 minutos pelo Google Meet? Sem compromisso — só pra entender melhor o seu negócio. Qual dia fica bom? 📅`,
-      `${oi ? oi + ", b" : "B"}asta 1 cliente novo por mês pra pagar o investimento inteiro. Quer ver como ficaria? Me fala um horário que funciona 🎯`
-    ];
-    sufixo = opcoes[Math.floor(Math.random() * opcoes.length)];
+    return prefixo + opcoes[Math.floor(Math.random() * opcoes.length)];
   }
 
-  const prefixo = novaResposta ? novaResposta + "\n\n" : "";
-  return prefixo + sufixo;
+  // Saída FRACA — abordagem gradual baseada em quantas vezes hesitou
+  // 0 hesitações prévias (1ª vez): entender o que está travando
+  // 1 hesitação prévia (2ª vez): resolver objeção + sugerir reunião suavemente
+  // 2+ hesitações prévias (3ª+ vez): propor reunião diretamente
+  // 3+ hesitações prévias: aceitar e deixar em aberto
+
+  if (hesitacoesPrevias === 0) {
+    // 1ª hesitação: NÃO propor reunião. Entender o que está travando.
+    const opcoes = [
+      `${oi ? oi + ", c" : "C"}laro, sem pressa! Me conta — o que você está pesando? É o valor, quais telas escolher, ou como funciona a veiculação?`,
+      `${oi ? oi + ", t" : "T"}udo bem! Pra eu te ajudar melhor — o que ficou de dúvida? É sobre o contrato, os pontos, ou quer ver mais alguma tela?`,
+      `${oi ? oi + ", f" : "F"}az sentido querer analisar com calma 😊 Me diz uma coisa — o que mais pesa na sua decisão agora? O investimento, o alcance, ou a escolha das telas?`
+    ];
+    return prefixo + opcoes[Math.floor(Math.random() * opcoes.length)];
+  }
+
+  if (hesitacoesPrevias === 1) {
+    // 2ª hesitação: resolver + sugerir reunião suavemente (sem mandar slots)
+    const opcoes = [
+      `${oi ? oi + ", e" : "E"}ntendo! Olha — com os pontos que você escolheu, seu anúncio alcança milhares de pessoas por mês. Basta 1 cliente novo pra pagar o investimento 😊 Se quiser, posso arranjar um especialista da equipe OOBA pra montar uma proposta personalizada pra você — 15 minutinhos pelo Google Meet, sem compromisso. Topa?`,
+      `${oi ? oi + ", f" : "F"}az todo sentido querer ter certeza 😊 Que tal a gente marcar 15 minutos pelo Google Meet? Um especialista da equipe OOBA monta uma proposta do zero pro seu perfil — sem compromisso. Topa? 📅`
+    ];
+    return prefixo + opcoes[Math.floor(Math.random() * opcoes.length)];
+  }
+
+  if (hesitacoesPrevias === 2) {
+    // 3ª hesitação: propor reunião diretamente
+    const opcoes = [
+      `${oi ? oi + ", " : ""}Olha, a melhor forma de resolver isso é uma conversa rápida — 15 minutinhos pelo Google Meet com um especialista da equipe OOBA. Sem compromisso, e você sai sabendo exatamente se faz sentido ou não. Topa? 📅`,
+      `${oi ? oi + ", " : ""}Que tal a gente marcar 15 minutos? Um especialista da equipe OOBA te mostra tudo na prática — sem compromisso. Qual dia dessa semana funciona? 😊`
+    ];
+    return prefixo + opcoes[Math.floor(Math.random() * opcoes.length)];
+  }
+
+  // 4+ hesitações: aceitar e deixar porta aberta
+  const opcoes = [
+    `${oi ? oi + ", " : ""}Tudo bem! Se mudar de ideia, é só me chamar 😊`,
+    `Sem problema! Fico à disposição — se quiser conversar depois, é só me chamar 😊`
+  ];
+  return prefixo + opcoes[Math.floor(Math.random() * opcoes.length)];
 }
 
 
@@ -2460,8 +2508,20 @@ module.exports = async (req, res) => {
             m.content?.includes("pagar o investimento") || m.content?.includes("Basta 1")
           )
         );
-        if (!etapasComerciais.includes(etapaHes) || jaOfertouReuniao || !gptJaTentouROI) {
-          // não interceptar — deixa o GPT tentar primeiro
+        // ── CONTAR HESITAÇÕES PRÉVIAS no histórico ──
+        const histHesCount = await getHist(client, from);
+        const userMsgsHes = histHesCount.filter(m => m.role === "user");
+        const sinaisHes = ["vou pensar","vou ver","vou analisar","muito caro","caro demais","nao quero","não quero","nao tenho interesse","deixa pra","fica pra depois","nao sei","não sei","ainda nao","ainda não","achei caro","nao vale","voce garante","você garante"];
+        let hesitacoesPrevias = 0;
+        for (const m of userMsgsHes) {
+          const mc = (m.content || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          if (sinaisHes.some(s => mc.includes(s))) hesitacoesPrevias++;
+        }
+        console.log(`HESITAÇÃO COUNT [${from}]: ${hesitacoesPrevias} prévias, etapa=${etapaHes}, jaOfertouReuniao=${jaOfertouReuniao}, gptJaTentouROI=${gptJaTentouROI}`);
+
+        // SÓ dispara este interceptador na 3ª+ hesitação (as primeiras são cuidadas pelo interceptarSaida)
+        if (!etapasComerciais.includes(etapaHes) || jaOfertouReuniao || !gptJaTentouROI || hesitacoesPrevias < 2) {
+          // não interceptar — deixa o GPT + interceptarSaida tentarem primeiro
         } else {
           const txtH = txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
           
