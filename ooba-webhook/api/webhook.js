@@ -1054,7 +1054,32 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
 
   // Saída FORTE → propor reunião com slots reais
   if (ehSaidaForte) {
-    if (etapa === "abertura") return respostaBot;
+    if (etapa === "abertura") {
+      // Em abertura, NUNCA desistir na 1ª saída forte — tentar retenção contextual
+      // Verificar se já tentamos retenção antes (contar respostas da Luana com "complemento")
+      const msgsBot = (msgs || []).filter(m => m.role === "assistant");
+      let retencoesPrevias = 0;
+      for (const m of msgsBot) {
+        const mc = (m.content || "").toLowerCase();
+        if (mc.includes("complemento") || mc.includes("não substitui") || 
+            mc.includes("nao substitui") || mc.includes("potencializa") ||
+            mc.includes("soma") || mc.includes("junto com")) {
+          retencoesPrevias++;
+        }
+      }
+      
+      if (retencoesPrevias === 0) {
+        // 1ª retenção: explicar que é complemento, não substituição
+        const opcoesRetencao = [
+          `${oi ? oi + ", e" : "E"}ntendo perfeitamente! 😊 Só pra esclarecer uma coisa rápida — a OOBA não substitui o que você já faz. É um complemento que potencializa sua marca onde seu cliente já está: restaurantes, academias, padarias... Seu anúncio aparece de 6 a 7 vezes pra mesma pessoa durante o dia.\n\nNão custa nada ver como funciona. Quer que te mostre? 👀`,
+          `${oi ? oi + ", " : ""}claro, respeito total! 😊 Mas deixa eu te explicar uma coisa em 10 segundos: a OOBA não compete com o que você faz hoje — é um complemento. Seu anúncio aparece em telas onde as pessoas ficam por ~1 hora, vendo seu vídeo 6 a 7 vezes.\n\nSe quiser ver como funciona, é só dizer que te explico rapidinho! 📺`,
+          `${oi ? oi + ", " : ""}entendo! Sem pressa mesmo 😊 Mas vale saber: a mídia indoor não é concorrência do que você já faz — é uma camada extra. As pessoas veem seu anúncio 6-7 vezes por visita em locais que frequentam todo dia.\n\nSe mudar de ideia ou quiser só ver como funciona, tô aqui! Qualquer coisa é só chamar 🙌`
+        ];
+        return opcoesRetencao[Math.floor(Math.random() * opcoesRetencao.length)];
+      }
+      // Se já tentou retenção e o lead insistiu → deixar ir
+      return respostaBot;
+    }
     // Buscar slots reais do Google Calendar
     let slotsReais = [];
     try {
