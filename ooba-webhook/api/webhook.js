@@ -1983,9 +1983,9 @@ async function showTyping(messageId) {
     });
     if (!res.ok) {
       const errText = await res.text();
-      console.log("Typing indicator (não crítico):", res.status, errText.substring(0, 100));
+      console.log("❌ Typing indicator FALHOU:", res.status, errText.substring(0, 200));
     } else {
-      console.log("💬 Typing indicator ativo para msg:", messageId?.substring(0, 20));
+      console.log("✅ Typing indicator ATIVO para msg:", messageId?.substring(0, 30));
     }
   } catch(e) {
     console.log("Typing indicator erro (não crítico):", e.message);
