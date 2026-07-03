@@ -20,26 +20,31 @@ async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
   const telas = await getTelasDisponiveis(lead.negocio, lead.cidade);
   const cidade = lead.cidade || null;
   if (!cidade) {
-    await sendMsg(from, "Antes de mostrar as telas, me conta: você é de Porto Feliz ou Boituva? 😊");
+    await sendMsg(from, await getMsg("msg_pedir_cidade", {}, client));
     return;
   }
 
   // PASSO 1 — Explicar como funciona (conceito de ponto) — SÓ se ainda não foi explicado antes
   let jaExplicouPontos = false;
-  if (client) {
+  if (client && lead) {
     try {
-      const histCat = await getHist(client, from);
-      jaExplicouPontos = histCat.some(m => m.role === "assistant" &&
-        (m.content?.includes("compra *pontos*") || m.content?.includes("compra pontos") ||
-         m.content?.includes("Ficou claro como funciona") ||
-         m.content?.includes("educação automática") ||
-         m.content?.includes("catálogo enviado após confirmação") ||
-         m.content?.includes("reforço de conceito + catálogo") ||
-         m.content?.includes("catálogo automático enviado")));
+      // Verificar pela etapa do funil — mais confiável que procurar strings no histórico
+      const etapaAtual = lead.etapa_funil || "abertura";
+      jaExplicouPontos = ["educacao", "aguardando_catalogo", "recomendacao", "materiais", "fechamento", "proposta"].includes(etapaAtual);
+      // Backup: também checar marcadores no histórico (para leads que vieram de fluxos antigos)
+      if (!jaExplicouPontos) {
+        const histCat = await getHist(client, from);
+        jaExplicouPontos = histCat.some(m => m.role === "assistant" &&
+          (m.content?.includes("educação automática") ||
+           m.content?.includes("catálogo enviado") ||
+           m.content?.includes("catálogo automático") ||
+           m.content?.includes("reforço de conceito") ||
+           m.content?.includes("compra pontos")));
+      }
     } catch(e) {}
   }
   if (!jaExplicouPontos) {
-    await sendMsg(from, `Aqui na OOBA funciona assim: você compra *pontos* — cada ponto é um vídeo de 15 segundos que entra em rotação nas telas. A mesma pessoa fica em média *1 hora* no local e vê seu vídeo de *6 a 7 vezes* durante a visita 🔁\nAnúncios rodam *segunda a segunda, das 6h à meia-noite*. Quanto mais pontos, mais vezes seu anúncio aparece na rotação.`);
+    await sendMsg(from, await getMsg("msg_catalogo_explicacao", {}, client));
     await new Promise(r => setTimeout(r, delay));
   }
 
@@ -49,7 +54,8 @@ async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
     return acc + num;
   }, 0);
 
-  await sendMsg(from, `Em ${cidade} são *${telas.length} telas* com *+${Math.round(totalFluxo/1000)} mil pessoas/mês* no total. Olha cada uma 👇`);
+  const totalFluxoK = Math.round(totalFluxo/1000).toString();
+  await sendMsg(from, await getMsg("msg_catalogo_total", {cidade: cidade, total_telas: telas.length.toString(), total_fluxo_k: totalFluxoK}, client));
   await new Promise(r => setTimeout(r, delay));
 
   // PASSO 3 — Cada tela: texto com giro PRIMEIRO, depois URL sozinha (gera thumbnail)
@@ -76,18 +82,46 @@ async function enviarCatalogoTelas(from, lead, delay = 1500, client = null) {
   const totalFinal = telas.reduce((acc, t) => acc + parseInt((t.fluxo||"0").replace(/[^0-9]/g,"")), 0);
 
   // MSG FINAL — argumento de cobertura + total de giro + CTA (sem repetir cada tela)
-  const msgFinal = `São *+${Math.round(totalFinal/1000)} mil pessoas/mês* na rede toda 🔥
-
-Seu anúncio de *${negocioFinal}* pode rodar em todas essas telas — a mesma pessoa te vê de manhã na Sueli Bolos, no almoço no Bonfá, à noite na Pizzaria.
-
-Isso é presença de marca de verdade 💪
-
-Qual dessas telas faz mais sentido pro seu público?`;
-  await sendMsg(from, msgFinal);
+  const totalFinalK = Math.round(totalFinal/1000).toString();
+  const msgFinal = await getMsg("msg_catalogo_cta", {total_fluxo_k: totalFinalK, negocio: negocioFinal}, client);
+  if (msgFinal) await sendMsg(from, msgFinal);
 
   console.log(`CATÁLOGO TELAS enviado para ${from} — ${telas.length} telas`);
 }const { Client } = require("pg");
 const { getTelasFiltradas, getAllConfig, getConfig } = require("./db_config");
+
+// ══════════════════════════════════════════════════════════════
+// getMsg — busca texto do banco (agent_config) com template vars
+// Substitui textos hardcoded. Mudou texto? UPDATE no banco, sem deploy.
+// ══════════════════════════════════════════════════════════════
+const _msgCache = {};
+async function getMsg(key, vars = {}, client = null) {
+  // Cache em memória (por request serverless)
+  if (_msgCache[key]) {
+    let text = _msgCache[key];
+    for (const [k, v] of Object.entries(vars)) {
+      text = text.replace(new RegExp(`{{${k}}}`, 'g'), v);
+    }
+    return text;
+  }
+  
+  // Buscar do banco
+  if (!client) client = await getDB();
+  try {
+    const r = await client.query("SELECT value FROM agent_config WHERE key=$1", [key]);
+    if (r.rows.length > 0) {
+      _msgCache[key] = r.rows[0].value;
+      let text = r.rows[0].value;
+      for (const [k, v] of Object.entries(vars)) {
+        text = text.replace(new RegExp(`{{${k}}}`, 'g'), v);
+      }
+      return text;
+    }
+  } catch(e) { console.error("getMsg error:", key, e.message); }
+  return null;
+}
+
+
 
 // ── Body parser manual para Vercel Serverless ──
 async function parseBody(req) {
@@ -2655,29 +2689,16 @@ module.exports = async (req, res) => {
           console.log(`INTERCEPTADOR TABELA [${from}]: lead escolheu telas → enviando explicação de pontos + tabela`);
 
           // Msg 1: explicar pontos de 1 a 10
-          await sendMsg(from, "Ótimo! Agora deixa eu explicar como funciona a contratação 😊\n\nVocê contrata de *1 a 10 pontos* — cada ponto é um vídeo de 15s rodando nas telas que você escolher. Quanto mais pontos, mais vezes seu anúncio aparece na rotação.");
+          await sendMsg(from, await getMsg("msg_explicacao_contratacao", {}, client));
           await new Promise(r => setTimeout(r, 1800));
 
-          // Msg 2: tabela de preços mensal + anual
-          await sendMsg(from, `*Tabela de pontos — plano mensal e anual:*
-
-1 ponto → R$400/mês | R$200/mês anual
-2 pontos → R$550/mês | R$450/mês anual
-3 pontos → R$650/mês | R$550/mês anual
-4 pontos → R$750/mês | R$650/mês anual
-5 pontos → R$850/mês | R$750/mês anual
-6 pontos → R$950/mês | R$850/mês anual
-7 pontos → R$1.050/mês | R$950/mês anual
-8 pontos → R$1.150/mês | R$1.050/mês anual
-9 pontos → R$1.250/mês | R$1.150/mês anual
-10 pontos → R$1.350/mês | R$1.250/mês anual
-
-*Plano anual = 22% de desconto* 🎁
-A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alternando)`);
+          // Msg 2: tabela de preços mensal + anual (do banco)
+          const msgTabela = await getMsg("msg_tabela_pontos", {}, client);
+          if (msgTabela) await sendMsg(from, msgTabela);
           await new Promise(r => setTimeout(r, 1800));
 
           // Msg 3: pergunta simples
-          await sendMsg(from, "Quantos pontos você quer contratar? 😊");
+          await sendMsg(from, await getMsg("msg_pedir_pontos", {}, client));
 
           // Salvar no histórico
           const histEscolha = await getHist(client, from);
@@ -2797,7 +2818,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
 
           if (confirmou && !naoEntendeu) {
             console.log(`INTERCEPTADOR CONFIRMAÇÃO [${from}]: lead confirmou → disparando catálogo`);
-            await sendMsg(from, "Perfeito! Olha as telas disponíveis onde seu anúncio pode aparecer 👇");
+            await sendMsg(from, await getMsg("msg_confirmacao_sim", {}, client));
             await new Promise(r => setTimeout(r, 1200));
             const leadFrescoConf = await getLead(client, from);
             await enviarCatalogoTelas(from, leadFrescoConf, 1500, client);
@@ -2812,7 +2833,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
 
           if (maisOuMenos) {
             console.log(`INTERCEPTADOR CONFIRMAÇÃO [${from}]: lead disse mais ou menos → reforço rápido + catálogo`);
-            await sendMsg(from, "Sem problema! Em resumo: você paga por *pontos* — cada ponto é um vídeo de 15s do seu negócio rodando nas telas. Quanto mais pontos, mais vezes aparece 😊 Olha as telas disponíveis 👇");
+            await sendMsg(from, await getMsg("msg_confirmacao_mais_menos", {}, client));
             await new Promise(r => setTimeout(r, 1200));
             const leadFrescoMOM = await getLead(client, from);
             await enviarCatalogoTelas(from, leadFrescoMOM, 800, client);
@@ -2863,12 +2884,8 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
       {
         const leadEntend = await getLead(client, from);
         const etapaEntend = leadEntend?.etapa_funil || "abertura";
-        const jaTemEdu = await getHist(client, from).then(h =>
-          h.some(m => m.role === "assistant" && 
-            (m.content?.includes("você não compra espaço em tela") || 
-             m.content?.includes("educação automática") ||
-             m.content?.includes("catálogo automático enviado")))
-        );
+        // Guard por etapa do funil (mais confiável que string match)
+        const jaTemEdu = ["educacao", "aguardando_catalogo", "recomendacao", "materiais", "fechamento", "proposta"].includes(etapaEntend);
 
         // Detectar cidade na mensagem
         const txtN = txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -2905,15 +2922,15 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
           ).catch(() => {});
 
           // ── Mensagem 1: o que é um PONTO ──
-          await sendMsg(from, "Antes de te mostrar as telas, deixa eu explicar rapidinho como funciona 😊\n\nAqui você não compra espaço em tela — você compra *pontos*. Cada ponto é um vídeo de 15 segundos do seu negócio, rodando em rotação nas nossas telas.");
+          await sendMsg(from, await getMsg("msg_educacao_1", {}, client));
           await new Promise(r => setTimeout(r, 1800));
 
           // ── Mensagem 2: frequência de exibição ──
-          await sendMsg(from, "Seu vídeo roda de segunda a domingo, das 6h à meia-noite. A pessoa fica em média 1h no local — e vê seu anúncio de *6 a 7 vezes* na mesma visita. É fixação de marca, não só alcance.");
+          await sendMsg(from, await getMsg("msg_educacao_2", {}, client));
           await new Promise(r => setTimeout(r, 1800));
 
           // ── Mensagem 3: formato do vídeo + pergunta de confirmação ──
-          await sendMsg(from, "O vídeo é .MP4, Full HD, até 15s, sem áudio — sem áudio é estratégia: movimento + cor + mensagem clara convertem mais. Pode ser *institucional* (sua marca) ou *promocional* (oferta específica) 😊\n\nFicou claro como funciona?");
+          await sendMsg(from, await getMsg("msg_educacao_3", {}, client));
           await new Promise(r => setTimeout(r, 800));
 
           // ── Salvar no histórico — etapa aguardando confirmação ──
@@ -3028,11 +3045,11 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
         if (etapaPosEnvio === "recomendacao" && !jaTemVideos && !jaTemEduHist && etapaPosEnvio !== "aguardando_catalogo") {
           console.log(`EDUCAÇÃO FORÇADA PÓS-RESPOSTA [${from}]: etapa=recomendacao mas educação não foi enviada → forçando`);
           await new Promise(r => setTimeout(r, 800));
-          await sendMsg(from, "Antes de te mostrar as telas, deixa eu explicar rapidinho como funciona 😊\n\nAqui você não compra espaço em tela — você compra *pontos*. Cada ponto é um vídeo de 15 segundos do seu negócio, rodando em rotação nas nossas telas.");
+          await sendMsg(from, await getMsg("msg_educacao_1", {}, client));
           await new Promise(r => setTimeout(r, 1800));
-          await sendMsg(from, "Seu vídeo roda de segunda a domingo, das 6h à meia-noite. A pessoa fica em média 1h no local — e vê seu anúncio de *6 a 7 vezes* na mesma visita. É fixação de marca, não só alcance.");
+          await sendMsg(from, await getMsg("msg_educacao_2", {}, client));
           await new Promise(r => setTimeout(r, 1800));
-          await sendMsg(from, "O vídeo é .MP4, Full HD, até 15s, sem áudio — sem áudio é estratégia: movimento + cor + mensagem clara convertem mais. Pode ser *institucional* (sua marca) ou *promocional* (oferta específica). Olha onde vai aparecer 👇");
+          await sendMsg(from, await getMsg("msg_educacao_3_com_cta", {}, client));
           await new Promise(r => setTimeout(r, 1800));
           const leadFrescoForc = await getLead(client, from);
           if (leadFrescoForc?.cidade) { await enviarCatalogoTelas(from, leadFrescoForc, 800, client); }
