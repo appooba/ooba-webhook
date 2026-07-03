@@ -2204,6 +2204,16 @@ async function replyAI(client, txt, phone) {
     // ── INTERCEPTADOR DE SAÍDA + OBJEÇÃO DE ORÇAMENTO (prioridade máxima) ──
     // Roda SEMPRE — antes de qualquer outra lógica — para não deixar o lead escapar
     try {
+      // ── DETECTOR DE TIMING — salvar quando o lead quer anunciar ──
+      try {
+        lead._msgsHistory = msgs;
+        const timingResult = await detectarESalvarTiming(client, phone, txt, lead);
+        if (timingResult) {
+          console.log(`TIMING DETECTADO [${phone}]: ${timingResult.texto} -> ${timingResult.data}`);
+        }
+      } catch(eTiming) {
+        console.error(`ERRO detectarTiming [${phone}]:`, eTiming.message);
+      }
       const antesIntercept = rep;
       rep = await interceptarSaida(txt, rep, lead, msgs, client);
       if (rep !== antesIntercept) {
@@ -2508,6 +2518,83 @@ async function showTyping(messageId) {
   } catch(e) {
     console.log("Typing indicator erro (não crítico):", e.message);
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// DETECTOR DE TIMING — salva quando o lead quer anunciar
+// ══════════════════════════════════════════════════════════════
+async function detectarESalvarTiming(client, phone, msgLead, leadData) {
+  if (!msgLead || !leadData) return null;
+  const txt = msgLead.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  
+  // So processar se a Luana ja perguntou sobre timing
+  const msgsBot = leadData._msgsHistory || [];
+  const perguntouTiming = msgsBot.some(m => {
+    const c = (m.content || "").toLowerCase();
+    return c.includes("quando seria") || c.includes("momento ideal") || 
+           c.includes("momento pra voce come") || c.includes("investir em divulga") ||
+           c.includes("quanto tempo") || c.includes("melhor momento");
+  });
+  
+  if (!perguntouTiming) return null;
+  
+  // Detectar padroes de resposta de timing
+  let timingTexto = null;
+  let timingData = null;
+  const hoje = new Date();
+  
+  // "1 mes" / "1 mes" / "proximo mes"
+  if (/\b1\s*m[eE]s\b|\bproximo\s*m[eE]s\b|\bpr[oO]ximo\s*m[eE]s\b/.test(txt)) {
+    timingTexto = "1 mes";
+    timingData = new Date(hoje.getFullYear(), hoje.getMonth() + 1, hoje.getDate());
+  }
+  // "2 meses"
+  else if (/\b2\s*m[eE]s/.test(txt)) {
+    timingTexto = "2 meses";
+    timingData = new Date(hoje.getFullYear(), hoje.getMonth() + 2, hoje.getDate());
+  }
+  // "3 meses" / "tres meses"
+  else if (/\b3\s*m[eE]s|\btr[eE]s\s*m[eE]s/.test(txt)) {
+    timingTexto = "3 meses";
+    timingData = new Date(hoje.getFullYear(), hoje.getMonth() + 3, hoje.getDate());
+  }
+  // "6 meses" / "meio ano"
+  else if (/\b6\s*m[eE]s|\bmeio\s*ano/.test(txt)) {
+    timingTexto = "6 meses";
+    timingData = new Date(hoje.getFullYear(), hoje.getMonth() + 6, hoje.getDate());
+  }
+  // "final do ano" / "fim do ano" / "dezembro"
+  else if (/final\s*do\s*ano|fim\s*do\s*ano|dezembro|\b12\s*m[eE]s/.test(txt)) {
+    timingTexto = "final do ano";
+    timingData = new Date(hoje.getFullYear(), 11, 15); // 15 de dezembro
+  }
+  // "ano que vem" / "proximo ano" / "janiero"
+  else if (/ano\s*que\s*vem|pr[oO]ximo\s*ano|janeiro/.test(txt)) {
+    timingTexto = "ano que vem";
+    timingData = new Date(hoje.getFullYear() + 1, 0, 15); // 15 de janeiro
+  }
+  // "agora" / "ja" / "imediato" / "essa semana" -> lead quer agora, reativar imediatamente
+  else if (/\bagora\b|\bj[aA]\b|\bimediato\b|\bessa\s*semana\b|\bpr[oO]ximo\s*m[eE]s\b/.test(txt)) {
+    timingTexto = "imediato";
+    timingData = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1); // amanha
+  }
+  // "nao sei" / "nao tenho ideia" -> sem data definida
+  else if (/n[aA]o\s*sei|n[aA]o\s*tenho\s*ideia|n[aA]o\s*tenho\s*previs/.test(txt)) {
+    timingTexto = "sem data definida";
+    timingData = new Date(hoje.getFullYear(), hoje.getMonth() + 2, 1); // default 2 meses
+  }
+  
+  if (timingTexto) {
+    const dataStr = timingData.toISOString().split("T")[0];
+    await client.query(
+      "UPDATE leads SET timing_anunciar=$1, timing_data=$2, status=$3, updated_at=NOW() WHERE phone=$4",
+      [timingTexto, dataStr, "timing_capturado", phone]
+    ).catch(e => console.error("detectarTiming UPDATE:", e.message));
+    console.log(`TIMING SALVO [${phone}]: ${timingTexto} -> ${dataStr}`);
+    return { texto: timingTexto, data: dataStr };
+  }
+  
+  return null;
 }
 
 const processedMsgs = new Set();
