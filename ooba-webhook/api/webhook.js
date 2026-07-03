@@ -2947,7 +2947,7 @@ A partir de 5 pontos no anual: 1º vídeo grátis + carrossel (2 vídeos alterna
         // ── INTERCEPTADOR DE AGENDAMENTO: se GPT pediu "qual dia/horário" → substituir por slots reais ──
         const repJuntada = partes.join(" ").toLowerCase();
         // Só disparar slots se a etapa atual for fechamento E o GPT claramente propôs reunião
-        const etapaAtualCheck = lead?.etapa_funil || "abertura";
+        const leadCheck = await getLead(client, from); const etapaAtualCheck = leadCheck?.etapa_funil || "abertura";
         const gptPediuDisponibilidade = etapaAtualCheck === "fechamento" && (
           repJuntada.includes("qual dia") || repJuntada.includes("qual horário") || 
           repJuntada.includes("qual horario") || repJuntada.includes("que dia") ||
