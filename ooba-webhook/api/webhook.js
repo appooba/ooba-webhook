@@ -836,7 +836,7 @@ Site: www.ooba.com.br
 // ═══════════════════════════════════════════════════════
 // INSTRUÇÕES DE FUNIL POR ETAPA
 // ═══════════════════════════════════════════════════════
-async function getSysWithFunil(etapa, leadData, patches = []) {
+async function getSysWithFunil(etapa, leadData, patches = [], insights = []) {
   const nome = leadData.nome ? leadData.nome : "";
   const negocio = leadData.negocio ? leadData.negocio : "";
   const cidade = leadData.cidade || null;
@@ -973,7 +973,7 @@ QUANDO AGENDAR REUNIÃO PELO MEET — nestes casos:
 
 ${ctx}
 
-${patches.length > 0 ? '\n\n═══════════════════════════════════\nAPRENDIZADO DE VENDAS — Melhorias aplicadas\n═══════════════════════════════════\n' + patches.map((p, i) => `${i+1}. ${p.conteudo}`).join('\n\n') + '\n\n⚠️ Aplique ESTAS melhorias nas suas respostas. São aprendizados reais de conversas anteriores.' : ''}`;
+${patches.length > 0 || insights.length > 0 ? '\n\n═════════════════════════════════════════════════════════════\n🧠 APRENDIZADO DE VENDAS — Inteligência aplicada\n═════════════════════════════════════════════════════════════\n' + (insights.length > 0 ? '\n▶ INSIGHTS PARA ESTA ETAPA (' + etapa + '):\n' + insights.map((ins, i) => `   ${i+1}. QUANDO o lead disser algo como "${ins.trigger_padrao}"\n      → RESPONDA: ${ins.resposta_ideal}`).join('\n\n') : '') + (patches.length > 0 ? '\n\n▶ CORREÇÕES DE CONVERSAS ANTERIORES:\n' + patches.map((p, i) => `   ${i+1}. ${p.conteudo}`).join('\n\n') + '\n\n⚠️ Aplique ESTAS melhorias. São aprendizados reais de conversas anteriores.' : '') : ''}`;
 
   const funil = {
     abertura: `
@@ -2159,16 +2159,26 @@ async function replyAI(client, txt, phone) {
     } catch(e) { console.error("Erro auto-avanço:", e.message); }
   }
 
-  // Buscar patches de aprendizado ativos do banco
+  // Buscar aprendizado do banco: patches filtrados por etapa + insights estruturados
   let patches = [];
+  let insights = [];
   try {
+    // Patches de correção — filtrados pela etapa atual do lead
     const patchResult = await client.query(
-      "SELECT conteudo, problema, patch_type FROM prompt_patches WHERE ativo = true ORDER BY created_at DESC LIMIT 10"
+      "SELECT conteudo, problema, patch_type FROM prompt_patches WHERE ativo = true AND (etapa_alvo = $1 OR etapa_alvo = 'all') ORDER BY created_at DESC LIMIT 8",
+      [etapa]
     );
     patches = patchResult.rows;
-  } catch(e) { console.error("Erro ao buscar patches:", e.message); }
+    
+    // Insights estruturados — filtrados pela etapa atual + globais
+    const insightResult = await client.query(
+      "SELECT categoria, trigger_padrao, resposta_ideal, score FROM aprendizado_insights WHERE ativo = true AND (etapa_funil = $1 OR etapa_funil = 'all') ORDER BY score DESC LIMIT 5",
+      [etapa]
+    );
+    insights = insightResult.rows;
+  } catch(e) { console.error("Erro ao buscar aprendizado:", e.message); }
 
-  const sys = await getSysWithFunil(etapa, lead, patches);
+  const sys = await getSysWithFunil(etapa, lead, patches, insights);
 
   msgs.push({ role: "user", content: txt });
 
