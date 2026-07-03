@@ -1091,8 +1091,11 @@ Você já sabe: negócio=${negocio}, cidade=${cidade}
 
 ⚠️ REGRA: UMA PERGUNTA POR VEZ. Sequência obrigatória:
 - Se não souber a cidade → pergunte SÓ a cidade: "Você é de Porto Feliz ou Boituva?"
+  → Marque: [FUNIL:etapa=entendimento;negocio=NEGOCIO] (NÃO avance se não tem cidade!)
 - Se souber a cidade → emita [MOSTRAR_CATALOGO] imediatamente com frase de transição
+  → Marque: [FUNIL:etapa=recomendacao;negocio=NEGOCIO;cidade=CIDADE]
 
+⛔ NUNCA avance para recomendacao sem saber a cidade.
 ⛔ NUNCA pergunte objetivo, meta ou o que quer divulgar — o catálogo vem ANTES de qualquer pergunta estratégica.
 ⛔ NUNCA sugira telas por nome antes do catálogo.
 ⛔ NUNCA sugira quantos pontos antes do lead ver as telas.
@@ -1102,9 +1105,7 @@ Você já sabe: negócio=${negocio}, cidade=${cidade}
 
 Quando souber a cidade → frase de transição + [MOSTRAR_CATALOGO]:
 "Deixa eu te mostrar as telas disponíveis em [cidade] 👇"
-"Olha onde seu anúncio pode aparecer em [cidade] 👇"
-
-[FUNIL:etapa=recomendacao;negocio=NEGOCIO;cidade=CIDADE]`,
+"Olha onde seu anúncio pode aparecer em [cidade] 👇"`,
 
     apresentacao: `
 VOCÊ ESTÁ NA ETAPA: APRESENTAÇÃO
@@ -2457,11 +2458,15 @@ async function replyAI(client, txt, phone) {
         console.log(`FUNIL AUTO [${phone}]: abertura → entendimento`);
       }
     } else if (etapaAtual === "entendimento") {
-      // Avançar automaticamente — não depende do GPT
-      // Se o GPT respondeu sobre telas/pontos/ooba → já estava indo para recomendacao
-      if (repLower.includes("tela") || repLower.includes("ponto") || repLower.includes("deixa eu mostrar") || repLower.includes("vou te mostrar") || repLower.includes("ooba") || repLower.includes("funciona")) {
+      // Avançar automaticamente — SÓ se o GPT claramente está mostrando catálogo
+      // NÃO avançar só porque mencionou "tela" ou "ponto" em uma validação
+      const leadAutoFunil = await getLead(client, phone);
+      const temCidadeAuto = leadAutoFunil?.cidade;
+      if (temCidadeAuto && (repLower.includes("deixa eu mostrar") || repLower.includes("vou te mostrar") || repLower.includes("olha onde") || repLower.includes("mostrar_catalogo"))) {
         await atualizarEtapaFunil(client, phone, "recomendacao", txt, rep.substring(0, 200));
         console.log(`FUNIL AUTO [${phone}]: entendimento → recomendacao (catalogo sera disparado)`);
+      } else {
+        console.log(`FUNIL AUTO [${phone}]: entendimento mantido (cidade=${temCidadeAuto || "null"}, GPT validando)`);
       }
     } else if (etapaAtual === "apresentacao") {
       // Avançar se enviou links de vídeo
@@ -3185,23 +3190,11 @@ module.exports = async (req, res) => {
         const jaTemEduHist = histPosEnvio.some(m => m.role === "assistant" && 
           (m.content?.includes("você não compra espaço em tela") || m.content?.includes("educação automática")));
         
-        if (etapaPosEnvio === "recomendacao" && !jaTemVideos && !jaTemEduHist && etapaPosEnvio !== "aguardando_catalogo") {
-          console.log(`EDUCAÇÃO FORÇADA PÓS-RESPOSTA [${from}]: etapa=recomendacao mas educação não foi enviada → forçando`);
-          await new Promise(r => setTimeout(r, 800));
-          await sendMsg(from, await getMsg("msg_educacao_1", {}, client, from));
-          await new Promise(r => setTimeout(r, 1800));
-          await sendMsg(from, await getMsg("msg_educacao_2", {}, client, from));
-          await new Promise(r => setTimeout(r, 1800));
-          await sendMsg(from, await getMsg("msg_educacao_3_com_cta", {}, client, from));
-          await new Promise(r => setTimeout(r, 1800));
-          const leadFrescoForc = await getLead(client, from);
-          if (leadFrescoForc?.cidade) { await enviarCatalogoTelas(from, leadFrescoForc, 800, client); }
-          const histForc = await getHist(client, from);
-          histForc.push({ role: "assistant", content: "[educação + catálogo forçados após resposta do GPT]" });
-          await saveHist(client, from, histForc);
-          if (!res.headersSent) res.json({ ok: true });
-          return;
-        }
+        // EDUCAÇÃO FORÇADA DESATIVADA — agora a educação é enviada uma msg por vez
+        // via interceptador de cidade (etapas educacao_1_enviada, educacao_2_enviada, etc)
+        // if (etapaPosEnvio === "recomendacao" && !jaTemVideos && !jaTemEduHist && etapaPosEnvio !== "aguardando_catalogo") {
+        //   ... bloco original removido ...
+        // }
 
         const deveLancarCatalogo = (leadPosEnvio?._dispararCatalogo || 
           (etapaPosEnvio === "recomendacao" && !jaTemVideos)) && !houveRejeicao;
