@@ -1982,10 +1982,16 @@ async function replyAI(client, txt, phone) {
 
         // Verificar se a resposta do GPT já está propondo algo concreto
         const respLowerObj = rep.toLowerCase();
-        const jaResolveu = respLowerObj.includes("menos pontos") || respLowerObj.includes("plano mensal") ||
+        // Só pula o interceptador se o GPT JÁ ofereceu alternativas financeiras CONCRETAS
+        // (não basta só mencionar reunião — precisa ter oferecido pelo menos uma opção de redução/parcelamento)
+        const temAlternativaFinanceira = respLowerObj.includes("menos pontos") || respLowerObj.includes("plano mensal") ||
                            respLowerObj.includes("parcelar") || respLowerObj.includes("cartão") ||
-                           respLowerObj.includes("cartao") || respLowerObj.includes("reunião") ||
-                           respLowerObj.includes("reuniao") || respLowerObj.includes("google meet");
+                           respLowerObj.includes("cartao") || respLowerObj.includes("reduzir") ||
+                           respLowerObj.includes("menor") || respLowerObj.includes("começar com") ||
+                           respLowerObj.includes("começando com");
+        const temReuniao = respLowerObj.includes("reunião") || respLowerObj.includes("reuniao") ||
+                           respLowerObj.includes("google meet") || respLowerObj.includes("15 min");
+        const jaResolveu = temAlternativaFinanceira && temReuniao;
 
         if (!jaResolveu) {
           rep = `${primeiroNome ? primeiroNome + ", " : ""}entendo! E olha, tem como ajustar pra caber no seu orçamento sim 👇\n\n${sugestaoPontos}E se preferir, também dá pra parcelar no cartão em até 12x.\n\nMas sabe o que funciona melhor? A gente marca 15 minutinhos pelo Google Meet e monta uma proposta personalizada pra sua realidade — sem compromisso. Qual dia dessa semana funciona? 📅`;
