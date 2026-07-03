@@ -29,6 +29,34 @@ async function sendMsg(to, body) {
   return !d?.error;
 }
 
+// ═══════════════════════════════════════════════════════
+// ANTI-DUPLICIDADE: verifica se já existe patch similar ativo
+// ═══════════════════════════════════════════════════════
+async function patchJaExiste(client, etapa, conteudo) {
+  const r = await client.query(
+    "SELECT id FROM prompt_patches WHERE ativo=true AND etapa_alvo=$1 AND conteudo ILIKE '%' || $2 || '%' LIMIT 1",
+    [etapa, conteudo.slice(0, 60)]
+  );
+  return r.rows.length > 0;
+}
+
+// Verifica similaridade entre novo patch e patches existentes da mesma etapa
+async function patchSimilarExiste(client, etapa, conteudo) {
+  const r = await client.query(
+    "SELECT id, conteudo FROM prompt_patches WHERE ativo=true AND (etapa_alvo=$1 OR etapa_alvo='*' OR etapa_alvo='all')",
+    [etapa]
+  );
+  const newWords = new Set(conteudo.toLowerCase().split(/\s+/));
+  const stop = new Set(['a','o','e','de','da','do','que','para','pra','em','com','não','uma','um','é','ao','os','as','se','mas','ou','mais','já','—','o','reggra','quando','lead','responda','nunca']);
+  for (const row of r.rows) {
+    const existingWords = new Set(row.conteudo.toLowerCase().split(/\s+/));
+    const overlap = [...(newWords & existingWords)].filter(w => !stop.has(w) && w.length > 3);
+    if (overlap.length > 6) return true;
+  }
+  return false;
+}
+
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   const secret = req.query.secret || req.body?.secret;
