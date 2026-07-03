@@ -2374,12 +2374,12 @@ module.exports = async (req, res) => {
       const v = body?.entry?.[0]?.changes?.[0]?.value;
       if (v?.statuses) return res.json({ ok: true });
       const m = v?.messages?.[0];
-      // ÁUDIO DESATIVADO TEMPORARIAMENTE — só processar texto
-      if (!m || m.type !== "text") return res.json({ ok: true });
-
+      if (!m) return res.json({ ok: true });
+      
+      console.log(`📩 MSG RECEBIDA de ${m.from} | tipo: ${m.type} | id: ${m.id}`);
+      
+      // Deduplicação
       const msgId = m.id;
-      console.log("MsgId recebido:", msgId);
-      // Deduplicação via banco (mais confiável que memória em serverless)
       if (processedMsgs.has(msgId)) { 
         console.log("Duplicata (memória):", msgId); 
         return res.json({ ok: true }); 
@@ -2392,7 +2392,14 @@ module.exports = async (req, res) => {
 
       if (m.type === "text") {
         txt = m?.text?.body?.trim() || "";
-
+      } else if (m.type === "button") {
+        txt = m?.button?.text?.trim() || m?.button?.payload?.trim() || "";
+        console.log(`Botão clicado: ${txt}`);
+      } else if (m.type === "interactive") {
+        txt = m?.interactive?.button_reply?.title?.trim() || 
+              m?.interactive?.button_reply?.id?.trim() || 
+              m?.interactive?.list_reply?.title?.trim() || "";
+        console.log(`Interativo clicado: ${txt}`);
       } else if (m.type === "audio" || m.type === "voice") {
         // ── WHISPER: transcrever o áudio do lead ──
         try {
