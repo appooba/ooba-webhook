@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════
-// OOBA — Check-in Proativo
+// OOBA — Check-in Proativo (TODAS as etapas do funil)
 // POST /api/checkin_proativo
-// Busca leads em etapas avançadas sem resposta há >4h
+// Busca leads em QUALQUER etapa do funil sem resposta há >4h
 // e dispara mensagem ativa de retomada
 // ═══════════════════════════════════════════════════════
 
@@ -59,6 +59,40 @@ async function sendTemplate(to, templateName, params) {
   return true;
 }
 
+// Mensagens de check-in por etapa do funil
+function montarCheckin(lead) {
+  const nome = lead.nome ? lead.nome.split(" ")[0] : "tudo bem";
+  const etapa = lead.etapa_funil;
+  const cidade = lead.cidade || "";
+  const empresa = lead.empresa || "";
+
+  switch (etapa) {
+    case 'abertura':
+      return `${nome}, tudo bem? 🙋 Conforme nossa conversa sobre divulgação da sua marca, queria continuar te explicando como funciona. Tem uns 2 minutinhos?`;
+
+    case 'entendimento':
+      return `${nome}, tudo bem? 🙋 Lembrei da nossa conversa! ${cidade ? `Para continuar te mostrando as opções em ${cidade}` : 'Pra te mostrar as telas que temos'}, só preciso de mais uma informação rápida. Posso?`;
+
+    case 'educacao':
+      return `${nome}, tudo bem? 🙋 Fiquei de te explicar melhor como nossos pontos funcionam. Quer que eu continue? Leva só 1 minutinho 😊`;
+
+    case 'recomendacao':
+      return `${nome}, tudo bem? 🙋 Você já viu as telas disponíveis ${cidade ? `em ${cidade}` : ''}? Qual delas faz mais sentido pra ${empresa || 'sua marca'}?`;
+
+    case 'materiais':
+      return `${nome}, tudo bem? 🙋 Conseguiu dar uma olhada nos materiais que te enviei? Alguma dúvida?`;
+
+    case 'proposta':
+      return `${nome}, tudo bem? 🙋 Passando pra saber se você teve a oportunidade de avaliar nossa proposta de divulgação da sua marca. Posso te esclarecer alguma dúvida?`;
+
+    case 'fechamento':
+      return `${nome}, estou no seu aguardo 🙋 tudo bem? Conseguiu dar uma olhada na proposta?`;
+
+    default:
+      return `${nome}, tudo bem? 🙋 Estou aqui, qualquer dúvida é só me chamar!`;
+  }
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "method not allowed" });
 
@@ -66,18 +100,19 @@ module.exports = async (req, res) => {
   try {
     client = await getDB();
 
-    // Buscar leads em etapas avançadas que receberam ultima msg ha mais de 4h
-    // e nao tiveram resposta do lead (ultima msg no historico é do assistant)
+    // Buscar TODOS os leads em qualquer etapa do funil sem resposta há >4h
+    // Excluir: fechados, reunião marcada, perdidos, timing capturado (vai ser reativado depois)
     const r = await client.query(`
       SELECT l.phone, l.nome, l.etapa_funil, l.status, l.cidade, l.empresa,
              c.updated_at as ultima_msg
       FROM leads l
       LEFT JOIN conversations c ON l.phone = c.phone
-      WHERE l.etapa_funil IN ('proposta', 'fechamento', 'recomendacao', 'materiais')
+      WHERE l.etapa_funil IN ('abertura', 'entendimento', 'educacao', 'recomendacao', 'materiais', 'proposta', 'fechamento')
         AND l.status NOT IN ('fechado', 'reuniao', 'perdido', 'timing_capturado')
         AND c.updated_at < NOW() - INTERVAL '4 hours'
+        AND l.phone IS NOT NULL
       ORDER BY c.updated_at ASC
-      LIMIT 10
+      LIMIT 15
     `);
 
     const leads = r.rows;
@@ -86,26 +121,15 @@ module.exports = async (req, res) => {
     const resultados = [];
 
     for (const lead of leads) {
-      const nome = lead.nome ? lead.nome.split(" ")[0] : "tudo bem";
-      
-      // Mensagens de check-in por etapa
-      let mensagem;
-      if (lead.etapa_funil === 'fechamento') {
-        mensagem = `${nome}, estou no seu aguardo 🙋 tudo bem? Conseguiu dar uma olhada na proposta?`;
-      } else if (lead.etapa_funil === 'proposta') {
-        mensagem = `${nome}, tudo bem? 🙋 Passando pra saber se você teve a oportunidade de avaliar nossa proposta de divulgação da sua marca. Posso te esclarecer alguma dúvida?`;
-      } else if (lead.etapa_funil === 'materiais') {
-        mensagem = `${nome}, tudo bem? 🙋 Conseguiu dar uma olhada nos materiais que te enviei? Alguma dúvida?`;
-      } else {
-        mensagem = `${nome}, tudo bem? 🙋 Estou aqui, qualquer dúvida é só me chamar!`;
-      }
+      const mensagem = montarCheckin(lead);
 
       // Tentar enviar como texto (se janela 24h aberta)
       let ok = await sendMsg(lead.phone, mensagem);
-      
+
       // Se falhar (janela fechada), tentar template
       if (!ok) {
-        console.log(`Tentando template para ${lead.phone}...`);
+        console.log(`Janela fechada pra ${lead.phone}, tentando template...`);
+        const nome = lead.nome ? lead.nome.split(" ")[0] : "tudo bem";
         ok = await sendTemplate(lead.phone, "ooba_reativacao_followup", [nome]);
       }
 
@@ -115,18 +139,19 @@ module.exports = async (req, res) => {
           const hist = await client.query("SELECT messages FROM conversations WHERE phone=$1", [lead.phone]);
           if (hist.rows.length > 0) {
             const msgs = JSON.parse(hist.rows[0].messages);
-            msgs.push({ role: "assistant", content: `[CHECK-IN PROATIVO]: ${mensagem}` });
+            msgs.push({ role: "assistant", content: `[CHECK-IN PROATIVO - ${lead.etapa_funil}]: ${mensagem}` });
             await client.query("UPDATE conversations SET messages=$1, updated_at=NOW() WHERE phone=$2", [JSON.stringify(msgs), lead.phone]);
           }
         } catch(e) { console.error("Hist update:", e.message); }
 
         // Atualizar status
         await client.query("UPDATE leads SET status='checkin_proativo', updated_at=NOW() WHERE phone=$1", [lead.phone]);
-        
+
         resultados.push({ phone: lead.phone, nome: lead.nome, etapa: lead.etapa_funil, ok: true });
         console.log(`✅ Check-in: ${lead.phone} (${lead.nome}) — etapa: ${lead.etapa_funil}`);
       } else {
         resultados.push({ phone: lead.phone, nome: lead.nome, etapa: lead.etapa_funil, ok: false });
+        console.log(`❌ Check-in falhou: ${lead.phone} (${lead.nome}) — etapa: ${lead.etapa_funil}`);
       }
 
       // Aguardar 5s entre mensagens
