@@ -1964,6 +1964,34 @@ async function sendMsg(to, body) {
   else console.log("WA sent:", d?.messages?.[0]?.id);
 }
 
+// ══════════════════════════════════════════════════════════════
+// 💬 TYPING INDICATOR — mostra "digitando..." para o lead
+// Marca a mensagem como lida (✓✓ azul) E ativa o indicador de digitação
+// O indicador dura até 25s ou até a mensagem ser enviada (o que vier primeiro)
+// ══════════════════════════════════════════════════════════════
+async function showTyping(messageId) {
+  try {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${PID}/messages`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${WAT}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        status: "read",
+        message_id: messageId,
+        typing_indicator: { type: "text" }
+      })
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.log("Typing indicator (não crítico):", res.status, errText.substring(0, 100));
+    } else {
+      console.log("💬 Typing indicator ativo para msg:", messageId?.substring(0, 20));
+    }
+  } catch(e) {
+    console.log("Typing indicator erro (não crítico):", e.message);
+  }
+}
+
 const processedMsgs = new Set();
 
 module.exports = async (req, res) => {
@@ -1994,6 +2022,9 @@ module.exports = async (req, res) => {
       }
       processedMsgs.add(msgId);
       if (processedMsgs.size > 200) processedMsgs.delete(processedMsgs.values().next().value);
+
+      // 💬 Mostrar "digitando..." imediatamente (não bloqueia o processamento)
+      showTyping(msgId).catch(() => {});
 
       from = m.from;
       let txt = "";
@@ -2541,11 +2572,15 @@ module.exports = async (req, res) => {
           await sendMsg(from, msg1);
           await new Promise(r => setTimeout(r, 5000)); // 5s de pausa pra ler
 
+          // 💬 Reativar typing antes da msg 2
+          showTyping(msgId).catch(() => {});
           // Msg 2: frequência
           const msg2 = await getMsg("msg_educacao_2", {}, client, from);
           await sendMsg(from, msg2);
           await new Promise(r => setTimeout(r, 5000)); // 5s de pausa pra ler
 
+          // 💬 Reativar typing antes da msg 3
+          showTyping(msgId).catch(() => {});
           // Msg 3: formato + pergunta "ficou claro?" — AQUI para e espera resposta
           const msg3 = await getMsg("msg_educacao_3", {}, client, from);
           await sendMsg(from, msg3);
