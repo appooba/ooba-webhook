@@ -82,6 +82,7 @@ module.exports = async (req, res) => {
         AND l.etapa_funil != 'fechado'
         AND l.etapa_funil NOT IN ('perdido', 'followup', 'nutricao')
         AND l.status NOT IN ('recusou', 'perdido', 'followup', 'nutricao')
+        AND (l.aguarda_contato_ate IS NULL OR l.aguarda_contato_ate < NOW())
         AND l.etapa_funil != 'reuniao'
         AND COALESCE(c.updated_at, l.created_at) < NOW() - INTERVAL '20 hours'
         AND COALESCE(c.updated_at, l.created_at) > NOW() - INTERVAL '30 days'

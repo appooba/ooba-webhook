@@ -432,8 +432,12 @@ async function getSysWithFunil(client, etapa, leadData, patches = [], insights =
     detalhePontos = `\nTOTAL DE PONTOS: ${pontos}`;
   }
 
+  const aguardaContato = leadData.aguarda_contato_ate && new Date(leadData.aguarda_contato_ate) > new Date()
+    ? `\n⏳ LEAD PEDIU ESPAÇO: ele disse que vai retomar contato sozinho até ${new Date(leadData.aguarda_contato_ate).toLocaleDateString('pt-BR')}. NÃO ofereça reunião de novo. NÃO insista. Se ele mandar mensagem antes disso, responda normalmente à dúvida dele, mas NÃO force fechamento nem proponha reunião — deixe ele conduzir. Respeite o espaço que ele pediu.`
+    : "";
+
   const ctx = `
-LEAD: ${nome || "(novo)"} | Empresa: ${negocio || "?"} | Cidade: ${cidade || "NÃO INFORMADA — pergunte antes de mostrar catálogo"} | Telas escolhidas: ${telas || "?"}${detalhePontos}${jaAnunciou}${empresaInfo}${origemInfo}${abordagemAtiva}
+LEAD: ${nome || "(novo)"} | Empresa: ${negocio || "?"} | Cidade: ${cidade || "NÃO INFORMADA — pergunte antes de mostrar catálogo"} | Telas escolhidas: ${telas || "?"}${detalhePontos}${jaAnunciou}${empresaInfo}${origemInfo}${abordagemAtiva}${aguardaContato}
 ETAPA ATUAL: ${etapa.toUpperCase()}
 ${isProspeccao && etapa === 'abertura' ? '⚠️ PROSPECÇÃO ATIVA: Você já iniciou o contato e se apresentou no template. NÃO se reapresente. NÃO pergunte "qual mídia você usa". Já pule pra entender a empresa.' : ''}
 
@@ -793,6 +797,8 @@ async function initDB(client) {
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS prospeccao_data TIMESTAMP;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS ultimo_checkin TIMESTAMP;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS checkin_count INTEGER DEFAULT 0;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS aguarda_contato_ate TIMESTAMP;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS reuniao_ja_recusada BOOLEAN DEFAULT FALSE;
   `).catch(() => {});
 }
 
@@ -2219,6 +2225,48 @@ async function replyAI(client, txt, phone) {
       console.log(`CLIENTE RECORRENTE [${phone}]: detectado que já anunciou → marcando e mudando abordagem`);
       await client.query("UPDATE leads SET ja_anunciou=true, updated_at=NOW() WHERE phone=$1", [phone]).catch(e => console.error("ja_anunciou update:", e.message));
       lead.ja_anunciou = true;
+    }
+  }
+
+  // ── DETECTOR: LEAD PEDIU ESPAÇO E VAI RETOMAR ELE MESMO ──
+  // Quando o lead diz "eu chamo", "eu decido e te chamo", "na segunda eu vejo",
+  // a Luana deve RESPEITAR isso: parar de oferecer reunião, parar de fazer check-in
+  // proativo até a data mencionada (ou por padrão 5 dias se não conseguir extrair data)
+  {
+    const txtEsp = txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const sinaisVouChamar = [
+      "eu te chamo", "eu chamo", "eu aviso", "eu te aviso", "qualquer coisa te chamo",
+      "qualquer coisa eu chamo", "qualquer coisa eu aviso", "eu volto a falar",
+      "eu entro em contato", "eu falo com voce", "eu falo com você",
+      "ai eu decido", "aí eu decido", "eu decido e", "eu ja decido", "eu já decido",
+      "eu te procuro", "eu retorno", "assim que eu decidir eu chamo",
+      "quando eu decidir eu chamo", "eu mando mensagem", "eu volto"
+    ];
+    const pediuEspaco = sinaisVouChamar.some(s => txtEsp.includes(s));
+
+    if (pediuEspaco) {
+      // Tentar extrair prazo mencionado (segunda, terça, semana que vem, etc)
+      const diasSemana = { "domingo":0,"segunda":1,"terca":2,"terça":2,"quarta":3,"quinta":4,"sexta":5,"sabado":6,"sábado":6 };
+      let diasParaEsperar = 5; // padrão se não conseguir extrair
+      for (const [dia, idx] of Object.entries(diasSemana)) {
+        if (txtEsp.includes(dia)) {
+          const hoje = new Date().getDay();
+          let diff = (idx - hoje + 7) % 7;
+          if (diff === 0) diff = 7; // próxima ocorrência, não hoje
+          diasParaEsperar = diff;
+          break;
+        }
+      }
+      if (txtEsp.includes("semana que vem") || txtEsp.includes("proxima semana") || txtEsp.includes("próxima semana")) {
+        diasParaEsperar = 7;
+      }
+
+      console.log(`LEAD PEDIU ESPAÇO [${phone}]: "${txt.substring(0,80)}" → suprimindo abordagens por ${diasParaEsperar} dias`);
+      await client.query(
+        "UPDATE leads SET aguarda_contato_ate = NOW() + ($1 || ' days')::interval, updated_at=NOW() WHERE phone=$2",
+        [diasParaEsperar, phone]
+      ).catch(e => console.error("aguarda_contato update:", e.message));
+      lead.aguarda_contato_ate = new Date(Date.now() + diasParaEsperar * 86400000);
     }
   }
 
