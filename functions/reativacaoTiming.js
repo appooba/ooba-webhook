@@ -1,14 +1,14 @@
 // Backend function chamado pela automação diária "Reativação por Timing"
-// Chama o endpoint /api/reativar_timing no webhook da OOBA na Vercel
+// Chama o endpoint /api/reativar?mode=timing no webhook da OOBA na Vercel
 
 export default async function reativacaoTiming() {
-  const WEBHOOK_URL = "https://ooba-webhook.vercel.app/api/reativar_timing";
+  const WEBHOOK_URL = "https://ooba-webhook.vercel.app/api/reativar?mode=timing";
   
   try {
     const response = await fetch(WEBHOOK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON({})
+      body: JSON.stringify({})
     });
     
     const data = await response.json();
