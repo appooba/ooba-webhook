@@ -1003,25 +1003,26 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
   }
   hesitacoesPrevias = Math.max(0, hesitacoesPrevias - 1); // -1 = mensagem atual
 
-  // ── ESCALADA ACELERADA POR REPETIÇÃO ──
-  // Se o lead repetiu a mesma mensagem 2+ vezes, pular direto pra oferta de reunião/timing
-  // Isso evita o loop de "vou pensar" → "pense com calma" 5x seguidas
+  // ── DETECÇÃO DE ENCERRAMENTO POR REPETIÇÃO ──
+  // Se o lead repetiu "vou pensar" 2+ vezes, ele já tomou a decisão de NÃO fechar agora.
+  // A Luana deve: encerrar com elegância, mudar pra followup, e PARAR de insistir.
+  // NÃO oferecer reunião, NÃO perguntar timing, NÃO mandar mais nada.
   if (repeticoesIdenticas >= 2 && (ehSaidaFraca || ehSaidaForte)) {
-    console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: REPETIÇÃO IDÊNTICA ${repeticoesIdenticas}x — escalada acelerada`);
-    const temEscolha = lead?.telas_interesse && lead.telas_interesse.trim().length > 0;
+    console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: REPETIÇÃO IDÊNTICA ${repeticoesIdenticas}x — encerrando com elegância`);
     const oiRep = lead?.nome ? lead.nome.split(" ")[0] + ", " : "";
-    if (temEscolha || etapasNegociacao.includes(etapa)) {
-      let slotsRep = [];
-      try {
-        if (client) slotsRep = await gerarSlotsReuniao();
-      } catch(e) { console.error("Slots em repetição:", e.message); }
-      // PERGUNTAR se quer reunião (não jogar slots direto)
-      if (client) {
-        try { await client.query("UPDATE leads SET etapa_funil='aguardando_reuniao', updated_at=NOW() WHERE phone=$1", [lead?.phone || ""]); } catch(e) {}
-      }
-      return `${oiRep}eu percebo que você precisa de tempo pra pensar, e isso é super válido 😊 Mas pra não perder o ritmo — que tal 15 minutinhos pelo Google Meet com a equipe OOBA? A gente monta uma configuração que caiba no seu momento, sem compromisso nenhum. Quer que eu marque? 📅`;
+    
+    // MUDAR PARA FOLLOWUP — a conversa está encerrada, esperar o follow-up automático
+    if (client) {
+      try { await client.query("UPDATE leads SET etapa_funil='followup', status='followup', updated_at=NOW() WHERE phone=$1", [lead?.phone || ""]); } catch(e) {}
     }
-    return `${oiRep}sem pressa! 😊 Me conta — quando seria o momento ideal pra você investir em divulgação? Daqui a 1 mês, 3 meses, ou mais pro final do ano?`;
+    
+    // Resposta de encerramento elegante — UMA MENSAGEM ONLY, depois silêncio
+    const encerramentos = [
+      `${oiRep}perfeito, entendo! 😊 Pense com calma e quando quiser retomar, é só me chamar aqui. Fico à disposição!`,
+      `${oiRep}combinado! 😊 Quando decidir, é só me chamar. Estarei aqui pra te ajudar no que precisar.`,
+      `${oiRep}sem problema nenhum! 😊 A decisão é toda sua. Quando estiver pronto, é só me mandar um oi. Até logo!`
+    ];
+    return encerramentos[Math.floor(Math.random() * encerramentos.length)];
   }
 
   console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: forte=${ehSaidaForte}, fraca=${ehSaidaFraca}, orcamento=${ehObjecaoOrcamento}, hesitacoes=${hesitacoesPrevias}, repeticoes=${repeticoesIdenticas}`);
@@ -1144,10 +1145,14 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
     return `${prefixo}${oi ? oi + ", " : ""}Olha, a melhor forma de resolver isso é uma conversa rápida — 15 minutinhos pelo Google Meet com a equipe OOBA. Sem compromisso, e você sai sabendo exatamente se faz sentido ou não. Quer que eu marque? 📅`;
   }
 
-  // 4+ hesitações: entender timing do lead ao invés de desistir
+  // 4+ hesitações: encerrar com elegância e mudar pra followup
+  // O lead já hesitou 4+ vezes — respeitar a decisão e parar de insistir
+  if (client) {
+    try { await client.query("UPDATE leads SET etapa_funil='followup', status='followup', updated_at=NOW() WHERE phone=$1", [lead?.phone || ""]); } catch(e) {}
+  }
   const opcoesTiming = [
-    `${oi ? oi + ", " : ""}Entendo! Sem pressa 😊 Me conta — quando seria o momento ideal pra você começar? Daqui a 1 mês, 3 meses, ou mais pro final do ano?`,
-    `${oi ? oi + ", " : ""}Tudo bem! Pra eu saber quando te chamar de novo — você pensa em investir em divulgação daqui quanto tempo? 1 mês, 3 meses, ou mais pro fim do ano?`
+    `${oi ? oi + ", " : ""}entendo! 😊 Pense com calma. Quando quiser retomar, é só me chamar. Fico à disposição!`,
+    `${oi ? oi + ", " : ""}tudo bem! 😊 A decisão é sua. Quando estiver pronto, me manda um oi. Estarei aqui!`
   ];
   return prefixo + opcoesTiming[Math.floor(Math.random() * opcoesTiming.length)];
 }
