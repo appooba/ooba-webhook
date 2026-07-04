@@ -1015,11 +1015,11 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
       try {
         if (client) slotsRep = await gerarSlotsReuniao();
       } catch(e) { console.error("Slots em repetição:", e.message); }
-      if (slotsRep.length >= 2) {
-        const slotsTxt = slotsRep.map(s => `• ${s.nome} (${s.data}) às ${s.hora}`).join("\n");
-        return `${oiRep}eu percebo que você precisa de tempo pra pensar, e isso é super válido 😊 Mas pra não perder o ritmo — que tal 15 minutinhos pelo Google Meet com a equipe OOBA? A gente monta uma configuração que caiba no seu momento, sem compromisso nenhum.\n\nTenho esses horários:\n${slotsTxt}\n\nQual funciona? 📅`;
+      // PERGUNTAR se quer reunião (não jogar slots direto)
+      if (client) {
+        try { await client.query("UPDATE leads SET etapa_funil='aguardando_reuniao', updated_at=NOW() WHERE phone=$1", [lead?.phone || ""]); } catch(e) {}
       }
-      return `${oiRep}entendo que você precisa pensar 😊 Pra eu saber quando te chamar de novo — quando seria o momento ideal pra você começar? Daqui a 1 mês, 3 meses, ou mais pro final do ano?`;
+      return `${oiRep}eu percebo que você precisa de tempo pra pensar, e isso é super válido 😊 Mas pra não perder o ritmo — que tal 15 minutinhos pelo Google Meet com a equipe OOBA? A gente monta uma configuração que caiba no seu momento, sem compromisso nenhum. Quer que eu marque? 📅`;
     }
     return `${oiRep}sem pressa! 😊 Me conta — quando seria o momento ideal pra você investir em divulgação? Daqui a 1 mês, 3 meses, ou mais pro final do ano?`;
   }
@@ -1082,7 +1082,7 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
   const oi = lead?.nome ? lead.nome.split(" ")[0] : "";
   const prefixo = novaResposta ? novaResposta + "\n\n" : "";
 
-  // Saída FORTE → propor reunião com slots reais
+  // Saída FORTE → PERGUNTAR se quer reunião (não jogar slots direto)
   if (ehSaidaForte) {
     if (etapa === "abertura") {
       // Em abertura, NUNCA desistir na 1ª saída forte — tentar retenção contextual
@@ -1110,18 +1110,11 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
       // Se já tentou retenção e o lead insistiu → entender timing antes de encerrar
       return `${oi ? oi + ", " : ""}entendo, sem problema! 😊 Só pra eu saber quando é o melhor momento pra você — você pensa em investir em divulgação daqui a quanto tempo? Tipo 1 mês, 3 meses, ou mais pro final do ano?`;
     }
-    // Buscar slots reais do Google Calendar
-    let slotsReais = [];
-    try {
-      if (client) slotsReais = await gerarSlotsReuniao();
-    } catch(e) { console.error("Slots em interceptarSaida(forte):", e.message); }
-    
-    if (slotsReais.length >= 2) {
-      const slotsTxt = slotsReais.map(s => `• ${s.nome} (${s.data}) às ${s.hora}`).join("\n");
-      return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te fazer uma proposta — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pra sua marca. 15 minutinhos pelo Google Meet, sem compromisso.\n\nTenho esses horários disponíveis:\n${slotsTxt}\n\nQual funciona melhor pra você? 📅`;
+    // PERGUNTAR se quer reunião (não jogar slots direto)
+    if (client) {
+      try { await client.query("UPDATE leads SET etapa_funil='aguardando_reuniao', updated_at=NOW() WHERE phone=$1", [lead?.phone || ""]); } catch(e) {}
     }
-    // Fallback sem slots
-    return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te fazer uma proposta — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pra sua marca. 15 minutinhos pelo Google Meet, sem compromisso. Topa? 📅`;
+    return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Antes de encerrar, deixa eu te perguntar uma coisa — tenho um especialista da equipe OOBA que monta uma apresentação personalizada pra sua marca. 15 minutinhos pelo Google Meet, sem compromisso. Quer que eu marque? 📅`;
   }
 
   // Saída FRACA — abordagem gradual
@@ -1136,31 +1129,19 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
   }
 
   if (hesitacoesPrevias === 1) {
-    // 2ª hesitação: resolver + sugerir reunião com slots reais
-    let slotsReais = [];
-    try {
-      if (client) slotsReais = await gerarSlotsReuniao();
-    } catch(e) { console.error("Slots em interceptarSaida(hes1):", e.message); }
-    
-    if (slotsReais.length >= 2) {
-      const slotsTxt = slotsReais.map(s => `• ${s.nome} (${s.data}) às ${s.hora}`).join("\n");
-      return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Olha — com os pontos que você escolheu, seu anúncio alcança milhares de pessoas por mês. Basta 1 cliente novo pra pagar o investimento 😊\n\nQue tal 15 minutinhos pelo Google Meet com um especialista da equipe OOBA? Sem compromisso. Tenho esses horários:\n${slotsTxt}\n\nQual encaixa melhor? 📅`;
+    // 2ª hesitação: resolver + PERGUNTAR se quer reunião (não jogar slots direto)
+    if (client) {
+      try { await client.query("UPDATE leads SET etapa_funil='aguardando_reuniao', updated_at=NOW() WHERE phone=$1", [lead?.phone || ""]); } catch(e) {}
     }
-    return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Olha — com os pontos que você escolheu, seu anúncio alcança milhares de pessoas por mês. Basta 1 cliente novo pra pagar o investimento 😊 Se quiser, posso arranjar um especialista da equipe OOBA pra montar uma proposta personalizada pra você — 15 minutinhos pelo Google Meet, sem compromisso. Topa?`;
+    return `${prefixo}${oi ? oi + ", e" : "E"}ntendo! Olha — com os pontos que você escolheu, seu anúncio alcança milhares de pessoas por mês. Basta 1 cliente novo pra pagar o investimento 😊\n\nQuer que eu marque uma reunião rápida de 15 minutinhos com a equipe OOBA pelo Google Meet? Sem compromisso — a gente monta uma configuração que caiba no seu momento. Topa? 📅`;
   }
 
   if (hesitacoesPrevias === 2) {
-    // 3ª hesitação: propor reunião diretamente com slots reais
-    let slotsReais = [];
-    try {
-      if (client) slotsReais = await gerarSlotsReuniao();
-    } catch(e) { console.error("Slots em interceptarSaida(hes2):", e.message); }
-    
-    if (slotsReais.length >= 2) {
-      const slotsTxt = slotsReais.map(s => `• ${s.nome} (${s.data}) às ${s.hora}`).join("\n");
-      return `${prefixo}${oi ? oi + ", " : ""}Olha, a melhor forma de resolver isso é uma conversa rápida — 15 minutinhos pelo Google Meet com um especialista da equipe OOBA. Sem compromisso, e você sai sabendo exatamente se faz sentido ou não.\n\nTenho esses horários:\n${slotsTxt}\n\nQual funciona? 📅`;
+    // 3ª hesitação: insistir suavemente na reunião, mas PERGUNTAR (não jogar slots)
+    if (client) {
+      try { await client.query("UPDATE leads SET etapa_funil='aguardando_reuniao', updated_at=NOW() WHERE phone=$1", [lead?.phone || ""]); } catch(e) {}
     }
-    return `${prefixo}${oi ? oi + ", " : ""}Olha, a melhor forma de resolver isso é uma conversa rápida — 15 minutinhos pelo Google Meet com um especialista da equipe OOBA. Sem compromisso, e você sai sabendo exatamente se faz sentido ou não. Topa? 📅`;
+    return `${prefixo}${oi ? oi + ", " : ""}Olha, a melhor forma de resolver isso é uma conversa rápida — 15 minutinhos pelo Google Meet com a equipe OOBA. Sem compromisso, e você sai sabendo exatamente se faz sentido ou não. Quer que eu marque? 📅`;
   }
 
   // 4+ hesitações: entender timing do lead ao invés de desistir
