@@ -702,6 +702,19 @@ NUNCA invente endereços, CNPJ, números de registro ou qualquer dado institucio
 - NUNCA use "negociar" — use "fechar", "contratar" ou "ativar"
 - NUNCA use "compromisso" (soa sério demais) — use "sem compromisso" ou "sem obrigação"
 - NUNCA use linguagem formal de e-mail ("prezado", "atenciosamente") — você é uma consultora no WhatsApp, seja próxima
+
+💡 LEITURA DE CONTEXTO — VOCÊ É UMA VENDEDORA PROFISSIONAL:
+- Você faz de tudo pra vender: contorna objeções, cria valor, mostra benefícios, propõe alternativas
+- MAS você lê o contexto da conversa pra saber o momento certo de cada coisa
+- Se o lead diz "não quero" uma vez → tente uma última abordagem elegante (não desista, não insista)
+- Se o lead repete a recusa ou diz "para de mandar" → encerre com classe e respeito, sem mágoa
+- Se o lead diz "vou pensar" → dê espaço, mas mantenha a porta aberta com uma pergunta suave
+- Se o lead repete "vou pensar" 2+ vezes → respeite a decisão, encerre com elegância
+- Se o lead diz "tchau" ou "até mais" → NUNCA responda oferecendo algo novo, só se despeça
+- NUNCA ofereça reunião se o lead acabou de dizer que não quer — isso é insistência, não vendas
+- NUNCA repita a mesma frase de encerramento ("é só me chamar") mais de uma vez na conversa
+- O fluxo tem que ser NATURAL — como uma conversa real de WhatsApp, não um script mecânico
+- Cada resposta sua deve refletir o que o lead acabou de dizer, não só o stage do funil
 ═══════════════════════════════════`;
 
   return prompt;
@@ -911,14 +924,20 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
   const ehObjecaoOrcamento = padroesOrcamento.some(s => msgNorm.includes(s));
 
   // ── CATEGORIA 2: SAÍDA FORTE — lead quer encerrar de vez ──
+  // DESPEDIDA é diferente de RECUSA — "tchau" não significa "não quero"
+  const sinaisDespedida = [
+    "tchau", "ate mais", "até mais", "flw", "falou", "xau", "adeus",
+    "ate logo", "até logo", "fui", "vou nessa", "tmj"
+  ];
+  const ehDespedida = sinaisDespedida.some(s => msgNorm.includes(s));
+
   const sinaisFortes = [
     "nao quero mais", "não quero mais", "nao quero", "não quero",
     "nao tenho interesse", "não tenho interesse", "sem interesse",
     "nao vou", "não vou", "deixa pra la", "deixa pra lá",
     "nao preciso", "não preciso", "nao serve", "não serve",
     "pode fechar", "encerra", "nao quero saber",
-    "agora nao vou querer", "no momento nao", "nao quero mais nada",
-    "tchau", "ate mais", "até mais", "flw", "falou"
+    "agora nao vou querer", "no momento nao", "nao quero mais nada"
   ];
 
   // ── CATEGORIA 3: HESITAÇÃO FRACA — lead está pensando/adanhando ──
@@ -935,6 +954,22 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
 
   const ehSaidaForte = sinaisFortes.some(s => msgNorm.includes(s));
   const ehSaidaFraca = sinaisFracos.some(s => msgNorm.includes(s));
+
+  // ── DESPEDIDA: lead diz "tchau", "até mais" — só se despedir, NÃO vender ──
+  if (ehDespedida) {
+    console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: DESPEDIDA detectada — encerrando com classe`);
+    const oiDesp = lead?.nome ? lead.nome.split(" ")[0] + ", " : "";
+    const despedidas = [
+      `${oiDesp}até mais! 😊 Foi ótimo conversar com você. Quando quiser retomar, é só me chamar!`,
+      `${oiDesp}tchau! 😊 Qualquer coisa no futuro, estarei por aqui. Um ótimo dia!`,
+      `${oiDesp}até logo! 😊 Fico à disposição sempre que precisar. Cuide-se!`
+    ];
+    // Muda pra followup — respeita o encerramento do lead
+    if (client) {
+      try { await client.query("UPDATE leads SET etapa_funil='followup', status='followup', updated_at=NOW() WHERE phone=$1", [lead?.phone || ""]); } catch(e) {}
+    }
+    return despedidas[Math.floor(Math.random() * despedidas.length)];
+  }
 
   // ── Se é objeção de orçamento E está em etapa de negociação → agir imediatamente ──
   const etapasNegociacao = ["recomendacao", "materiais", "proposta", "fechamento"];
@@ -2114,10 +2149,21 @@ async function replyAI(client, txt, phone) {
       !txtR.includes("nao sei") && !txtR.includes("não sei"); // "não sei" é hesitação, não recusa
 
     if (ehRecusaExplicita && lead.etapa_funil !== "perdido" && lead.etapa_funil !== "fechado") {
-      console.log(`RECUSA EXPLÍCITA [${phone}]: "${txt.substring(0,80)}" → marcando como perdido`);
-      await client.query("UPDATE leads SET etapa_funil='perdido', status='recusou', updated_at=NOW() WHERE phone=$1", [phone]).catch(e => console.error("recusa update:", e.message));
-      lead.etapa_funil = "perdido";
-      lead.status = "recusou";
+      // Se já estava em followup (já tentaram vender e o lead pediu pra parar) → perdido definitivo
+      // Se é a PRIMEIRA recusa → deixar a Luana tentar uma última abordagem, NÃO marcar perdido ainda
+      const jaEmFollowup = lead.etapa_funil === "followup" || lead.status === "followup";
+      const jaTentouRetencao = lead.total_abordagens > 0;
+      
+      if (jaEmFollowup || jaTentouRetencao) {
+        console.log(`RECUSA EXPLÍCITA [${phone}]: "${txt.substring(0,80)}" → marcando como perdido (já tentaram retenção)`);
+        await client.query("UPDATE leads SET etapa_funil='perdido', status='recusou', updated_at=NOW() WHERE phone=$1", [phone]).catch(e => console.error("recusa update:", e.message));
+        lead.etapa_funil = "perdido";
+        lead.status = "recusou";
+      } else {
+        console.log(`RECUSA EXPLÍCITA [${phone}]: "${txt.substring(0,80)}" → primeira recusa, Luana vai tentar última abordagem`);
+        // NÃO marca como perdido — deixa a Luana responder com uma última tentativa elegante
+        // O interceptarSaida vai cuidar de encerrar com classe
+      }
     }
   }
 
