@@ -754,6 +754,8 @@ async function initDB(client) {
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS ja_anunciou VARCHAR(50);
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS origem VARCHAR(50) DEFAULT 'inbound';
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS prospeccao_data TIMESTAMP;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS ultimo_checkin TIMESTAMP;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS checkin_count INTEGER DEFAULT 0;
   `).catch(() => {});
 }
 
@@ -986,15 +988,43 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
   ];
   const msgsUser = (msgs || []).filter(m => m.role === "user");
   let hesitacoesPrevias = 0;
+  let repeticoesIdenticas = 0;
+  let ultimaMsgUser = "";
   for (const m of msgsUser) {
-    const mc = (m.content || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const mc = (m.content || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     if (sinaisHesitacaoReal.some(s => mc.includes(s))) {
       hesitacoesPrevias++;
     }
+    // Detectar repetições idênticas consecutivas (ex: "vou pensar" 5x seguidas)
+    if (mc === ultimaMsgUser && mc.length > 0) {
+      repeticoesIdenticas++;
+    }
+    ultimaMsgUser = mc;
   }
   hesitacoesPrevias = Math.max(0, hesitacoesPrevias - 1); // -1 = mensagem atual
 
-  console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: forte=${ehSaidaForte}, fraca=${ehSaidaFraca}, orcamento=${ehObjecaoOrcamento}, hesitacoes=${hesitacoesPrevias}`);
+  // ── ESCALADA ACELERADA POR REPETIÇÃO ──
+  // Se o lead repetiu a mesma mensagem 2+ vezes, pular direto pra oferta de reunião/timing
+  // Isso evita o loop de "vou pensar" → "pense com calma" 5x seguidas
+  if (repeticoesIdenticas >= 2 && (ehSaidaFraca || ehSaidaForte)) {
+    console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: REPETIÇÃO IDÊNTICA ${repeticoesIdenticas}x — escalada acelerada`);
+    const temEscolha = lead?.telas_interesse && lead.telas_interesse.trim().length > 0;
+    const oiRep = lead?.nome ? lead.nome.split(" ")[0] + ", " : "";
+    if (temEscolha || etapasNegociacao.includes(etapa)) {
+      let slotsRep = [];
+      try {
+        if (client) slotsRep = await gerarSlotsReuniao();
+      } catch(e) { console.error("Slots em repetição:", e.message); }
+      if (slotsRep.length >= 2) {
+        const slotsTxt = slotsRep.map(s => `• ${s.nome} (${s.data}) às ${s.hora}`).join("\n");
+        return `${oiRep}eu percebo que você precisa de tempo pra pensar, e isso é super válido 😊 Mas pra não perder o ritmo — que tal 15 minutinhos pelo Google Meet com a equipe OOBA? A gente monta uma configuração que caiba no seu momento, sem compromisso nenhum.\n\nTenho esses horários:\n${slotsTxt}\n\nQual funciona? 📅`;
+      }
+      return `${oiRep}entendo que você precisa pensar 😊 Pra eu saber quando te chamar de novo — quando seria o momento ideal pra você começar? Daqui a 1 mês, 3 meses, ou mais pro final do ano?`;
+    }
+    return `${oiRep}sem pressa! 😊 Me conta — quando seria o momento ideal pra você investir em divulgação? Daqui a 1 mês, 3 meses, ou mais pro final do ano?`;
+  }
+
+  console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: forte=${ehSaidaForte}, fraca=${ehSaidaFraca}, orcamento=${ehObjecaoOrcamento}, hesitacoes=${hesitacoesPrevias}, repeticoes=${repeticoesIdenticas}`);
 
   // Detectar se a resposta do GPT é puramente passiva
   // Se for, descartar completamente e usar apenas a resposta de escalada
@@ -2019,6 +2049,34 @@ function filtrarResposta(rep, msgLead) {
     }
   }
   
+  // CHECK 5: Palavras proibidas no vocabulário da Luana (bloqueio HARD)
+  const PALAVRAS_BANIDAS_VOCABULARIO = [
+    "discutir", "discussão", "discussao",
+    "negócio", "negocio"  // usar "empresa" ou "marca"
+  ];
+  let palavrasBanidasEncontradas = [];
+  for (const palavra of PALAVRAS_BANIDAS_VOCABULARIO) {
+    if (repLower.includes(palavra)) {
+      palavrasBanidasEncontradas.push(palavra);
+    }
+  }
+  if (palavrasBanidasEncontradas.length > 0) {
+    console.log(`🛡️ PALAVRAS BANIDAS: ${palavrasBanidasEncontradas.join(", ")} detectada(s). Substituindo.`);
+    // Tentar substituir inline primeiro
+    let repCorrigida = rep;
+    repCorrigida = repCorrigida.replace(/discutir/gi, "conversar");
+    repCorrigida = repCorrigida.replace(/discussão/gi, "conversa");
+    repCorrigida = repCorrigida.replace(/discussao/gi, "conversa");
+    repCorrigida = repCorrigida.replace(/negócio/gi, "empresa");
+    repCorrigida = repCorrigida.replace(/negocio/gi, "empresa");
+    // Se ainda restam palavras banidas, devolver resposta genérica
+    const aindaTem = PALAVRAS_BANIDAS_VOCABULARIO.some(p => repCorrigida.toLowerCase().includes(p));
+    if (aindaTem) {
+      return "Entendo! 😊 Estou aqui pra te ajudar com a divulgação da sua marca. Me conta, o que você gostaria de saber?";
+    }
+    return repCorrigida;
+  }
+  
   return rep;
 }
 
@@ -2199,6 +2257,8 @@ async function replyAI(client, txt, phone) {
     }
 
     // Limpar markdown — converte [texto](url) para URL solta (gera thumbnail no WhatsApp)
+    // E converte **bold** → *bold* (WhatsApp usa asterisco simples)
+    rep = rep.replace(/\*\*([^*]+)\*\*/g, '*$1*');
     rep = limparMarkdown(rep);
 
     // ── INTERCEPTADOR DE SAÍDA + OBJEÇÃO DE ORÇAMENTO (prioridade máxima) ──
@@ -2229,7 +2289,7 @@ async function replyAI(client, txt, phone) {
     // retomar o fio específico da negociação (mostrando o que já foi escolhido).
     try {
       const txtRetomada = txt.toLowerCase().trim();
-      const etapasAvancadas = ["recomendacao", "materiais", "proposta", "fechamento"];
+      const etapasAvancadas = ["entendimento", "educacao", "recomendacao", "materiais", "proposta", "fechamento"];
       const temEscolha = lead?.telas_interesse && lead.telas_interesse.trim().length > 0;
       const temEmail = lead?.email && lead.email.trim().length > 0;
 
@@ -2247,15 +2307,23 @@ async function replyAI(client, txt, phone) {
 
       const ehMsgCurta = mensagensCurtasVagas.some(m => txtRetomada === m || txtRetomada.startsWith(m + " ") || txtRetomada.startsWith(m + "!"));
 
-      if (etapasAvancadas.includes(etapa) && temEscolha && respostaGenerica && (ehMsgCurta || txtRetomada.length < 20)) {
+      if (etapasAvancadas.includes(etapa) && respostaGenerica && (ehMsgCurta || txtRetomada.length < 20)) {
         const primeiroNome = lead?.nome ? lead.nome.split(" ")[0] : "";
         const saudacao = primeiroNome ? `${primeiroNome}, ` : "";
-        if (!temEmail) {
-          rep = `${saudacao}voltando ao que a gente tava vendo: você escolheu ${lead.telas_interesse} (${lead.pontos_interesse || ""} pontos). Só falta seu e-mail pra eu preparar o contrato e ativar seu anúncio! 😊`;
+        if (temEscolha) {
+          if (!temEmail) {
+            rep = `${saudacao}voltando ao que a gente tava vendo: você escolheu ${lead.telas_interesse} (${lead.pontos_interesse || ""} pontos). Só falta seu e-mail pra eu preparar o contrato e ativar seu anúncio! 😊`;
+          } else {
+            rep = `${saudacao}voltando ao que a gente tava vendo: você escolheu ${lead.telas_interesse} (${lead.pontos_interesse || ""} pontos). Posso seguir com o fechamento? 😊`;
+          }
+        } else if (lead?.cidade) {
+          rep = `${saudacao}voltando aqui 😊 A gente tava conversando sobre divulgar sua marca em ${lead.cidade}. Pra eu te mostrar as telas disponíveis — me confirma, você é de ${lead.cidade}? 📺`;
+        } else if (lead?.nome) {
+          rep = `${saudacao}voltando aqui 😊 A gente tava conversando sobre a divulgação da sua marca. Me lembra: você é de Porto Feliz ou Boituva?`;
         } else {
-          rep = `${saudacao}voltando ao que a gente tava vendo: você escolheu ${lead.telas_interesse} (${lead.pontos_interesse || ""} pontos). Posso seguir com o fechamento? 😊`;
+          rep = `${saudacao}voltando aqui 😊 A gente tava conversando sobre a divulgação da sua marca nas telas da OOBA. Me conta — você é de Porto Feliz ou Boituva?`;
         }
-        console.log(`RETOMADA PROATIVA [${phone}]: resposta genérica trocada por retomada de contexto`);
+        console.log(`RETOMADA PROATIVA [${phone}]: resposta genérica trocada por retomada de contexto (etapa=${etapa}, temEscolha=${temEscolha})`);
       }
     } catch(eRetomada) {
       console.error("Retomada proativa erro:", eRetomada.message);
@@ -3351,7 +3419,11 @@ module.exports = async (req, res) => {
               const pediuExplicito = txtLowerCont.includes("manda o contrato") || txtLowerCont.includes("me mande o contrato") ||
                 txtLowerCont.includes("quero ver o contrato") || txtLowerCont.includes("pode mandar o contrato") ||
                 txtLowerCont.includes("me envia o contrato") || txtLowerCont.includes("envie o contrato") ||
-                txtLowerCont.includes("reenvia o contrato") || txtLowerCont.includes("mandar o contrato");
+                txtLowerCont.includes("reenvia o contrato") || txtLowerCont.includes("mandar o contrato") ||
+                txtLowerCont.includes("vamos ao contrato") || txtLowerCont.includes("quero o contrato") ||
+                txtLowerCont.includes("pode enviar o contrato") || txtLowerCont.includes("mandar contrato") ||
+                txtLowerCont.includes("me passe o contrato") || txtLowerCont.includes("envia o contrato") ||
+                txtLowerCont.includes("quero assinar") || txtLowerCont.includes("vamos fechar");
               if (jaEnviado && !pediuExplicito) {
                 console.log(`CONTRATO BLOQUEADO [${from}]: já enviado e lead não pediu explicitamente`);
                 parte = parte.replace(/🔹CONTRATO_PDF🔹/g, '').replace(/\s{2,}/g, ' ').trim();

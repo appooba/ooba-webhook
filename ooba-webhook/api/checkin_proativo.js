@@ -104,7 +104,9 @@ module.exports = async (req, res) => {
     // Excluir: fechados, reunião marcada, perdidos, timing capturado (vai ser reativado depois)
     const r = await client.query(`
       SELECT l.phone, l.nome, l.etapa_funil, l.status, l.cidade, l.empresa,
-             c.updated_at as ultima_msg
+             c.updated_at as ultima_msg,
+             l.ultimo_checkin,
+             l.checkin_count
       FROM leads l
       LEFT JOIN conversations c ON l.phone = c.phone
       WHERE l.etapa_funil IN ('abertura', 'entendimento', 'educacao', 'recomendacao', 'materiais', 'proposta', 'fechamento')
@@ -113,6 +115,10 @@ module.exports = async (req, res) => {
         AND l.phone IS NOT NULL
         AND l.phone NOT IN ('5511995650925', '5515997517779', '5511999999999', '5511921276113', '5511933082786')
         -- Excluir numeros internos: gestao(99565), Paulo(99751), teste(99999), WhatsApp Business(92127), teste2(93308)
+        -- BLOQUEIO ANTI-SPAM: não mandar check-in se já mandou nas últimas 12h
+        AND (l.ultimo_checkin IS NULL OR l.ultimo_checkin < NOW() - INTERVAL '12 hours')
+        -- LIMITE: máximo 3 check-ins por lead (depois disso só reativação manual)
+        AND (l.checkin_count IS NULL OR l.checkin_count < 3)
       ORDER BY c.updated_at ASC
       LIMIT 15
     `);
@@ -146,8 +152,8 @@ module.exports = async (req, res) => {
           }
         } catch(e) { console.error("Hist update:", e.message); }
 
-        // Atualizar status
-        await client.query("UPDATE leads SET status='checkin_proativo', updated_at=NOW() WHERE phone=$1", [lead.phone]);
+        // Atualizar status + registrar check-in
+        await client.query("UPDATE leads SET status='checkin_proativo', updated_at=NOW(), ultimo_checkin=NOW(), checkin_count=COALESCE(checkin_count, 0) + 1 WHERE phone=$1", [lead.phone]);
 
         resultados.push({ phone: lead.phone, nome: lead.nome, etapa: lead.etapa_funil, ok: true });
         console.log(`✅ Check-in: ${lead.phone} (${lead.nome}) — etapa: ${lead.etapa_funil}`);
