@@ -201,7 +201,7 @@ module.exports = async (req, res) => {
       FROM leads l
       INNER JOIN conversations c ON l.phone = c.phone
       WHERE l.etapa_funil IN ('abertura', 'entendimento', 'educacao', 'recomendacao', 'materiais', 'proposta', 'fechamento')
-        AND l.status NOT IN ('fechado', 'reuniao', 'perdido', 'timing_capturado', 'followup', 'recusou')
+        AND l.status NOT IN ('fechado', 'reuniao', 'perdido', 'timing_capturado', 'followup', 'recusou', 'nutricao')
         AND l.etapa_funil NOT IN ('followup')
         AND c.updated_at < NOW() - INTERVAL '24 hours'
         AND c.messages IS NOT NULL AND LENGTH(c.messages) > 10

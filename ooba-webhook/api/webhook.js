@@ -715,6 +715,17 @@ NUNCA invente endereços, CNPJ, números de registro ou qualquer dado institucio
 - NUNCA repita a mesma frase de encerramento ("é só me chamar") mais de uma vez na conversa
 - O fluxo tem que ser NATURAL — como uma conversa real de WhatsApp, não um script mecânico
 - Cada resposta sua deve refletir o que o lead acabou de dizer, não só o stage do funil
+
+🌟 FILOSOFIA OOBA — O LEAD NUNCA ESTÁ "PERDIDO":
+- Vender anúncio é vender uma estratégia de marketing, como qualquer outra
+- O lead pode não querer anúncio HOJE, mas amanhã pode ter uma campanha, um lançamento, uma necessidade
+- A mídia indoor COMPLEMENTA as outras estratégias — nunca substitui, sempre soma
+- "Se você não é visto, você não é lembrado."
+- Seu objetivo: que o lead CONHEÇA a OOBA e LEMBRE da OOBA quando precisar divulgar
+- Quando o lead diz "não" não é uma recusa pra sempre — é "agora não é o momento"
+- Encerre deixando claro que a OOBA existe, que as telas tão lá rodando, e que quando ele precisar, é só chamar
+- NUNCA queime a ponte — um lead que diz não hoje pode ser o maior cliente amanhã
+- O Instagram e Facebook da OOBA servem pra isso: manter a marca viva na mente do lead
 ═══════════════════════════════════`;
 
   return prompt;
@@ -960,9 +971,9 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
     console.log(`INTERCEPTAR SAÍDA [etapa=${etapa}]: DESPEDIDA detectada — encerrando com classe`);
     const oiDesp = lead?.nome ? lead.nome.split(" ")[0] + ", " : "";
     const despedidas = [
-      `${oiDesp}até mais! 😊 Foi ótimo conversar com você. Quando quiser retomar, é só me chamar!`,
-      `${oiDesp}tchau! 😊 Qualquer coisa no futuro, estarei por aqui. Um ótimo dia!`,
-      `${oiDesp}até logo! 😊 Fico à disposição sempre que precisar. Cuide-se!`
+      `${oiDesp}até mais! 😊 Foi ótimo conversar com você. Agora você já conhece a OOBA — quando precisar divulgar, é só me chamar!`,
+      `${oiDesp}tchau! 😊 As telas tão sempre rodando por aí. Quando tiver uma estratégia de marketing e quiser incluir mídia indoor, lembra da gente!`,
+      `${oiDesp}até logo! 😊 "Se você não é visto, você não é lembrado" — quando aparecer uma demanda de divulgação, é só me chamar!`
     ];
     // Muda pra followup — respeita o encerramento do lead
     if (client) {
@@ -1069,9 +1080,10 @@ async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
     
     // Resposta de encerramento elegante — UMA MENSAGEM ONLY, depois silêncio
     const encerramentos = [
-      `${oiRep}perfeito, entendo! 😊 Pense com calma e quando quiser retomar, é só me chamar aqui. Fico à disposição!`,
-      `${oiRep}combinado! 😊 Quando decidir, é só me chamar. Estarei aqui pra te ajudar no que precisar.`,
-      `${oiRep}sem problema nenhum! 😊 A decisão é toda sua. Quando estiver pronto, é só me mandar um oi. Até logo!`
+      `${oiRep}perfeito, entendo! 😊 Pense com calma. Quando tiver uma estratégia de marketing e quiser incluir mídia indoor, é só me chamar. As telas tão sempre rodando!`,
+      `${oiRep}combinado! 😊 A OOBA tá aqui pra quando você precisar divulgar. Quando surgir a demanda, é só me chamar.`,
+      `${oiRep}sem problema nenhum! 😊 O importante é que agora você já conhece a OOBA. Quando quiser somar mais uma estratégia de divulgação, é só me mandar um oi.`,
+      `${oiRep}tranquilo! 😊 Lembre: "se você não é visto, você não é lembrado." Quando aparecer uma necessidade de divulgação, lembra da gente!`
     ];
     return encerramentos[Math.floor(Math.random() * encerramentos.length)];
   }
@@ -2155,10 +2167,10 @@ async function replyAI(client, txt, phone) {
       const jaTentouRetencao = lead.total_abordagens > 0;
       
       if (jaEmFollowup || jaTentouRetencao) {
-        console.log(`RECUSA EXPLÍCITA [${phone}]: "${txt.substring(0,80)}" → marcando como perdido (já tentaram retenção)`);
-        await client.query("UPDATE leads SET etapa_funil='perdido', status='recusou', updated_at=NOW() WHERE phone=$1", [phone]).catch(e => console.error("recusa update:", e.message));
-        lead.etapa_funil = "perdido";
-        lead.status = "recusou";
+        console.log(`RECUSA EXPLÍCITA [${phone}]: "${txt.substring(0,80)}" → mudando pra nutricao (não é perdido, é ainda não é o momento)`);
+        await client.query("UPDATE leads SET etapa_funil='nutricao', status='nutricao', updated_at=NOW() WHERE phone=$1", [phone]).catch(e => console.error("recusa update:", e.message));
+        lead.etapa_funil = "nutricao";
+        lead.status = "nutricao";
       } else {
         console.log(`RECUSA EXPLÍCITA [${phone}]: "${txt.substring(0,80)}" → primeira recusa, Luana vai tentar última abordagem`);
         // NÃO marca como perdido — deixa a Luana responder com uma última tentativa elegante
