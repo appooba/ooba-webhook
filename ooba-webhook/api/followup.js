@@ -80,6 +80,8 @@ module.exports = async (req, res) => {
       LEFT JOIN conversations c ON c.phone = l.phone
       WHERE l.etapa_funil IN ('materiais', 'proposta', 'recomendacao', 'apresentacao', 'fechamento')
         AND l.etapa_funil != 'fechado'
+        AND l.etapa_funil NOT IN ('perdido', 'followup')
+        AND l.status NOT IN ('recusou', 'perdido', 'followup')
         AND l.etapa_funil != 'reuniao'
         AND COALESCE(c.updated_at, l.created_at) < NOW() - INTERVAL '20 hours'
         AND COALESCE(c.updated_at, l.created_at) > NOW() - INTERVAL '30 days'

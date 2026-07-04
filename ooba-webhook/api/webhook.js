@@ -2094,6 +2094,33 @@ async function replyAI(client, txt, phone) {
     lead = { etapa_funil: "abertura", nome: null, negocio: null, cidade: null, telas_interesse: null, pontos_interesse: null, status: "novo" };
   }
 
+  // ── DETECTOR DE RECUSA EXPLÍCITA ──
+  // Se o lead diz claramente que NÃO quer (não é hesitação, é recusa definitiva),
+  // marcar como 'perdido' pra que NENHUMA automação (follow-up, reativação, check-in)
+  // volte a contactar. A Luana ainda responde com elegância, mas encerra pra sempre.
+  {
+    const txtR = txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const sinaisRecusa = [
+      "nao quero", "nao quero mais", "n quero", "nao to interessado", "nao tenho interesse",
+      "sem interesse", "nao interessa", "nao me interessa", "deixa pra la", "nao vai rolar",
+      "nao vai dar", "nao fecha", "nao vou fechar", "desisti", "desistindo",
+      "para de mandar", "para de me mandar", "pare de mandar", "para com isso",
+      "nao me incomoda", "me deixa em paz", "stop", "cancela", "cancelar",
+      "nao quero saber", "nao pretendo", "nao vou querer", "no momento nao",
+      "vc nao entendeu que nao quero", "voce nao entendeu que nao quero",
+      "ja falei que nao", "já falei que nao", "ja disse que nao", "já disse que nao"
+    ];
+    const ehRecusaExplicita = sinaisRecusa.some(s => txtR.includes(s)) &&
+      !txtR.includes("nao sei") && !txtR.includes("não sei"); // "não sei" é hesitação, não recusa
+
+    if (ehRecusaExplicita && lead.etapa_funil !== "perdido" && lead.etapa_funil !== "fechado") {
+      console.log(`RECUSA EXPLÍCITA [${phone}]: "${txt.substring(0,80)}" → marcando como perdido`);
+      await client.query("UPDATE leads SET etapa_funil='perdido', status='recusou', updated_at=NOW() WHERE phone=$1", [phone]).catch(e => console.error("recusa update:", e.message));
+      lead.etapa_funil = "perdido";
+      lead.status = "recusou";
+    }
+  }
+
   // ── AUTO-AVANÇO: se já tem histórico e ainda tá em abertura, pular pra entendimento ──
   let etapa = lead.etapa_funil || "abertura";
   if (!isNew && etapa === "abertura") {
