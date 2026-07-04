@@ -73,7 +73,6 @@ module.exports = async (req, res) => {
           AND status = 'timing_capturado'
           AND etapa_funil NOT IN ('fechado', 'reuniao', 'perdido', 'followup', 'nutricao')
         AND status NOT IN ('recusou', 'perdido', 'followup', 'nutricao')
-        AND (aguarda_contato_ate IS NULL OR aguarda_contato_ate < NOW())
         ORDER BY timing_data ASC LIMIT 20
       `);
 
@@ -111,7 +110,6 @@ module.exports = async (req, res) => {
       WHERE abordagem_ativa = TRUE
         AND etapa_funil NOT IN ('fechado', 'reuniao', 'perdido', 'followup', 'nutricao')
         AND status NOT IN ('recusou', 'perdido', 'followup', 'nutricao')
-        AND (aguarda_contato_ate IS NULL OR aguarda_contato_ate < NOW())
         AND (data_ultima_abordagem IS NULL OR data_ultima_abordagem < NOW() - INTERVAL '30 days')
         AND total_abordagens < 3
       ORDER BY ja_anunciou DESC, potencial_retorno DESC, created_at ASC LIMIT 20

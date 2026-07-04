@@ -212,8 +212,6 @@ module.exports = async (req, res) => {
         AND (l.ultimo_checkin IS NULL OR l.ultimo_checkin < NOW() - INTERVAL '12 hours')
         -- LIMITE: máximo 2 check-ins por lead (depois disso só reativação manual ou por timing)
         AND (l.checkin_count IS NULL OR l.checkin_count < 2)
-        -- RESPEITO: lead pediu espaço explicitamente (ex: "eu te chamo na segunda")
-        AND (l.aguarda_contato_ate IS NULL OR l.aguarda_contato_ate < NOW())
       ORDER BY c.updated_at ASC
       LIMIT 10
     `);
