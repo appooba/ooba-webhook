@@ -398,7 +398,16 @@ async function getSysWithFunil(client, etapa, leadData, patches = [], insights =
   const pontos = leadData.pontos_interesse ? leadData.pontos_interesse : "";
 
   const jaAnunciou = leadData.ja_anunciou
-    ? `\n🔁 JÁ FOI CLIENTE: anunciou ${leadData.telas_anunciadas || 'nas telas OOBA'}${leadData.periodo_anuncio ? ' em ' + leadData.periodo_anuncio : ''}.`
+    ? `\n🔁 CLIENTE RECORRENTE: este lead JÁ anunciou com a OOBA${leadData.telas_anunciadas ? ' nas telas: ' + leadData.telas_anunciadas : ''}${leadData.periodo_anuncio ? ' em ' + leadData.periodo_anuncio : ''}.
+   ABORDAGEM DIFERENTE pra cliente que já conhece o produto:
+   - NÃO explique como funciona (ele já sabe) — a menos que ele peça
+   - NÃO faça a abertura completa — ele já passou por isso
+   - Seja calorosa: "Que bom te ver de volta! 😊"
+   - Pergunte direto: "Quer anunciar de novo? Quais telas dessa vez?"
+   - Se ele mencionou que pausou: "Perfeito, as telas tão aí rodando! Quer retomar?"
+   - Ofereça o catálogo só se ele pedir ou se não souber quais telas escolher
+   - Ele já confia na OOBA — o fechamento é mais rápido e direto
+   - NÃO trate como lead novo — trate como cliente returning`
     : "";
   const empresaInfo = leadData.empresa
     ? `\n🏢 EMPRESA: ${leadData.empresa}`
@@ -441,6 +450,8 @@ Se o lead disser que esqueceu como funciona, reexplique de forma breve e persona
 VOCÊ ESTÁ NA ETAPA: ABERTURA
 ⚠️ NUNCA se apresente novamente se já houver histórico — o lead já sabe quem você é.
 
+${leadData.ja_anunciou ? "🌟 ATENÇÃO: Este lead JÁ É CLIENTE da OOBA (já anunciou antes). Trate como cliente returning, NÃO como lead novo. Seja calorosa: 'Que bom te ver de volta!' e pergunte direto se quer anunciar de novo. NÃO explique como funciona — ele já sabe." : ""}
+
 Se o lead ainda não respondeu a pergunta sobre marketing/divulgação:
 - Pergunte SÓ: "Hoje você já faz algum tipo de marketing? Redes sociais, panfletos, rádio?"
 - NUNCA avance sem essa resposta.
@@ -462,6 +473,8 @@ Se o lead perguntar preço nesta etapa:
     entendimento: `
 VOCÊ ESTÁ NA ETAPA: ENTENDIMENTO
 Você já sabe: empresa=${negocio}, cidade=${cidade}
+
+${leadData.ja_anunciou ? "🌟 CLIENTE RECORRENTE: Ele já conhece o produto. Se a cidade já for conhecida, pule direto pra: 'Quer anunciar de novo? Quais telas dessa vez?' — mostre o catálogo só se ele pedir." : ""}
 
 ⚠️ REGRA: UMA PERGUNTA POR VEZ. Sequência obrigatória:
 - Se não souber a cidade → pergunte SÓ a cidade: "Você é de Porto Feliz ou Boituva?"
@@ -2179,8 +2192,39 @@ async function replyAI(client, txt, phone) {
     }
   }
 
+  // ── DETECTOR DE CLIENTE RECORRENTE — lead já anunciou com a OOBA ──
+  // Se o lead menciona que já anunciou, ou já tem telas_anunciadas no banco,
+  // marcar ja_anunciou=true e mudar a abordagem da Luana
+  {
+    const txtA = txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const sinaisJaAnunciou = [
+      "ja anunciei", "já anunciei", "ja anunciei com voces", "já anunciei com vocês",
+      "ja fis anuncio", "já fiz anúncio", "ja fiz anuncio", "já fiz anuncio",
+      "ja fui cliente", "já fui cliente", "ja anunciei com a ooba", "já anunciei com a ooba",
+      "ja anunciei na ooba", "já anunciei na ooba", "ja usei as telas", "já usei as telas",
+      "meu anuncio ja passou", "meu anúncio já passou", "ja tive anuncio", "já tive anúncio",
+      "ja passei video", "já passei vídeo", "ja mandei o video", "já mandei o vídeo",
+      "ja rodei nas telas", "já rodei nas telas", "ja coloquei anuncio", "já coloquei anúncio",
+      "ja contratei", "já contratei", "ja fechei com voces", "já fechei com vocês",
+      "ja fiz com voces", "já fiz com vocês", "cliente antigo", "ja fui cliente de voces",
+      "ja anunciamos", "já anunciamos", "ja usei ooba", "já usei ooba",
+      "ja conheco as telas", "já conheço as telas", "ja vi como funciona", "já vi como funciona"
+    ];
+    const detectouJaAnunciou = sinaisJaAnunciou.some(s => txtA.includes(s));
+
+    // Também verificar se o lead já tem telas_anunciadas no banco (retornou depois de um tempo)
+    const temHistoricoAnuncio = lead.telas_anunciadas && lead.telas_anunciadas !== null;
+
+    if ((detectouJaAnunciou || temHistoricoAnuncio) && lead.ja_anunciou !== true) {
+      console.log(`CLIENTE RECORRENTE [${phone}]: detectado que já anunciou → marcando e mudando abordagem`);
+      await client.query("UPDATE leads SET ja_anunciou=true, updated_at=NOW() WHERE phone=$1", [phone]).catch(e => console.error("ja_anunciou update:", e.message));
+      lead.ja_anunciou = true;
+    }
+  }
+
   // ── AUTO-AVANÇO: se já tem histórico e ainda tá em abertura, pular pra entendimento ──
   let etapa = lead.etapa_funil || "abertura";
+  // Cliente recorrente que volta: pular abertura, ir direto pra entendimento
   if (!isNew && etapa === "abertura") {
     etapa = "entendimento";
     try {
