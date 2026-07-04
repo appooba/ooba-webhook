@@ -872,6 +872,22 @@ function interceptarPrecoAntecipado(msgLead, lead) {
 async function interceptarSaida(msgLead, respostaBot, lead, msgs, client) {
   if (!msgLead || !respostaBot) return respostaBot;
 
+  // ── TRAVA: lead já encerrou a conversa (recusou reunião ou repetiu saída) ──
+  // Se etapa_funil já é 'followup', a decisão já foi respeitada. NÃO reabrir
+  // oferta de reunião nem insistir — deixar a resposta do GPT passar limpa
+  // (só removendo ofertas de reunião que o GPT possa ter gerado por conta própria).
+  if (lead?.etapa_funil === "followup" || lead?.status === "followup") {
+    const respostaLowerFU = respostaBot.toLowerCase();
+    const ofereceuReuniaoDeNovo = respostaLowerFU.includes("google meet") || respostaLowerFU.includes("15 min") ||
+      respostaLowerFU.includes("reuni") || respostaLowerFU.includes("quer que eu marque");
+    if (ofereceuReuniaoDeNovo) {
+      console.log(`FOLLOWUP LOCK: lead já em followup, bloqueando nova oferta de reunião do GPT`);
+      const oiFU = lead?.nome ? lead.nome.split(" ")[0] + ", " : "";
+      return `${oiFU}combinado! 😊 Fico no aguardo então. Qualquer coisa é só me chamar!`;
+    }
+    return respostaBot;
+  }
+
   // Normalizar texto (remover acentos) para matching robusto
   const msgNorm = msgLead.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   
