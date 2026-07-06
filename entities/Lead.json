@@ -20,7 +20,8 @@
         "reuniao_agendada",
         "ligacao_agendada",
         "fechado",
-        "perdido"
+        "perdido",
+        "reativado"
       ]
     },
     "mensagem_inicial": {
@@ -31,6 +32,10 @@
     },
     "observacoes": {
       "type": "string"
+    },
+    "timing_data": {
+      "type": "string",
+      "description": "Data quando o lead quer come\u00e7ar a anunciar (ISO format YYYY-MM-DD)"
     }
   },
   "required": [],
