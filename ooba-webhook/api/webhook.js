@@ -770,6 +770,10 @@ async function initDB(client) {
       messages TEXT,
       updated_at TIMESTAMP DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS processed_messages (
+      msg_id VARCHAR(255) PRIMARY KEY,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS leads (
       phone VARCHAR(50) PRIMARY KEY,
       first_message TEXT,
@@ -2827,7 +2831,7 @@ module.exports = async (req, res) => {
       
       console.log(`📩 MSG RECEBIDA de ${m.from} | tipo: ${m.type} | id: ${m.id}`);
       
-      // Deduplicação
+      // Deduplicação — camada 1: memória (rápida, mas não sobrevive entre instâncias serverless)
       const msgId = m.id;
       if (processedMsgs.has(msgId)) { 
         console.log("Duplicata (memória):", msgId); 
@@ -2845,6 +2849,23 @@ module.exports = async (req, res) => {
       // Evita que 2 mensagens quase simultâneas do mesmo lead gerem respostas duplicadas
       client = await getDB();
       await initDB(client);
+
+      // Deduplicação — camada 2: banco (persiste entre cold starts / múltiplas instâncias Vercel).
+      // A Meta reenvia webhooks se a resposta demorar — sem isso, mensagens podiam ser processadas 2x
+      // (foi a causa real do catálogo sendo enviado duplicado pro lead 5511952484944).
+      try {
+        await client.query("INSERT INTO processed_messages (msg_id) VALUES ($1)", [msgId]);
+      } catch (dupErr) {
+        if (dupErr.code === "23505") {
+          console.log("Duplicata (banco):", msgId);
+          return res.json({ ok: true }); // client é fechado no finally do handler
+        }
+        console.error("Erro ao registrar msgId (seguindo mesmo assim):", dupErr.message);
+      }
+      // Limpeza leve: remove registros com +48h pra tabela não crescer indefinidamente (1% das requests)
+      if (Math.random() < 0.01) {
+        client.query("DELETE FROM processed_messages WHERE created_at < NOW() - INTERVAL '48 hours'").catch(() => {});
+      }
       lockKey = await acquireDbLock(client, from);
 
       let txt = "";
